@@ -74,15 +74,33 @@ mark_as_advanced(BOOSTPATH ENABLE_VIENNAPROFILER ENABLE_UBLAS ENABLE_EIGEN
 
 # Boost:
 IF (BOOSTPATH)
+ MESSAGE (STATUS "USING BOOSTPATH=${BOOSTPATH}")
  SET(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} ${BOOSTPATH})
  SET(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "${BOOSTPATH}/lib")
  SET(BOOST_ROOT ${BOOSTPATH})
 ENDIF (BOOSTPATH)
 
+# This makes finding boost more robust when we have custom installs
+set ( Boost_NO_BOOST_CMAKE  true ) 
+set ( Boost_NO_SYSTEM_PATHS true )
+#set ( BOOST_MIN_VERSION     1.48.0)
 
 if(ENABLE_UBLAS OR BUILD_TESTING OR VIENNACL_SRC_DIST)
    set(Boost_USE_MULTITHREADED TRUE)
    find_package(Boost REQUIRED COMPONENTS filesystem system)
+endif()
+
+# This guarantees geometry and other features we use will exist.
+#find_package(Boost ${BOOST_MIN_VERSION} COMPONENTS filesystem system REQUIRED)
+
+if(Boost_FOUND)
+  
+  message(STATUS "Boost_MAJOR_VERSION = ${Boost_MAJOR_VERSION}")
+  message(STATUS "Boost_MINOR_VERSION = ${Boost_MINOR_VERSION}")
+  
+  message(STATUS "Boost_INCLUDE_DIRS = ${Boost_INCLUDE_DIRS}")
+  message(STATUS "Boost_LIBRARIES = ${Boost_LIBRARIES}")
+  #  include_directories(BEFORE ${Boost_INCLUDE_DIRS})
 endif()
 
 if (ENABLE_OPENCL)
