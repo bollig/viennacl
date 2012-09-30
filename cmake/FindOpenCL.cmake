@@ -23,11 +23,18 @@ if(ENV_OPENCLROOT2)
  set(ENV_OPENCLROOT $ENV{OPENCLROOT})
 endif(ENV_OPENCLROOT2)
 
+set(ENV_OPENCLROOT3 $ENV{OPENCL_ROOT})
+if(ENV_OPENCLROOT3)
+  MESSAGE(STATUS "SET OPENCLROOT to ENV_OPENCLROOT3")
+ set(ENV_OPENCLROOT $ENV{OPENCL_ROOT})
+endif(ENV_OPENCLROOT3)
+
+
 if(ENV_OPENCLROOT)
   find_path(
     OPENCL_INCLUDE_DIR
     NAMES CL/cl.h OpenCL/cl.h
-    PATHS ${ENV_OPENCLROOT}/include
+    PATHS ${ENV_OPENCLROOT}/include ${ENV_OPENCLROOT}
     #NO_DEFAULT_PATH  #uncomment this is you wish to surpress the use of default paths for OpenCL
     )
 
