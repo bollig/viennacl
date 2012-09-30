@@ -14,7 +14,7 @@ set(VERSION_MINOR 3)
 set(VERSION_PATCH 1)
 set(VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
 
-SET(CMAKE_VERBOSE_MAKEFILE ON)   #uncomment this line to increase CMake verbosity
+SET(CMAKE_VERBOSE_MAKEFILE OFF)   #uncomment this line to increase CMake verbosity
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   INCLUDE_DIRECTORIES("/opt/local/include") 
