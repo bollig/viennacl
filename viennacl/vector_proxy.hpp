@@ -306,6 +306,52 @@ namespace viennacl
     viennacl::fast_copy(cpu_vec.begin(), cpu_vec.end(), gpu_vec.begin());
   }
 
+
+  // UTILITY COPIES
+  //------------------------
+    // EVAN BOLLIG:
+    // Added support to copy directly from a double array. Ignores vector length checks
+    //row_major:
+    template <typename SCALARTYPE>
+        void copy(const double* cpu_vector,
+                vector_range< vector<SCALARTYPE> > & gpu_vector_range,
+                unsigned int copy_size)
+        {
+            if (copy_size)
+            {
+                //we require that the size of the gpu_vector is larger or equal to the cpu-size
+                cl_int err = clEnqueueWriteBuffer(viennacl::ocl::get_queue().handle().get(),
+                        gpu_vector_range.get().handle().get(), CL_TRUE, sizeof(SCALARTYPE)*gpu_vector_range.start(),
+                        sizeof(SCALARTYPE)*copy_size,
+                        &(cpu_vector[0]), 0, NULL, NULL);
+                VIENNACL_ERR_CHECK(err);
+            }
+        }
+
+
+    // EVAN BOLLIG:
+    // Added support to copy directly to a double array. Ignores vector length checks
+    template <typename SCALARTYPE>
+        void copy(vector_range<vector<SCALARTYPE> > const & gpu_vector_range,
+                double* cpu_vector, unsigned int copy_size)
+        {
+            // LEt the assertions rest
+            // assert(cpu_vector.end() - cpu_vector.begin() >= 0);
+
+            if (copy_size)
+            {
+                cl_int err = clEnqueueReadBuffer(viennacl::ocl::get_queue().handle().get(),
+                        gpu_vector_range.get().handle().get(), CL_TRUE, sizeof(SCALARTYPE)*gpu_vector_range.start(),
+                        sizeof(SCALARTYPE)*copy_size,
+                        &(cpu_vector[0]), 0, NULL, NULL);
+                VIENNACL_ERR_CHECK(err);
+                viennacl::ocl::get_queue().finish();
+            }
+        }
+
+
+
+
   /////////////////////////////////////////////////////////////
   ///////////////////////// GPU to CPU ////////////////////////
   /////////////////////////////////////////////////////////////
