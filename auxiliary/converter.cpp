@@ -7,7 +7,7 @@
 #include <sstream>
 #include <string>
 
-#define BOOST_FILESYSTEM_VERSION 2
+#define BOOST_FILESYSTEM_VERSION 3
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
@@ -29,7 +29,7 @@ void writeSourceFile(std::ofstream & out_file, std::string & filename, const cha
     {
         //write variable declaration:
         out_file << "const char * const " << dirname << "_" << alignment << "_" << filename.substr(0, filename.size()-3) << " = " << std::endl;
-    
+
         //write source string:
         while (getline(in_file, tmp, '\n'))
         {
@@ -43,7 +43,7 @@ void writeSourceFile(std::ofstream & out_file, std::string & filename, const cha
             }
         }
         out_file << "; //" << dirname << "_" << alignment << "_" << filename.substr(0, filename.size()-3)  << std::endl << std::endl;
-        
+
     }
     else
         std::cerr << "Failed to open file " << filename << std::endl;
@@ -99,7 +99,7 @@ void createSourceFile(const char * dirname)
                     if (fname.substr(fname.size()-3, 3) == ".cl")
                         writeSourceFile(source_file, fname, dirname, alignment.c_str());
                         //std::cout << alignment_itr->path().filename() << "/" << fname << std::endl;
-                } //for                
+                } //for
             } //if is_directory
         } //for alignment_iterator
     } //if is_directory
@@ -180,7 +180,7 @@ void writeKernelInit(std::ostream & kernel_file, const char * dirname, std::stri
         kernel_file << "d";
     kernel_file << "_" << dirname << "_" << alignment << "\";" << std::endl;
     kernel_file << "    }" << std::endl;
-    
+
     kernel_file << "    static void init()" << std::endl;
     kernel_file << "    {" << std::endl;
     if (is_float)
@@ -222,15 +222,15 @@ void writeKernelInit(std::ostream & kernel_file, const char * dirname, std::stri
                 kernel_file << ", fp64_ext)";
             kernel_file << ");" << std::endl;
         }
-    } //for                
-    
+    } //for
+
     kernel_file << "        std::string prog_name = program_name();" << std::endl;
     kernel_file << "        #ifdef VIENNACL_BUILD_INFO" << std::endl;
     kernel_file << "        std::cout << \"Creating program \" << prog_name << std::endl;" << std::endl;
     kernel_file << "        #endif" << std::endl;
     kernel_file << "        context_.add_program(source, prog_name);" << std::endl;
     kernel_file << "        viennacl::ocl::program & prog_ = context_.get_program(prog_name);" << std::endl;
-    
+
     //write and register single precision sources:
     for ( fs::directory_iterator cl_itr( filepath );
           cl_itr != end_iter;
@@ -246,8 +246,8 @@ void writeKernelInit(std::ostream & kernel_file, const char * dirname, std::stri
             //initialize kernel:
             kernel_file << "        prog_.add_kernel(\"" << fname.substr(0, fname.size()-3) << "\");" << std::endl;
         }
-    } //for                
-    
+    } //for
+
     kernel_file << "        init_done[context_.handle().get()] = true;" << std::endl;
     kernel_file << "       } //if" << std::endl;
     kernel_file << "     } //init" << std::endl;
@@ -285,7 +285,7 @@ void createKernelFile(const char * dirname)
     //Step 3: Write class information:
     kernel_file << "   template<class TYPE, unsigned int alignment>" << std::endl;
     kernel_file << "   struct " << dirname << ";" << std::endl << std::endl;
-    
+
     //Step 4: Write single precision kernels
     std::string dir(dirname);
     kernel_file << std::endl << "    /////////////// single precision kernels //////////////// " << std::endl;
