@@ -47,7 +47,7 @@
 #include "viennacl/linalg/prod.hpp"
 #include "viennacl/matrix.hpp"
 #include "viennacl/compressed_matrix.hpp"
-#include "viennacl/linalg/compressed_matrix_operations.hpp"
+#include "viennacl/linalg/sparse_matrix_operations.hpp"
 #include "viennacl/linalg/matrix_operations.hpp"
 #include "viennacl/scalar.hpp"
 #include "viennacl/linalg/cg.hpp"
@@ -197,7 +197,7 @@ namespace viennacl
               ScalarType inprod, norm2;
               //print_sparse_vector(res);
               for(typename SparseVectorType::const_iterator res_it = res.begin(); res_it != res.end(); ++res_it){
-                  if(!isInIndexSet(J, res_it->first) && (std::abs(res_it->second) > tag.getResidualThreshold())){
+                  if(!isInIndexSet(J, res_it->first) && (std::fabs(res_it->second) > tag.getResidualThreshold())){
                       inprod = norm2 = 0;
                       sparse_inner_prod(res, A_v_c[res_it->first], inprod);
                       sparse_norm_2(A_v_c[res_it->first], norm2);
@@ -335,7 +335,7 @@ namespace viennacl
                                       block_vector& g_bv_vcl, 
                                       block_matrix& g_A_I_J_u_vcl, 
                                       std::vector<cl_uint>& g_is_update,
-                                      const unsigned int cur_iter){
+                                      const unsigned int){
               unsigned int local_r_n, local_c_n, sz_blocks;
               get_max_block_size(g_I, local_r_n);
               get_max_block_size(g_J_u, local_c_n);
@@ -416,7 +416,7 @@ namespace viennacl
                                 block_matrix& g_A_I_u_J_u_vcl, 
                                 std::vector<cl_uint>& g_is_update,
                                 const bool is_empty_block,
-                                const unsigned int cur_iter){
+                                const unsigned int){
               //std::vector<std::vector<unsigned int> > g_I_q(g_I.size());
               assemble_qr_row_inds(g_I, g_J, g_I_u, g_I_q);
               unsigned int sz_blocks;
@@ -511,7 +511,7 @@ namespace viennacl
                           block_vector& g_bv_vcl, 
                           block_vector& g_bv_vcl_u,
                           std::vector<cl_uint>& g_is_update,
-                          const unsigned int cur_iter){
+                          const unsigned int){
               std::vector<cl_uint> matrix_dims(g_I.size()*2, static_cast<cl_uint>(0));
               std::vector<cl_uint> blocks_ind(g_I.size() + 1, static_cast<cl_uint>(0));
               std::vector<cl_uint> start_bv_r_inds(g_I.size() + 1, 0);

@@ -28,7 +28,6 @@
 using namespace boost::numeric;
 using namespace viennacl::generator;
 
-std::string my_modifier(){ return "1/exp(-X)" ; }
 
 template <class TYPE>
 bool readVectorFromFile ( const std::string & filename, boost::numeric::ublas::vector<TYPE> & vec ) {
@@ -66,7 +65,7 @@ ScalarType diff ( ublas::vector<ScalarType> & v1, viennacl::vector<ScalarType,Al
 }
 
 template< typename NumericT, unsigned int Alignment, typename Epsilon >
-int test ( Epsilon const& epsilon, std::string vecfile, std::string resultfile ) {
+int test ( Epsilon const& epsilon, std::string vecfile) {
     int retval = EXIT_SUCCESS;
 
 	
@@ -107,9 +106,20 @@ int test ( Epsilon const& epsilon, std::string vecfile, std::string resultfile )
     viennacl::copy ( vec2.begin(), vec2.end(), vcl_vec2.begin() );
     viennacl::copy ( vec3.begin(), vec3.end(), vcl_vec3.begin() );
 
+    unsigned int SIZE = vec.size();
     // --------------------------------------------------------------------------
 
-    
+    std::cout << "testing elementwise operations : vec = 1/(1+exp(-vec.*vec2))..." << std::endl;
+    for(unsigned int i=0; i < SIZE; ++i){
+        vec[i] = 1/(1+exp(-vec[i]*vec2[i]));
+    }
+    viennacl::ocl::enqueue ( viennacl::generator::custom_operation ( symv = _1_/(_1_ + math::exp(-element_prod(symv,symv2))), "vec_elementwise_test") ( vcl_vec, vcl_vec2 ) );
+    if ( fabs ( diff ( vec, vcl_vec ) ) > epsilon ) {
+        std::cout << "# Error at operation: addition" << std::endl;
+        std::cout << "  diff: " << fabs ( diff ( vec, vcl_vec ) ) << std::endl;
+        retval = EXIT_FAILURE;
+    }
+
     std::cout << "testing addition..." << std::endl;
     vec     = ( vec - vec2 );
     viennacl::ocl::enqueue ( viennacl::generator::custom_operation ( symv = symv - symv2, "vec_add") ( vcl_vec, vcl_vec2 ) );
@@ -256,7 +266,6 @@ int main() {
     int retval = EXIT_SUCCESS;
 
     std::string vecfile ( "../examples/testdata/rhs65025.txt" );
-    std::string resultfile ( "../examples/testdata/result65025.txt" );
 
     std::cout << std::endl;
     std::cout << "----------------------------------------------" << std::endl;
@@ -267,11 +276,9 @@ int main() {
         std::cout << "# Testing setup:" << std::endl;
         std::cout << "  eps:     " << epsilon << std::endl;
         std::cout << "  numeric: float" << std::endl;
-        retval = test<NumericT,1> ( epsilon, vecfile, resultfile );
-// 		retval &= test<NumericT,2> ( epsilon, vecfile, resultfile );
-        retval &= test<NumericT,4> ( epsilon, vecfile, resultfile );
-// 		retval &= test<NumericT,8> ( epsilon, vecfile, resultfile );
-        retval &= test<NumericT,16> ( epsilon, vecfile, resultfile );
+        retval = test<NumericT,1> ( epsilon, vecfile );
+        retval &= test<NumericT,4> ( epsilon, vecfile );
+        retval &= test<NumericT,16> ( epsilon, vecfile );
 
         if ( retval == EXIT_SUCCESS )
             std::cout << "# Test passed" << std::endl;

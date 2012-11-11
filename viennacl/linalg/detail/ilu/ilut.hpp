@@ -23,6 +23,7 @@
 
 #include <vector>
 #include <cmath>
+#include <iostream>
 #include "viennacl/forwards.h"
 #include "viennacl/tools/tools.hpp"
 
@@ -46,26 +47,26 @@ namespace viennacl
         * @param drop_tolerance   The drop tolerance for ILUT
         */
         ilut_tag(unsigned int entries_per_row = 20,
-                 double drop_tolerance = 1e-4) : _entries_per_row(entries_per_row), _drop_tolerance(drop_tolerance) {}; 
+                 double drop_tolerance = 1e-4) : entries_per_row_(entries_per_row), drop_tolerance_(drop_tolerance) {}; 
 
         void set_drop_tolerance(double tol)
         {
           if (tol > 0)
-            _drop_tolerance = tol;
+            drop_tolerance_ = tol;
         }
-        double get_drop_tolerance() const { return _drop_tolerance; }
+        double get_drop_tolerance() const { return drop_tolerance_; }
         
         void set_entries_per_row(unsigned int e)
         {
           if (e > 0)
-            _entries_per_row = e;
+            entries_per_row_ = e;
         }
 
-        unsigned int get_entries_per_row() const { return _entries_per_row; }
+        unsigned int get_entries_per_row() const { return entries_per_row_; }
 
       private:
-        unsigned int _entries_per_row;
-        double _drop_tolerance;
+        unsigned int entries_per_row_;
+        double drop_tolerance_;
     };
     
         
@@ -130,7 +131,7 @@ namespace viennacl
           }
           
           //line 5: (dropping rule to w_k)
-          if ( fabs(temp) > tag.get_drop_tolerance())
+          if ( std::fabs(temp) > tag.get_drop_tolerance())
           {
             //line 7:
             for (OutputColIterator u_k = row_iter_out.begin(); u_k != row_iter_out.end(); ++u_k)
@@ -146,7 +147,7 @@ namespace viennacl
         temp_map.clear();
         for (SparseVectorIterator w_k = w.begin(); w_k != w.end(); )
         {
-          if ( (fabs(w_k->second) < tag.get_drop_tolerance()) 
+          if ( (std::fabs(w_k->second) < tag.get_drop_tolerance()) 
                && (w_k->first != static_cast<unsigned int>(row_iter.index1())) //do not drop diagonal element!
              )
           { 
@@ -156,7 +157,7 @@ namespace viennacl
           }
           else
           {
-            double temp = fabs(w_k->second);
+            double temp = std::fabs(w_k->second);
             while (temp_map.find(temp) != temp_map.end())
               temp *= 1.00000001; //make entry slightly larger to maintain uniqueness of the entry
             temp_map[temp] = w_k->first;
@@ -202,7 +203,7 @@ namespace viennacl
       typedef typename MatrixType::value_type      ScalarType;
       
       public:
-        ilut_precond(MatrixType const & mat, ilut_tag const & tag) : _tag(tag), LU(mat.size1())
+        ilut_precond(MatrixType const & mat, ilut_tag const & tag) : tag_(tag), LU(mat.size1())
         {
           //initialize preconditioner:
           //std::cout << "Start CPU precond" << std::endl;
@@ -221,10 +222,10 @@ namespace viennacl
         void init(MatrixType const & mat)
         {
           viennacl::tools::sparse_matrix_adapter<ScalarType>       LU_adapter(LU, LU.size(), LU.size());
-          viennacl::linalg::precondition(mat, LU_adapter, _tag);
+          viennacl::linalg::precondition(mat, LU_adapter, tag_);
         }
         
-        ilut_tag const & _tag;
+        ilut_tag const & tag_;
         std::vector< std::map<unsigned int, ScalarType> > LU;
     };
 
@@ -239,7 +240,7 @@ namespace viennacl
       typedef compressed_matrix<ScalarType, MAT_ALIGNMENT>   MatrixType;
       
       public:
-        ilut_precond(MatrixType const & mat, ilut_tag const & tag) : _tag(tag), LU(mat.size1())
+        ilut_precond(MatrixType const & mat, ilut_tag const & tag) : tag_(tag), LU(mat.size1())
         {
           //initialize preconditioner:
           //std::cout << "Start GPU precond" << std::endl;
@@ -268,7 +269,7 @@ namespace viennacl
           
           viennacl::tools::const_sparse_matrix_adapter<ScalarType>       temp_adapter(temp, temp.size(), temp.size());
           viennacl::tools::sparse_matrix_adapter<ScalarType>       LU_adapter(LU, LU.size(), LU.size());
-          viennacl::linalg::precondition(temp_adapter, LU_adapter, _tag);
+          viennacl::linalg::precondition(temp_adapter, LU_adapter, tag_);
           
           temp_vec.resize(mat.size1());
           
@@ -276,7 +277,7 @@ namespace viennacl
           //copy(LU_cpu, LU);
         }
         
-        ilut_tag const & _tag;
+        ilut_tag const & tag_;
         //MatrixType LU;
         std::vector< std::map<unsigned int, ScalarType> > LU;
         mutable std::vector<ScalarType> temp_vec;

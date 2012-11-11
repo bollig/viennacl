@@ -1,4 +1,3 @@
-// #define VIENNACL_DEBUG_CUSTOM_OPERATION
 
 //
 
@@ -18,7 +17,7 @@
 // #define VIENNACL_DEBUG_ALL
 // #define VIENNACL_HAVE_UBLAS 1
 // #define VIENNACL_DEBUG_CUSTOM_OPERATION
-// #define VIENNACL_DEBUG_BUILD
+//#define VIENNACL_DEBUG_BUILD
 
 #include "viennacl/scalar.hpp"
 #include "viennacl/matrix.hpp"
@@ -184,7 +183,7 @@ int main() {
 //        retval = test<NumericT, viennacl::row_major,ublas::row_major,16> ( epsilon );
 
         std::cout << "---- Layout : Column Major" << std::endl;
-//        retval = test<NumericT, viennacl::column_major,ublas::column_major,1> ( epsilon );
+        retval = test<NumericT, viennacl::column_major,ublas::column_major,1> ( epsilon );
 
         if ( retval == EXIT_SUCCESS )
             std::cout << "# Test passed" << std::endl;

@@ -623,7 +623,7 @@ int run_test()
     return EXIT_SUCCESS;
 }    
 
-int main (int argc, const char * argv[])
+int main (int, const char **)
 {
   std::cout << std::endl;
   std::cout << "----------------------------------------------" << std::endl;
@@ -654,6 +654,11 @@ int main (int argc, const char * argv[])
       return EXIT_FAILURE;
   }
 
+   std::cout << std::endl;
+   std::cout << "------- Test completed --------" << std::endl;
+   std::cout << std::endl;
+   
+  
   return EXIT_SUCCESS;
 }
 

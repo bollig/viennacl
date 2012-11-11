@@ -32,22 +32,33 @@
 #include "viennacl/ocl/kernel.hpp"
 #include "viennacl/generator/result_of.hpp"
 #include "viennacl/generator/meta_tools/utils.hpp"
-
+#include "viennacl/generator/tweaking.hpp"
 
 namespace viennacl
 {
   namespace generator
   {
 
-    template<class T>
-    struct is_double_type{
+    /**
+     @brief Class to check if a particular symbolic type holds double or not.
+     */
+    namespace result_of
+    {
+      template<class T>
+      struct is_double_type
+      {
         enum { value = are_same_type<double, typename T::ScalarType>::value };
-    };
+      };
 
-    template<>
-    struct is_double_type<NullType>{
+      template<>
+      struct is_double_type<NullType>
+      {
         enum { value = 0 };
-    };
+      };
+    }
+
+
+
 
     /** @brief A class for making a custom operation */
     class custom_operation
@@ -55,19 +66,22 @@ namespace viennacl
 
       private:
         template<class T>
-        struct CHECK_OPERATIONS_STRUCTURE{
-        private:
+        struct CHECK_OPERATIONS_STRUCTURE
+        {
+          private:
             template<class U>
-            struct is_pure_product_leaf{
-                enum { value = is_product_leaf<U>::value && !is_arithmetic_compound<U>::value};
+            struct is_pure_product_leaf
+            {
+                enum { value = result_of::is_product_leaf<U>::value && !result_of::is_arithmetic_compound<U>::value};
             };
 
-        public:
+          public:
             typedef typename tree_utils::extract_if<T,is_pure_product_leaf>::Result Products;
             static const bool is_inplace_product = tree_utils::count_if_type<Products,typename T::LHS>::value;
             static const int n_nested_products = tree_utils::count_if<Products,is_pure_product_leaf>::value - typelist_utils::length<Products>::value;
 
-            static void execute(){
+            static void execute()
+            {
                 VIENNACL_STATIC_ASSERT(is_inplace_product == false,InplaceProductsForbidden);
                 VIENNACL_STATIC_ASSERT(n_nested_products==0,NestedProductsForbidden);
             }
@@ -78,28 +92,34 @@ namespace viennacl
 
       public :
 
-        /** @brief CTor
+        /** @brief CTor for 1 expression
         *
-        * @param expression the expression to build the interface for
-        * @param program_name_hint the code for this expression will be stored in the program provided by this name
+        * @param operation_name the code for this expression will be stored in the program provided by this name
         */
         template<class T0>
-        custom_operation ( T0 const &, std::string const & operation_name) : program_name_(operation_name)
+        custom_operation ( T0 const & , std::string const & operation_name) : program_name_(operation_name)
         {
 
             typedef typename typelist_utils::make_typelist<T0>::Result Expressions;
-            typelist_utils::ForEach<Expressions,CHECK_OPERATIONS_STRUCTURE>::execute();
+            typedef typename get_operations_from_expressions<Expressions>::Result Operations;
+            typelist_utils::ForEach<Operations,CHECK_OPERATIONS_STRUCTURE>::execute();
             viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_);
-            bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Expressions,is_double_type>::value);
+            bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Operations,result_of::is_double_type>::value);
             create_program (has_double);
         }
 
+        /** @brief CTor for 2 expressions
+        *
+        * @param operation_name the code for this expression will be stored in the program provided by this name
+        */
         template<class T0,class T1>
-        custom_operation ( T0 const & , T1 const & , std::string const & operation_name) : program_name_(operation_name){
+        custom_operation ( T0 const & , T1 const & , std::string const & operation_name) : program_name_(operation_name)
+        {
             typedef typename typelist_utils::make_typelist<T0,T1>::Result Expressions;
-            typelist_utils::ForEach<Expressions,CHECK_OPERATIONS_STRUCTURE>::execute();
+            typedef typename get_operations_from_expressions<Expressions>::Result Operations;
+            typelist_utils::ForEach<Operations,CHECK_OPERATIONS_STRUCTURE>::execute();
             viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_);
-            bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Expressions,is_double_type>::value);
+            bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Operations,result_of::is_double_type>::value);
             create_program (has_double);
         }
 
@@ -107,9 +127,10 @@ namespace viennacl
         custom_operation ( T0 const &, T1 const &, T2 const &, std::string const & operation_name) : program_name_(operation_name)
         {
             typedef typename typelist_utils::make_typelist<T0,T1,T2>::Result Expressions;
-            typelist_utils::ForEach<Expressions,CHECK_OPERATIONS_STRUCTURE>::execute();
+            typedef typename get_operations_from_expressions<Expressions>::Result Operations;
+            typelist_utils::ForEach<Operations,CHECK_OPERATIONS_STRUCTURE>::execute();
             viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_);
-            bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Expressions,is_double_type>::value);
+            bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Operations,result_of::is_double_type>::value);
             create_program (has_double);
         }
 
@@ -117,9 +138,10 @@ namespace viennacl
         custom_operation ( T0 const &, T1 const &, T2 const &, T3 const &, std::string const & operation_name ) : program_name_(operation_name)
         {
             typedef typename typelist_utils::make_typelist<T0,T1,T2,T3>::Result Expressions;
-            typelist_utils::ForEach<Expressions,CHECK_OPERATIONS_STRUCTURE>::execute();
+            typedef typename get_operations_from_expressions<Expressions>::Result Operations;
+            typelist_utils::ForEach<Operations,CHECK_OPERATIONS_STRUCTURE>::execute();
             viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_);
-            bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Expressions,is_double_type>::value);
+            bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Operations,result_of::is_double_type>::value);
             create_program (has_double);
         }
 
@@ -127,9 +149,10 @@ namespace viennacl
         custom_operation ( T0 const & , T1 const &, T2 const &, T3 const & , T4 const &, std::string const & operation_name ) : program_name_(operation_name)
         {
             typedef typename typelist_utils::make_typelist<T0,T1,T2,T3,T4>::Result Expressions;
-            typelist_utils::ForEach<Expressions,CHECK_OPERATIONS_STRUCTURE>::execute();
+            typedef typename get_operations_from_expressions<Expressions>::Result Operations;
+            typelist_utils::ForEach<Operations,CHECK_OPERATIONS_STRUCTURE>::execute();
             viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_);
-            bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Expressions,is_double_type>::value);
+            bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Operations,result_of::is_double_type>::value);
             create_program (has_double);
         }
 
@@ -137,9 +160,10 @@ namespace viennacl
         custom_operation ( T0 const & expr0, T1 const & expr1, T2 const & expr2, T3 const & exp3, T4 const &, T5 const &, std::string const & operation_name ) : program_name_(operation_name)
         {
             typedef typename typelist_utils::make_typelist<T0,T1,T2,T3,T4,T5>::Result Expressions;
-            typelist_utils::ForEach<Expressions,CHECK_OPERATIONS_STRUCTURE>::execute();
+            typedef typename get_operations_from_expressions<Expressions>::Result Operations;
+            typelist_utils::ForEach<Operations,CHECK_OPERATIONS_STRUCTURE>::execute();
             viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_);
-            bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Expressions,is_double_type>::value);
+            bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Operations,result_of::is_double_type>::value);
             create_program (has_double);
         }
 
@@ -147,23 +171,22 @@ namespace viennacl
         custom_operation ( T0 const &, T1 const & , T2 const &, T3 const &, T4 const &, T5 const &, T6 const &, std::string const & operation_name ) : program_name_(operation_name)
         {
             typedef typename typelist_utils::make_typelist<T0,T1,T2,T3,T4,T5,T6>::Result Expressions;
-            typelist_utils::ForEach<Expressions,CHECK_OPERATIONS_STRUCTURE>::execute();
+            typedef typename get_operations_from_expressions<Expressions>::Result Operations;
+            typelist_utils::ForEach<Operations,CHECK_OPERATIONS_STRUCTURE>::execute();
             viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_);
-            bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Expressions,is_double_type>::value);
-            create_program (has_double);        }
-
-        /** @brief DTor */
-        ~custom_operation()
-        {
+            bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Operations,result_of::is_double_type>::value);
+            create_program (has_double);
         }
 
-        /** @brief Returns the list of the kernels involved in the operation */
+        /** @brief Returns the list of the kernels involved in the operation
+                   in the form of a std::map<std::string,std::string> ( key = kernel_name, value=sources
+        */
         std::map<std::string,std::string> const & kernels_sources() const
         {
           return sources_;
         }
 
-        /** @brief Return the generated sources */
+        /** @brief Return a string containing the generated source code */
         std::string kernels_source_code() const
         {
           std::string res;
@@ -177,11 +200,13 @@ namespace viennacl
           return res;
         }
 
-        /** @brief Returns the program name */
+        /** @brief Returns the name of the program in which the operation is stored */
         std::string const & program_name() const  { return program_name_; }
 
 
-        /** @brief Convenience for enqueuing the custom operation */
+        /** @brief Convenience for enqueuing the custom operation
+            @param t0 first kernel parameter.
+        */
         template<class T0>
         custom_operation & operator() ( T0 const & t0)
         {
@@ -191,7 +216,11 @@ namespace viennacl
           return *this;
         }
 
-        /** @brief Convenience for enqueuing the custom operation */
+
+        /** @brief Convenience for enqueuing the custom operation
+            @param t0 first kernel parameter.
+            @param t1 first kernel parameter.
+        */
         template<class T0, class T1>
         custom_operation & operator() ( T0 const & t0, T1 const & t1 )
         {
@@ -229,7 +258,7 @@ namespace viennacl
 
         /** @brief Convenience for enqueuing the custom operation */
         template<class T0, class T1, class T2, class T3, class T4>
-        custom_operation & operator() ( T0 & t0, T1 & t1, T2 & t2, T3 & t3, T4 & t4 )
+        custom_operation & operator() ( T0 const & t0, T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4 )
         {
           user_args_.clear();
           user_args_.insert( std::make_pair(0, viennacl::any(const_cast<T0*>(&t0))) );
@@ -243,7 +272,7 @@ namespace viennacl
 
         /** @brief Convenience for enqueuing the custom operation */
         template<class T0, class T1, class T2, class T3, class T4, class T5>
-        custom_operation & operator() ( T0 & t0, T1 & t1, T2 & t2, T3 & t3, T4 & t4, T5 & t5 )
+        custom_operation & operator() ( T0 const & t0, T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4, T5 const & t5 )
         {
           user_args_.clear();
           user_args_.insert( std::make_pair(0, viennacl::any(const_cast<T0*>(&t0))) );
@@ -258,7 +287,7 @@ namespace viennacl
 
         /** @brief Convenience for enqueuing the custom operation */
         template<class T0, class T1, class T2, class T3, class T4, class T5, class T6>
-        custom_operation & operator() ( T0 & t0, T1 & t1, T2 & t2, T3 & t3, T4 & t4, T5 & t5, T6 & t6)
+        custom_operation & operator() ( T0 const & t0, T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4, T5 const & t5, T6 const & t6)
         {
           user_args_.clear();
           user_args_.insert( std::make_pair(0, viennacl::any(const_cast<T0*>(&t0))) );
@@ -274,7 +303,7 @@ namespace viennacl
 
         /** @brief Convenience for enqueuing the custom operation */
         template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7>
-        custom_operation & operator() ( T0 & t0, T1 & t1, T2 & t2, T3 & t3, T4 & t4, T5 & t5, T6 & t6, T7 & t7 )
+        custom_operation & operator() ( T0 const & t0, T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4, T5 const & t5, T6 const & t6, T7 const & t7 )
         {
           user_args_.clear();
           user_args_.insert( std::make_pair(0, viennacl::any(const_cast<T0*>(&t0))) );
@@ -292,8 +321,8 @@ namespace viennacl
         /** @brief Convenience for enqueuing the custom operation */
         template <class T0, class T1, class T2, class T3, class T4,
                   class T5, class T6, class T7, class T8>
-        custom_operation & operator() ( T0 & t0, T1 & t1, T2 & t2, T3 & t3, T4 & t4,
-                                        T5 & t5, T6 & t6, T7 & t7, T8 & t8 )
+        custom_operation & operator() ( T0 const & t0, T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4,
+                                        T5 const & t5, T6 const & t6, T7 const & t7, T8 const & t8 )
         {
           user_args_.clear();
           user_args_.insert( std::make_pair(0, viennacl::any(const_cast<T0*>(&t0))) );
@@ -312,8 +341,8 @@ namespace viennacl
         /** @brief Convenience for enqueuing the custom operation */
         template <class T0, class T1, class T2, class T3, class T4,
                   class T5, class T6, class T7, class T8, class T9>
-        custom_operation & operator() ( T0 & t0, T1 & t1, T2 & t2, T3 & t3, T4 & t4,
-                                        T5 & t5, T6 & t6, T7 & t7, T8 & t8, T9 & t9 )
+        custom_operation & operator() ( T0 const & t0, T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4,
+                                        T5 const & t5, T6 const & t6, T7 const & t7, T8 const & t8, T9 const & t9 )
         {
           user_args_.clear();
           user_args_.insert( std::make_pair(0, viennacl::any(const_cast<T0*>(&t0))) );
@@ -334,9 +363,9 @@ namespace viennacl
         template <class T0, class T1, class T2, class T3, class T4,
                   class T5, class T6, class T7, class T8, class T9,
                   class T10 >
-        custom_operation & operator() ( T0 & t0, T1 & t1, T2 & t2, T3 & t3, T4 & t4,
-                                        T5 & t5, T6 & t6, T7 & t7, T8 & t8, T9 & t9,
-                                        T10 & t10
+        custom_operation & operator() ( T0 const & t0, T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4,
+                                        T5 const & t5, T6 const & t6, T7 const & t7, T8 const & t8, T9 const & t9,
+                                        T10 const & t10
                                       )
         {
           user_args_.clear();
@@ -359,9 +388,9 @@ namespace viennacl
         template <class T0, class T1, class T2, class T3, class T4,
                   class T5, class T6, class T7, class T8, class T9,
                   class T10, class T11 >
-        custom_operation & operator() ( T0 & t0, T1 & t1, T2 & t2, T3 & t3, T4 & t4,
-                                        T5 & t5, T6 & t6, T7 & t7, T8 & t8, T9 & t9,
-                                        T10 & t10, T11 & t11
+        custom_operation & operator() ( T0 const & t0, T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4,
+                                        T5 const & t5, T6 const & t6, T7 const & t7, T8 const & t8, T9 const & t9,
+                                        T10 const & t10, T11 const & t11
                                       )
         {
           user_args_.clear();
@@ -385,9 +414,9 @@ namespace viennacl
         template <class T0, class T1, class T2, class T3, class T4,
                   class T5, class T6, class T7, class T8, class T9,
                   class T10, class T11, class T12 >
-        custom_operation & operator() ( T0 & t0, T1 & t1, T2 & t2, T3 & t3, T4 & t4,
-                                        T5 & t5, T6 & t6, T7 & t7, T8 & t8, T9 & t9,
-                                        T10 & t10, T11 & t11, T12 & t12
+        custom_operation & operator() ( T0 const & t0, T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4,
+                                        T5 const & t5, T6 const & t6, T7 const & t7, T8 const & t8, T9 const & t9,
+                                        T10 const & t10, T11 const & t11, T12 const & t12
                                       )
         {
           user_args_.clear();
@@ -412,9 +441,9 @@ namespace viennacl
         template <class T0, class T1, class T2, class T3, class T4,
                   class T5, class T6, class T7, class T8, class T9,
                   class T10, class T11, class T12, class T13 >
-        custom_operation & operator() ( T0 & t0, T1 & t1, T2 & t2, T3 & t3, T4 & t4,
-                                        T5 & t5, T6 & t6, T7 & t7, T8 & t8, T9 & t9,
-                                        T10 & t10, T11 & t11, T12 & t12, T13 & t13
+        custom_operation & operator() ( T0 const & t0, T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4,
+                                        T5 const & t5, T6 const & t6, T7 const & t7, T8 const & t8, T9 const & t9,
+                                        T10 const & t10, T11 const & t11, T12 const & t12, T13 const & t13
                                       )
         {
           user_args_.clear();
@@ -440,9 +469,9 @@ namespace viennacl
         template <class T0, class T1, class T2, class T3, class T4,
                   class T5, class T6, class T7, class T8, class T9,
                   class T10, class T11, class T12, class T13, class T14 >
-        custom_operation & operator() ( T0 & t0, T1 & t1, T2 & t2, T3 & t3, T4 & t4,
-                                        T5 & t5, T6 & t6, T7 & t7, T8 & t8, T9 & t9,
-                                        T10 & t10, T11 & t11, T12 & t12, T13 & t13, T14 & t14
+        custom_operation & operator() ( T0 const & t0, T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4,
+                                        T5 const & t5, T6 const & t6, T7 const & t7, T8 const & t8, T9 const & t9,
+                                        T10 const & t10, T11 const & t11, T12 const & t12, T13 const & t13, T14 const & t14
                                       )
         {
           user_args_.clear();
@@ -470,10 +499,10 @@ namespace viennacl
                   class T5, class T6, class T7, class T8, class T9,
                   class T10, class T11, class T12, class T13, class T14,
                   class T15>
-        custom_operation & operator() ( T0 & t0, T1 & t1, T2 & t2, T3 & t3, T4 & t4,
-                                        T5 & t5, T6 & t6, T7 & t7, T8 & t8, T9 & t9,
-                                        T10 & t10, T11 & t11, T12 & t12, T13 & t13, T14 & t14,
-                                        T15 & t15
+        custom_operation & operator() ( T0 const & t0, T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4,
+                                        T5 const & t5, T6 const & t6, T7 const & t7, T8 const & t8, T9 const & t9,
+                                        T10 const & t10, T11 const & t11, T12 const & t12, T13 const & t13, T14 const & t14,
+                                        T15 const & t15
                                       )
         {
           user_args_.clear();
@@ -502,10 +531,10 @@ namespace viennacl
                   class T5, class T6, class T7, class T8, class T9,
                   class T10, class T11, class T12, class T13, class T14,
                   class T15, class T16>
-        custom_operation & operator() ( T0 & t0, T1 & t1, T2 & t2, T3 & t3, T4 & t4,
-                                        T5 & t5, T6 & t6, T7 & t7, T8 & t8, T9 & t9,
-                                        T10 & t10, T11 & t11, T12 & t12, T13 & t13, T14 & t14,
-                                        T15 & t15, T16 & t16
+        custom_operation & operator() ( T0 const & t0, T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4,
+                                        T5 const & t5, T6 const & t6, T7 const & t7, T8 const & t8, T9 const & t9,
+                                        T10 const & t10, T11 const & t11, T12 const & t12, T13 const & t13, T14 const & t14,
+                                        T15 const & t15, T16 const & t16
                                       )
         {
           user_args_.clear();
@@ -535,10 +564,10 @@ namespace viennacl
                   class T5, class T6, class T7, class T8, class T9,
                   class T10, class T11, class T12, class T13, class T14,
                   class T15, class T16, class T17>
-        custom_operation & operator() ( T0 & t0, T1 & t1, T2 & t2, T3 & t3, T4 & t4,
-                                        T5 & t5, T6 & t6, T7 & t7, T8 & t8, T9 & t9,
-                                        T10 & t10, T11 & t11, T12 & t12, T13 & t13, T14 & t14,
-                                        T15 & t15, T16 & t16, T17 & t17
+        custom_operation & operator() ( T0 const & t0, T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4,
+                                        T5 const & t5, T6 const & t6, T7 const & t7, T8 const & t8, T9 const & t9,
+                                        T10 const & t10, T11 const & t11, T12 const & t12, T13 const & t13, T14 const & t14,
+                                        T15 const & t15, T16 const & t16, T17 const & t17
                                       )
         {
           user_args_.clear();
@@ -569,10 +598,10 @@ namespace viennacl
                   class T5, class T6, class T7, class T8, class T9,
                   class T10, class T11, class T12, class T13, class T14,
                   class T15, class T16, class T17, class T18>
-        custom_operation & operator() ( T0 & t0, T1 & t1, T2 & t2, T3 & t3, T4 & t4,
-                                        T5 & t5, T6 & t6, T7 & t7, T8 & t8, T9 & t9,
-                                        T10 & t10, T11 & t11, T12 & t12, T13 & t13, T14 & t14,
-                                        T15 & t15, T16 & t16, T17 & t17, T18 & t18
+        custom_operation & operator() ( T0 const & t0, T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4,
+                                        T5 const & t5, T6 const & t6, T7 const & t7, T8 const & t8, T9 const & t9,
+                                        T10 const & t10, T11 const & t11, T12 const & t12, T13 const & t13, T14 const & t14,
+                                        T15 const & t15, T16 const & t16, T17 const & t17, T18 const & t18
                                       )
         {
           user_args_.clear();
@@ -604,10 +633,10 @@ namespace viennacl
                   class T5, class T6, class T7, class T8, class T9,
                   class T10, class T11, class T12, class T13, class T14,
                   class T15, class T16, class T17, class T18, class T19>
-        custom_operation & operator() ( T0 & t0, T1 & t1, T2 & t2, T3 & t3, T4 & t4,
-                                        T5 & t5, T6 & t6, T7 & t7, T8 & t8, T9 & t9,
-                                        T10 & t10, T11 & t11, T12 & t12, T13 & t13, T14 & t14,
-                                        T15 & t15, T16 & t16, T17 & t17, T18 & t18, T19 & t19
+        custom_operation & operator() ( T0 const & t0, T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4,
+                                        T5 const & t5, T6 const & t6, T7 const & t7, T8 const & t8, T9 const & t9,
+                                        T10 const & t10, T11 const & t11, T12 const & t12, T13 const & t13, T14 const & t14,
+                                        T15 const & t15, T16 const & t16, T17 const & t17, T18 const & t18, T19 const & t19
                                       )
         {
           user_args_.clear();
@@ -636,7 +665,7 @@ namespace viennacl
         }
 
 
-      private:
+        private:
 
 
         void create_program(bool has_double)
@@ -648,6 +677,7 @@ namespace viennacl
           {
             kernels_string += it->second + "\n";
           }
+          
           if(has_double)
             kernels_string = viennacl::tools::make_double_kernel(kernels_string,viennacl::ocl::current_device().double_support_extension());
 
@@ -655,7 +685,7 @@ namespace viennacl
           std::cout << kernels_string << std::endl;
 #endif
 
-          viennacl::ocl::program& program = viennacl::ocl::current_context().add_program(kernels_string, program_name_);
+          viennacl::ocl::program & program = viennacl::ocl::current_context().add_program(kernels_string, program_name_);
 
           for (std::map<std::string,std::string>::iterator it  = sources_.begin();
                                                              it != sources_.end();
@@ -685,7 +715,7 @@ namespace viennacl
           }
         }
 
-    private :
+      private :
         std::map<unsigned int, viennacl::any> user_args_;
         std::string program_name_;
         std::vector<viennacl::ocl::local_mem> lmem_;
@@ -695,7 +725,7 @@ namespace viennacl
     };
 
 
-    inline void enqueue_custom_op(viennacl::generator::custom_operation & op, viennacl::ocl::command_queue const & queue)
+    inline void enqueue_custom_op(viennacl::generator::custom_operation & op, viennacl::ocl::command_queue const & /*queue*/)
     {
       for(std::map<std::string,std::string>::const_iterator it = op.kernels_sources().begin(); it != op.kernels_sources().end() ; ++it)
       {

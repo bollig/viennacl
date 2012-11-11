@@ -54,7 +54,7 @@
 #include "viennacl/linalg/prod.hpp"
 #include "viennacl/matrix.hpp"
 #include "viennacl/compressed_matrix.hpp"
-#include "viennacl/linalg/compressed_matrix_operations.hpp"
+#include "viennacl/linalg/sparse_matrix_operations.hpp"
 #include "viennacl/linalg/matrix_operations.hpp"
 #include "viennacl/scalar.hpp"
 #include "viennacl/linalg/inner_prod.hpp"
@@ -261,7 +261,7 @@ namespace viennacl
                                 std::vector<SparseVectorType> & g_res,
                                 std::vector<cl_uint> & g_is_update,
                                 const spai_tag & tag,
-                                const unsigned int cur_iter){
+                                const unsigned int){
             unsigned int y_sz, m_sz;
             std::vector<cl_uint> y_inds(M_v.size() + 1, static_cast<cl_uint>(0));
             std::vector<cl_uint> m_inds(M_v.size() + 1, static_cast<cl_uint>(0));
@@ -457,7 +457,7 @@ namespace viennacl
                             block_matrix& g_A_I_J_vcl, 
                             std::vector<cl_uint>& g_is_update,
                             bool& is_empty_block,
-                            const unsigned int cur_iter){
+                            const unsigned int){
             //computing start indices for index sets and start indices for block matrices
             unsigned int sz_I, sz_J, sz_blocks;
             std::vector<cl_uint> matrix_dims(g_I.size()*2, static_cast<cl_uint>(0));
@@ -528,7 +528,7 @@ namespace viennacl
                 viennacl::ocl::kernel& assembly_kernel = viennacl::ocl::get_kernel(viennacl::linalg::kernels::spai<ScalarType, 1>::program_name(), "assemble_blocks");
                 assembly_kernel.local_work_size(0, 1);
                 assembly_kernel.global_work_size(0, 256);
-                viennacl::ocl::enqueue(assembly_kernel(A.handle1(), A.handle2(), A.handle(), 
+                viennacl::ocl::enqueue(assembly_kernel(A.handle1().opencl_handle(), A.handle2().opencl_handle(), A.handle().opencl_handle(), 
                                                        set_I_vcl.handle(), set_J_vcl.handle(), set_I_vcl.handle1(), 
                                                        set_J_vcl.handle1(), 
                                                        g_A_I_J_vcl.handle2(), g_A_I_J_vcl.handle1(), g_A_I_J_vcl.handle(),

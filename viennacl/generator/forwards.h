@@ -31,6 +31,9 @@ namespace viennacl
   namespace generator
   {
 
+    template<class T>
+    class operation_repeater;
+
     template<class LHS, class OP_TYPE, class RHS>
     class compound_node;
 
@@ -40,6 +43,12 @@ namespace viennacl
     struct prod_type;
 
     struct inner_prod_type;
+
+    template<long VAL>
+    class symbolic_constant;
+
+    template<long VAL>
+    class symbolic_constant_vector;
 
     template< unsigned int ID, typename SCALARTYPE, unsigned int ALIGNMENT = 1>
     class symbolic_vector;
@@ -63,17 +72,43 @@ namespace viennacl
     template<class Expr, class OP, class Assigned>
     struct MatMatToken;
 
-    template<class Expr,unsigned int NestedLevel>
+    template<class Expr,unsigned int Step>
     struct InProdToken;
 
     template<class Expr>
     struct ArithmeticToken;
 
+    template<class Bound_, class Operations_>
+    struct repeater_impl;
+
+
+    struct assign_type;
+
+    struct add_type;
+    struct inplace_add_type;
+
+    struct sub_type;
+    struct inplace_sub_type;
+
+    struct scal_mul_type;
+    struct inplace_scal_mul_type;
+
+    struct scal_div_type;
+    struct inplace_scal_div_type;
+
+    struct inner_prod_type;
+    struct prod_type;
+
+    struct elementwise_prod_type;
+    struct elementwise_div_type;
+
+namespace result_of{
     template<class T>
     struct is_inner_product_leaf;
 
     template<class T>
     struct is_inner_product_impl;
+}
 
   }
 }

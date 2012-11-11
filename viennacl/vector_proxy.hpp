@@ -60,11 +60,17 @@ namespace viennacl
       *
       * @param proxy An expression template proxy class
       */
-      template <typename MatrixType>
-      typename viennacl::enable_if< viennacl::is_matrix<MatrixType>::value, self_type &>::type
-      operator=(const vector_expression< const MatrixType,
-                                         const self_type,
-                                         op_prod> & proxy);
+      template <typename M1, typename V1>
+      typename viennacl::enable_if<    viennacl::is_any_dense_nonstructured_matrix<M1>::value
+                                    && viennacl::is_any_dense_nonstructured_vector<V1>::value,
+                                    self_type &>::type
+      operator=(const vector_expression< const M1,
+                                         const V1,
+                                         op_prod> & proxy)
+      {
+        viennacl::linalg::prod_impl(proxy.lhs(), proxy.rhs(), *this);
+        return *this;
+      }
       
       
       
@@ -90,7 +96,7 @@ namespace viennacl
 
       /** @brief Assignment of a vector (or -range or -slice) */
       template <typename V1>
-      typename viennacl::enable_if< viennacl::is_vector<V1>::value, 
+      typename viennacl::enable_if< viennacl::is_any_dense_nonstructured_vector<V1>::value, 
                                     self_type &>::type
       operator = (const V1 & vec)
       {
@@ -102,7 +108,7 @@ namespace viennacl
       /** @brief Assignment of a scaled vector (or -range or -slice), i.e. v1 -= v2 @ alpha, where @ is either product or division and alpha is either a CPU or a GPU scalar
       */
       template <typename V1, typename S1, typename OP>
-      typename viennacl::enable_if< viennacl::is_vector<V1>::value && viennacl::is_any_scalar<S1>::value,
+      typename viennacl::enable_if< viennacl::is_any_dense_nonstructured_vector<V1>::value && viennacl::is_any_scalar<S1>::value,
                                     self_type &>::type
       operator = (const vector_expression< const V1,
                                            const S1,
@@ -113,88 +119,16 @@ namespace viennacl
         return *this;
       }
       
-      ///////////// operator +=
-
-      /** @brief Inplace addition of a vector (or -range or -slice) */
-      template <typename V1>
-      typename viennacl::enable_if< viennacl::is_vector<V1>::value, 
-                                    self_type &>::type
-      operator += (const V1 & vec)
-      {
-        viennacl::linalg::avbv(*this, 
-                               *this, cpu_value_type(1.0), 1, false, false,
-                               vec,   cpu_value_type(1.0), 1, false, false);
-        return *this;
-      }
+      //
+      ///////////// operators with implicit conversion
+      //
       
-      /** @brief Inplace addition of a scaled vector (or -range or -slice), i.e. v1 -= v2 @ alpha, where @ is either product or division and alpha is either a CPU or a GPU scalar
-      */
-      template <typename V1, typename S1, typename OP>
-      typename viennacl::enable_if< viennacl::is_vector<V1>::value && viennacl::is_any_scalar<S1>::value,
-                                    self_type &>::type
-      operator += (const vector_expression< const V1,
-                                            const S1,
-                                            OP> & proxy)
-      {
-        //viennacl::linalg::inplace_mul_add(*this, proxy.lhs(), proxy.rhs());
-        viennacl::linalg::avbv(*this, 
-                               *this,   cpu_value_type(1.0), 1, false,                                         false,
-                               proxy.lhs(), proxy.rhs(), 1, (viennacl::is_division<OP>::value ? true : false), (viennacl::is_flip_sign_scalar<S1>::value ? true : false) );
-        return *this;
-      }
-      
-      ///////////// operator -=
-
-      /** @brief Inplace subtraction of a vector (or -range or -slice) */
-      template <typename V1>
-      typename viennacl::enable_if< viennacl::is_vector<V1>::value, 
-                                    self_type &>::type
-      operator -= (const V1 & vec)
-      {
-        //viennacl::linalg::inplace_sub(*this, vec);
-        viennacl::linalg::avbv(*this, 
-                               *this, cpu_value_type(1.0),  1, false, false,
-                               vec,   cpu_value_type(-1.0), 1, false, false);
-        return *this;
-      }
-      
-      /** @brief Inplace subtraction of a scaled vector (or -range or -slice), i.e. v1 -= v2 @ alpha, where @ is either product or division and alpha is either a CPU or a GPU scalar
-      */
-      template <typename V1, typename S1, typename OP>
-      typename viennacl::enable_if< viennacl::is_vector<V1>::value && viennacl::is_any_scalar<S1>::value,
-                                    self_type &>::type
-      operator -= (const vector_expression< const V1,
-                                            const S1,
-                                            OP> & proxy)
-      {
-        //viennacl::linalg::inplace_mul_add(*this, proxy.lhs(), proxy.rhs());
-        viennacl::linalg::avbv(*this, 
-                               *this,   cpu_value_type(1.0), 1, false,                                             false,
-                               proxy.lhs(), proxy.rhs(), 1, (viennacl::is_division<OP>::value ? true : false), (viennacl::is_flip_sign_scalar<S1>::value ? false : true));
-        return *this;
-      }
-      
-
-      ///////////// operator *=
       /** @brief Scales this vector range by a CPU scalar value
       */
       self_type & operator *= (cpu_value_type val)
       {
         viennacl::linalg::av(*this,
                              *this, val, 1, false, false);
-        return *this;
-      }
-
-      /** @brief Scales this vector range by a GPU scalar value
-      */
-      template <typename S1>
-      typename viennacl::enable_if< viennacl::is_any_scalar<S1>::value,
-                                    self_type & 
-                                  >::type
-      operator *= (S1 const & gpu_val)
-      {
-        viennacl::linalg::av(*this,
-                             *this, gpu_val, 1, false, (viennacl::is_flip_sign_scalar<S1>::value ? true : false));
         return *this;
       }
 
@@ -207,19 +141,6 @@ namespace viennacl
         return *this;
       }
       
-      /** @brief Scales this vector range by a CPU scalar value
-      */
-      template <typename S1>
-      typename viennacl::enable_if< viennacl::is_any_scalar<S1>::value,
-                                    self_type & 
-                                  >::type
-      operator /= (S1 const & gpu_val)
-      {
-        viennacl::linalg::av(*this,
-                             *this, gpu_val, 1, true, (viennacl::is_flip_sign_scalar<S1>::value ? true : false));
-        return *this;
-      }
-      
       
       ///////////// Direct manipulation via operator() and operator[]
       //read-write access to an element of the vector
@@ -227,14 +148,14 @@ namespace viennacl
       */
       entry_proxy<cpu_value_type> operator()(size_type index)
       {
-        return entry_proxy<cpu_value_type>(index + start(), v_.get());
+        return entry_proxy<cpu_value_type>(index + start(), v_.handle());
       }
 
       /** @brief Read-write access to a single element of the vector
       */
       entry_proxy<cpu_value_type> operator[](size_type index)
       {
-        return entry_proxy<cpu_value_type>(index + start(), v_.get());
+        return entry_proxy<cpu_value_type>(index + start(), v_.handle());
       }
 
 
@@ -243,9 +164,9 @@ namespace viennacl
       scalar<cpu_value_type> operator()(size_type index) const
       {
         scalar<cpu_value_type> tmp;
-        cl_int err;
-        err = clEnqueueCopyBuffer(viennacl::ocl::get_queue().handle().get(), v_.get(), tmp.handle(), sizeof(cpu_value_type)*(index + start()), 0, sizeof(cpu_value_type), 0, NULL, NULL);
-        VIENNACL_ERR_CHECK(err);
+        viennacl::backend::memory_copy(viennacl::traits::handle(v_), viennacl::traits::handle(tmp),
+                                       sizeof(cpu_value_type)*(index + start()), 0,
+                                       sizeof(cpu_value_type));
         return tmp;
       }
       
@@ -272,7 +193,7 @@ namespace viennacl
       /** @brief Returns a const-iterator pointing to the beginning of the vector (STL like)*/
       const_iterator begin() const
       {
-        return const_iterator(v_, start());
+        return const_iterator(v_, 0, start());
       }
 
       /** @brief Returns a const-iterator pointing to the end of the vector (STL like)*/
@@ -291,42 +212,6 @@ namespace viennacl
       range entry_range_;
   };
   
-  
-  //implement copy-CTOR for vector from vector_range:
-  
-  template <typename SCALARTYPE, unsigned int ALIGNMENT>
-  viennacl::vector<SCALARTYPE, ALIGNMENT>::vector(const vector_range< viennacl::vector<SCALARTYPE, ALIGNMENT> > & r) : size_(r.size())
-  {
-    assert(this->size() == r.size() && "Vector size mismatch!");
-    
-    if (this->size() > 0)
-    {
-      this->elements_ = viennacl::ocl::current_context().create_memory(CL_MEM_READ_WRITE, sizeof(SCALARTYPE)*internal_size());
-      
-      viennacl::linalg::av(*this, 
-                           r, SCALARTYPE(1.0), 1, false, false);
-    }
-    
-  }
-  
-  
-  
-  //implement operator= for vector:
-  
-  template <typename SCALARTYPE, unsigned int ALIGNMENT>
-  viennacl::vector<SCALARTYPE, ALIGNMENT> & 
-  viennacl::vector<SCALARTYPE, ALIGNMENT>::operator=(const vector_range< viennacl::vector<SCALARTYPE, ALIGNMENT> > & r) 
-  {
-    if (this->size() > 0)
-      viennacl::linalg::av(*this, 
-                           r, SCALARTYPE(1.0), 1, false, false);
-    
-    return *this;
-  }
-  
-  
-  
-
   
   template<typename VectorType>
   std::ostream & operator<<(std::ostream & s, vector_range<VectorType> const & proxy)
@@ -360,11 +245,7 @@ namespace viennacl
       //we require that the size of the gpu_vector is larger or equal to the cpu-size
       std::vector<SCALARTYPE> temp_buffer(cpu_vector.end() - cpu_vector.begin());
       std::copy(cpu_vector.begin(), cpu_vector.end(), temp_buffer.begin());
-      cl_int err = clEnqueueWriteBuffer(viennacl::ocl::get_queue().handle().get(),
-                                        gpu_vector_range.get().handle().get(), CL_TRUE, sizeof(SCALARTYPE)*gpu_vector_range.start(),
-                                        sizeof(SCALARTYPE)*temp_buffer.size(),
-                                        &(temp_buffer[0]), 0, NULL, NULL);
-      VIENNACL_ERR_CHECK(err);
+      viennacl::backend::memory_write(gpu_vector_range.get().handle(), sizeof(SCALARTYPE)*gpu_vector_range.start(), sizeof(SCALARTYPE)*temp_buffer.size(), &(temp_buffer[0]));
     }
   }
 
@@ -394,12 +275,7 @@ namespace viennacl
     if (cpu_vector.end() > cpu_vector.begin())
     {
       std::vector<SCALARTYPE> temp_buffer(cpu_vector.end() - cpu_vector.begin());
-      cl_int err = clEnqueueReadBuffer(viennacl::ocl::get_queue().handle().get(),
-                                        gpu_vector_range.get().handle().get(), CL_TRUE, sizeof(SCALARTYPE)*gpu_vector_range.start(), 
-                                        sizeof(SCALARTYPE)*temp_buffer.size(),
-                                        &(temp_buffer[0]), 0, NULL, NULL);
-      VIENNACL_ERR_CHECK(err);
-      viennacl::ocl::get_queue().finish();
+      viennacl::backend::memory_read(gpu_vector_range.get().handle(), sizeof(SCALARTYPE)*gpu_vector_range.start(), sizeof(SCALARTYPE)*temp_buffer.size(), &(temp_buffer[0]));
       
       //now copy entries to cpu_vec:
       std::copy(temp_buffer.begin(), temp_buffer.end(), cpu_vector.begin());
@@ -430,7 +306,13 @@ namespace viennacl
     return vector_range<VectorType>(vec, r1);
   }
 
-
+  template <typename VectorType>
+  vector_range<VectorType> project(viennacl::vector_range<VectorType> & vec, viennacl::range const & r1)
+  {
+    assert(r1.size() <= vec.size() && "Size of range invalid!");
+    return vector_range<VectorType>(vec.get(), viennacl::range(vec.start() + r1.start(), vec.start() + r1.start() + r1.size()));
+  }
+  
 //
 //
 //
@@ -473,14 +355,17 @@ namespace viennacl
       *
       * @param proxy An expression template proxy class
       */
-      template <typename MatrixType>
-      typename viennacl::enable_if< viennacl::is_matrix<MatrixType>::value, self_type &>::type
-      operator=(const vector_expression< const MatrixType,
-                                         const self_type,
-                                         op_prod> & proxy);
-      
-      
-      
+      template <typename M1, typename V1>
+      typename viennacl::enable_if<    viennacl::is_any_dense_nonstructured_matrix<M1>::value
+                                    && viennacl::is_any_dense_nonstructured_vector<V1>::value,
+                                    self_type &>::type
+      operator=(const vector_expression< const M1,
+                                         const V1,
+                                         op_prod> & proxy)
+      {
+        viennacl::linalg::prod_impl(proxy.lhs(), proxy.rhs(), *this);
+        return *this;
+      }
 
       template <typename LHS, typename RHS, typename OP>
       self_type & operator=(const vector_expression< LHS,
@@ -503,7 +388,7 @@ namespace viennacl
 
       /** @brief Assignment of a vector (or -range or -slice) */
       template <typename V1>
-      typename viennacl::enable_if< viennacl::is_vector<V1>::value, 
+      typename viennacl::enable_if< viennacl::is_any_dense_nonstructured_vector<V1>::value, 
                                     self_type &>::type
       operator = (const V1 & vec)
       {
@@ -515,7 +400,7 @@ namespace viennacl
       /** @brief Assignment of a scaled vector (or -range or -slice), i.e. v1 -= v2 @ alpha, where @ is either product or division and alpha is either a CPU or a GPU scalar
       */
       template <typename V1, typename S1, typename OP>
-      typename viennacl::enable_if< viennacl::is_vector<V1>::value && viennacl::is_any_scalar<S1>::value,
+      typename viennacl::enable_if< viennacl::is_any_dense_nonstructured_vector<V1>::value && viennacl::is_any_scalar<S1>::value,
                                     self_type &>::type
       operator = (const vector_expression< const V1,
                                            const S1,
@@ -527,69 +412,8 @@ namespace viennacl
       }
       
 
-      ///////////// operator +=
 
-      /** @brief Inplace addition of a vector (or -range or -slice) */
-      template <typename V1>
-      typename viennacl::enable_if< viennacl::is_vector<V1>::value, 
-                                    self_type &>::type
-      operator += (const V1 & vec)
-      {
-        viennacl::linalg::avbv(*this, 
-                               *this, cpu_value_type(1.0), 1, false, false,
-                               vec,   cpu_value_type(1.0), 1, false, false);
-        return *this;
-      }
-      
-      /** @brief Inplace addition of a scaled vector (or -range or -slice), i.e. v1 -= v2 @ alpha, where @ is either product or division and alpha is either a CPU or a GPU scalar
-      */
-      template <typename V1, typename S1, typename OP>
-      typename viennacl::enable_if< viennacl::is_vector<V1>::value && viennacl::is_any_scalar<S1>::value,
-                                    self_type &>::type
-      operator += (const vector_expression< const V1,
-                                            const S1,
-                                            OP> & proxy)
-      {
-        //viennacl::linalg::inplace_mul_add(*this, proxy.lhs(), proxy.rhs());
-        viennacl::linalg::avbv(*this, 
-                               *this,   cpu_value_type(1.0), 1, false,                                         false,
-                               proxy.lhs(), proxy.rhs(), 1, (viennacl::is_division<OP>::value ? true : false), (viennacl::is_flip_sign_scalar<S1>::value ? true : false) );
-        return *this;
-      }
-      
-      ///////////// operator -=
-
-      /** @brief Inplace subtraction of a vector (or -range or -slice) */
-      template <typename V1>
-      typename viennacl::enable_if< viennacl::is_vector<V1>::value, 
-                                    self_type &>::type
-      operator -= (const V1 & vec)
-      {
-        //viennacl::linalg::inplace_sub(*this, vec);
-        viennacl::linalg::avbv(*this, 
-                               *this, cpu_value_type(1.0),  1, false, false,
-                               vec,   cpu_value_type(-1.0), 1, false, false);
-        return *this;
-      }
-      
-      /** @brief Inplace subtraction of a scaled vector (or -range or -slice), i.e. v1 -= v2 @ alpha, where @ is either product or division and alpha is either a CPU or a GPU scalar
-      */
-      template <typename V1, typename S1, typename OP>
-      typename viennacl::enable_if< viennacl::is_vector<V1>::value && viennacl::is_any_scalar<S1>::value,
-                                    self_type &>::type
-      operator -= (const vector_expression< const V1,
-                                            const S1,
-                                            OP> & proxy)
-      {
-        //viennacl::linalg::inplace_mul_add(*this, proxy.lhs(), proxy.rhs());
-        viennacl::linalg::avbv(*this, 
-                               *this,   cpu_value_type(1.0), 1, false,                                             false,
-                               proxy.lhs(), proxy.rhs(), 1, (viennacl::is_division<OP>::value ? true : false), (viennacl::is_flip_sign_scalar<S1>::value ? false : true));
-        return *this;
-      }
-      
-
-      ///////////// operator *=
+      ///////////// operator overloads with implicit conversion:
       /** @brief Scales this vector range by a CPU scalar value
       */
       self_type & operator *= (cpu_value_type val)
@@ -599,18 +423,6 @@ namespace viennacl
         return *this;
       }
 
-      /** @brief Scales this vector range by a GPU scalar value
-      */
-      template <typename S1>
-      typename viennacl::enable_if< viennacl::is_any_scalar<S1>::value,
-                                    self_type & 
-                                  >::type
-      operator *= (S1 const & gpu_val)
-      {
-        viennacl::linalg::av(*this,
-                             *this, gpu_val, 1, false, (viennacl::is_flip_sign_scalar<S1>::value ? true : false));
-        return *this;
-      }
 
       /** @brief Scales this vector range by a CPU scalar value
       */
@@ -621,20 +433,6 @@ namespace viennacl
         return *this;
       }
       
-      /** @brief Scales this vector range by a CPU scalar value
-      */
-      template <typename S1>
-      typename viennacl::enable_if< viennacl::is_any_scalar<S1>::value,
-                                    self_type & 
-                                  >::type
-      operator /= (S1 const & gpu_val)
-      {
-        viennacl::linalg::av(*this,
-                             *this, gpu_val, 1, true, (viennacl::is_flip_sign_scalar<S1>::value ? true : false));
-        return *this;
-      }
-      
-      
       
       ///////////// Direct manipulation via operator() and operator[]
       //read-write access to an element of the vector
@@ -642,14 +440,14 @@ namespace viennacl
       */
       entry_proxy<cpu_value_type> operator()(size_type index)
       {
-        return entry_proxy<cpu_value_type>(index * stride() + start(), v_.get());
+        return entry_proxy<cpu_value_type>(index * stride() + start(), v_.handle());
       }
 
       /** @brief Read-write access to a single element of the vector
       */
       entry_proxy<cpu_value_type> operator[](size_type index)
       {
-        return entry_proxy<cpu_value_type>(index * stride() + start(), v_.get());
+        return entry_proxy<cpu_value_type>(index * stride() + start(), v_.handle());
       }
 
 
@@ -657,10 +455,11 @@ namespace viennacl
       */
       scalar<cpu_value_type> operator()(size_type index) const
       {
-        scalar<cpu_value_type> tmp;
-        cl_int err;
-        err = clEnqueueCopyBuffer(viennacl::ocl::get_queue().handle().get(), v_.get(), tmp.handle(), sizeof(cpu_value_type)*(index * stride() + start()), 0, sizeof(cpu_value_type), 0, NULL, NULL);
-        VIENNACL_ERR_CHECK(err);
+        scalar<cpu_value_type> tmp = 1.0;
+        viennacl::backend::memory_copy(viennacl::traits::handle(v_), viennacl::traits::handle(tmp),
+                                       sizeof(cpu_value_type)*(index * stride() + start()), 0,
+                                       sizeof(cpu_value_type));
+        std::cout << tmp << std::endl;
         return tmp;
       }
       
@@ -706,41 +505,6 @@ namespace viennacl
       slice entry_slice_;
   };
   
-  
-  //implement copy-CTOR for vector from vector_slice:
-  
-  template <typename SCALARTYPE, unsigned int ALIGNMENT>
-  viennacl::vector<SCALARTYPE, ALIGNMENT>::vector(const vector_slice< viennacl::vector<SCALARTYPE, ALIGNMENT> > & r) : size_(r.size())
-  {
-    if (this->size() > 0)
-    {
-      this->elements_ = viennacl::ocl::current_context().create_memory(CL_MEM_READ_WRITE, sizeof(SCALARTYPE)*internal_size());
-      
-      viennacl::linalg::av(*this, 
-                           r, SCALARTYPE(1.0), 1, false, false);
-    }
-    
-  }
-  
-  
-  
-  //implement operator= for vector:
-  
-  template <typename SCALARTYPE, unsigned int ALIGNMENT>
-  viennacl::vector<SCALARTYPE, ALIGNMENT> & 
-  viennacl::vector<SCALARTYPE, ALIGNMENT>::operator=(const vector_slice< viennacl::vector<SCALARTYPE, ALIGNMENT> > & r) 
-  {
-    assert(this->size() == r.size() && "Vector size mismatch!");
-    
-    if (this->size() > 0)
-      viennacl::linalg::av(*this, 
-                           r, SCALARTYPE(1.0), 1, false, false);
-    
-    return *this;
-  }
-  
-  
-  
 
   
   template<typename VectorType>
@@ -768,32 +532,16 @@ namespace viennacl
   void copy(const VectorType & cpu_vector,
             vector_slice<vector<SCALARTYPE> > & gpu_vector_slice )
   {
-    assert(cpu_vector.end() - cpu_vector.begin() >= 0);
-    
-    if (cpu_vector.end() - cpu_vector.begin() > 0)
+    if (cpu_vector.size() > 0)
     {
-      
-      // OpenCL 1.0 version: (no use of clEnqueueWriteBufferRect())
       std::vector<SCALARTYPE> temp_buffer(gpu_vector_slice.stride() * gpu_vector_slice.size());
       
-      cl_int err = clEnqueueReadBuffer(viennacl::ocl::get_queue().handle().get(),
-                                        gpu_vector_slice.get().handle().get(), CL_TRUE, sizeof(SCALARTYPE)*gpu_vector_slice.start(), 
-                                        sizeof(SCALARTYPE)*temp_buffer.size(),
-                                        &(temp_buffer[0]), 0, NULL, NULL);
-      
-      VIENNACL_ERR_CHECK(err);
+      viennacl::backend::memory_read(gpu_vector_slice.get().handle(), sizeof(SCALARTYPE)*gpu_vector_slice.start(), sizeof(SCALARTYPE)*temp_buffer.size(), &(temp_buffer[0]));
 
       for (std::size_t i=0; i<cpu_vector.size(); ++i)
-      {
         temp_buffer[i * gpu_vector_slice.stride()] = cpu_vector[i];
-      }
       
-      err = clEnqueueWriteBuffer(viennacl::ocl::get_queue().handle().get(),
-                                 gpu_vector_slice.get().handle().get(), CL_TRUE, sizeof(SCALARTYPE)*gpu_vector_slice.start(),
-                                 sizeof(SCALARTYPE)*temp_buffer.size(),
-                                 &(temp_buffer[0]), 0, NULL, NULL);
-      
-      VIENNACL_ERR_CHECK(err);
+      viennacl::backend::memory_write(gpu_vector_slice.get().handle(), sizeof(SCALARTYPE)*gpu_vector_slice.start(), sizeof(SCALARTYPE)*temp_buffer.size(), &(temp_buffer[0]));
     }
   }
 
@@ -808,24 +556,15 @@ namespace viennacl
   void copy(vector_slice<vector<SCALARTYPE> > const & gpu_vector_slice,
             VectorType & cpu_vector)
   {
-    assert(cpu_vector.end() - cpu_vector.begin() >= 0);
+    assert(gpu_vector_slice.end() - gpu_vector_slice.begin() >= 0);
     
-    if (cpu_vector.end() > cpu_vector.begin())
+    if (gpu_vector_slice.end() - gpu_vector_slice.begin() > 0)
     {
-      // OpenCL 1.0 version: (no use of clEnqueueWriteBufferRect())
       std::vector<SCALARTYPE> temp_buffer(gpu_vector_slice.stride() * gpu_vector_slice.size());
-      
-      cl_int err = clEnqueueReadBuffer(viennacl::ocl::get_queue().handle().get(),
-                                        gpu_vector_slice.get().handle().get(), CL_TRUE, sizeof(SCALARTYPE)*gpu_vector_slice.start(), 
-                                        sizeof(SCALARTYPE)*temp_buffer.size(),
-                                        &(temp_buffer[0]), 0, NULL, NULL);
-      
-      VIENNACL_ERR_CHECK(err);
+      viennacl::backend::memory_read(gpu_vector_slice.get().handle(), sizeof(SCALARTYPE)*gpu_vector_slice.start(), sizeof(SCALARTYPE)*temp_buffer.size(), &(temp_buffer[0]));
 
       for (std::size_t i=0; i<cpu_vector.size(); ++i)
-      {
         cpu_vector[i] = temp_buffer[i * gpu_vector_slice.stride()];
-      }
     }
   }
 
@@ -834,14 +573,39 @@ namespace viennacl
 
 
   //
-  // Convenience function
+  // Convenience functions
   //
   template <typename VectorType>
   vector_slice<VectorType> project(VectorType & vec, viennacl::slice const & s1)
   {
+    assert(s1.size() <= vec.size() && "Size of slice larger than vector size!");
     return vector_slice<VectorType>(vec, s1);
   }
 
+  template <typename VectorType>
+  vector_slice<VectorType> project(viennacl::vector_slice<VectorType> & vec, viennacl::slice const & s1)
+  {
+    assert(s1.size() <= vec.size() && "Size of slice larger than vector proxy!");
+    return vector_slice<VectorType>(vec.get(), viennacl::slice(vec.start() + s1.start(), vec.stride() * s1.stride(), s1.size()));
+  }
+
+  // interaction with range and vector_range:
+  
+  template <typename VectorType>
+  vector_slice<VectorType> project(viennacl::vector_slice<VectorType> & vec, viennacl::range const & r1)
+  {
+    assert(r1.size() <= vec.size() && "Size of slice larger than vector proxy!");
+    return vector_slice<VectorType>(vec.get(), viennacl::slice(vec.start() + r1.start(), vec.stride(), r1.size()));
+  }
+  
+  template <typename VectorType>
+  vector_slice<VectorType> project(viennacl::vector_range<VectorType> & vec, viennacl::slice const & s1)
+  {
+    assert(s1.size() <= vec.size() && "Size of slice larger than vector proxy!");
+    return vector_slice<VectorType>(vec.get(), viennacl::range(vec.start() + s1.start(), s1.stride(), s1.size()));
+  }
+  
+  
 }
 
 #endif

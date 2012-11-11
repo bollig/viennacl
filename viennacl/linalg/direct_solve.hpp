@@ -1,5 +1,5 @@
-#ifndef VIENNACL_DIRECT_SOLVE_HPP_
-#define VIENNACL_DIRECT_SOLVE_HPP_
+#ifndef VIENNACL_LINALG_DIRECT_SOLVE_HPP_
+#define VIENNACL_LINALG_DIRECT_SOLVE_HPP_
 
 /* =========================================================================
    Copyright (c) 2010-2012, Institute for Microelectronics,
@@ -17,51 +17,51 @@
    License:         MIT (X11), see file LICENSE in the base directory
 ============================================================================= */
 
-/** @file direct_solve.hpp
+/** @file viennacl/linalg/direct_solve.hpp
     @brief Implementations of dense direct solvers are found here.
 */
 
 #include "viennacl/vector.hpp"
 #include "viennacl/matrix.hpp"
-#include "viennacl/tools/matrix_kernel_class_deducer.hpp"
-#include "viennacl/tools/matrix_solve_kernel_class_deducer.hpp"
-#include "viennacl/ocl/kernel.hpp"
-#include "viennacl/ocl/device.hpp"
-#include "viennacl/ocl/handle.hpp"
+#include "viennacl/linalg/opencl/direct_solve.hpp"
+#include "viennacl/linalg/single_threaded/direct_solve.hpp"
 
 
 namespace viennacl
 {
   namespace linalg
   {
-    ////////////////// upper triangular solver (upper_tag) //////////////////////////////////////
-    /** @brief Direct inplace solver for dense upper triangular systems
-    *
-    * @param mat    The system matrix
-    * @param B      The matrix of row vectors, where the solution is directly written to
-    */
-    template<typename SCALARTYPE, typename F1, typename F2, unsigned int A1, unsigned int A2, typename SOLVERTAG>
-    void inplace_solve(const matrix<SCALARTYPE, F1, A1> & mat,
-                       matrix<SCALARTYPE, F2, A2> & B,
-                       SOLVERTAG)
-    {
-      assert(mat.size1() == mat.size2());
-      assert(mat.size2() == B.size1());
-      
-      typedef typename viennacl::tools::MATRIX_SOLVE_KERNEL_CLASS_DEDUCER< matrix<SCALARTYPE, F1, A1>,
-                                                                           matrix<SCALARTYPE, F2, A2> >::ResultType    KernelClass;
-      KernelClass::init();
-      
-      std::stringstream ss;
-      ss << SOLVERTAG::name() << "_solve";
-      viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(KernelClass::program_name(), ss.str());
 
-      k.global_work_size(0, B.size2() * k.local_work_size());
-      viennacl::ocl::enqueue(k(mat, cl_uint(mat.size1()), cl_uint(mat.size2()),
-                                    cl_uint(mat.internal_size1()), cl_uint(mat.internal_size2()),
-                               B,   cl_uint(B.size1()), cl_uint(B.size2()),
-                                    cl_uint(B.internal_size1()), cl_uint(B.internal_size2()))
-                            );        
+    //
+    // A \ B:
+    //
+    
+    /** @brief Direct inplace solver for dense upper triangular systems. Matlab notation: A \ B
+    *
+    * @param A    The system matrix
+    * @param B    The matrix of row vectors, where the solution is directly written to
+    */
+    template <typename M1,
+              typename M2, typename SOLVERTAG>
+    typename viennacl::enable_if<    viennacl::is_any_dense_nonstructured_matrix<M1>::value
+                                  && viennacl::is_any_dense_nonstructured_matrix<M2>::value
+                                >::type
+    inplace_solve(const M1 & A, M2 & B, SOLVERTAG)
+    {
+      assert( (viennacl::traits::size1(A) == viennacl::traits::size2(A)) && "Size check failed in inplace_solve(): size1(A) != size2(A)");
+      assert( (viennacl::traits::size1(A) == viennacl::traits::size1(B)) && "Size check failed in inplace_solve(): size1(A) != size1(B)");
+      
+      switch (viennacl::traits::handle(A).get_active_handle_id())
+      {
+        case viennacl::backend::MAIN_MEMORY:
+          viennacl::linalg::single_threaded::inplace_solve(A, B, SOLVERTAG());
+          break;
+        case viennacl::backend::OPENCL_MEMORY:
+          viennacl::linalg::opencl::inplace_solve(A, B, SOLVERTAG());
+          break;
+        default:
+          throw "not implemented";
+      }
     }
     
     /** @brief Direct inplace solver for dense upper triangular systems
@@ -69,114 +69,115 @@ namespace viennacl
     * @param mat    The system matrix
     * @param B      The (transposed) matrix of row vectors, where the solution is directly written to
     */
-    template<typename SCALARTYPE, typename F1, typename F2, unsigned int A1, unsigned int A2, typename SOLVERTAG>
-    void inplace_solve(const matrix<SCALARTYPE, F1, A1> & mat,
-                       const matrix_expression< const matrix<SCALARTYPE, F2, A2>,
-                                                const matrix<SCALARTYPE, F2, A2>,
-                                                op_trans> & B,
-                       SOLVERTAG)
+    template <typename M1,
+              typename M2, typename SOLVERTAG>
+    typename viennacl::enable_if<    viennacl::is_any_dense_nonstructured_matrix<M1>::value
+                                  && viennacl::is_any_dense_nonstructured_matrix<M2>::value
+                                >::type
+    inplace_solve(const M1 & A,
+                  matrix_expression< const M2, const M2, op_trans> proxy_B,
+                  SOLVERTAG)
     {
-      assert(mat.size1() == mat.size2());
-      assert(mat.size2() == B.lhs().size2());
+      assert( (viennacl::traits::size1(A) == viennacl::traits::size2(A))       && "Size check failed in inplace_solve(): size1(A) != size2(A)");
+      assert( (viennacl::traits::size1(A) == viennacl::traits::size1(proxy_B)) && "Size check failed in inplace_solve(): size1(A) != size1(B^T)");
       
-      typedef typename viennacl::tools::MATRIX_SOLVE_KERNEL_CLASS_DEDUCER< matrix<SCALARTYPE, F1, A1>,
-                                                                           matrix<SCALARTYPE, F2, A2> >::ResultType    KernelClass;
-      KernelClass::init();
-
-      std::stringstream ss;
-      ss << SOLVERTAG::name() << "_trans_solve";
-      viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(KernelClass::program_name(), ss.str());
-
-      k.global_work_size(0, B.lhs().size1() * k.local_work_size());
-      viennacl::ocl::enqueue(k(mat, cl_uint(mat.size1()), cl_uint(mat.size2()),
-                                    cl_uint(mat.internal_size1()), cl_uint(mat.internal_size2()),
-                               B.lhs(), cl_uint(B.lhs().size1()), cl_uint(B.lhs().size2()),
-                                        cl_uint(B.lhs().internal_size1()), cl_uint(B.lhs().internal_size2()))
-                            );     
+      switch (viennacl::traits::handle(A).get_active_handle_id())
+      {
+        case viennacl::backend::MAIN_MEMORY:
+          viennacl::linalg::single_threaded::inplace_solve(A, proxy_B, SOLVERTAG());
+          break;
+        case viennacl::backend::OPENCL_MEMORY:
+          viennacl::linalg::opencl::inplace_solve(A, proxy_B, SOLVERTAG());
+          break;
+        default:
+          throw "not implemented";
+      }
     }
     
     //upper triangular solver for transposed lower triangular matrices
     /** @brief Direct inplace solver for dense upper triangular systems that stem from transposed lower triangular systems
     *
-    * @param proxy    The system matrix proxy
+    * @param proxy_A  The system matrix proxy
     * @param B        The matrix holding the load vectors, where the solution is directly written to
     */
-    template<typename SCALARTYPE, typename F1, typename F2, unsigned int A1, unsigned int A2, typename SOLVERTAG>
-    void inplace_solve(const matrix_expression< const matrix<SCALARTYPE, F1, A1>,
-                                                const matrix<SCALARTYPE, F1, A1>,
-                                                op_trans> & proxy,
-                       matrix<SCALARTYPE, F2, A2> & B,
-                       SOLVERTAG)
+    template <typename M1,
+              typename M2, typename SOLVERTAG>
+    typename viennacl::enable_if<    viennacl::is_any_dense_nonstructured_matrix<M1>::value
+                                  && viennacl::is_any_dense_nonstructured_matrix<M2>::value
+                                >::type
+    inplace_solve(const matrix_expression< const M1, const M1, op_trans> & proxy_A,
+                  M2 & B,
+                  SOLVERTAG)
     {
-      assert(proxy.lhs().size1() == proxy.lhs().size2());
-      assert(proxy.lhs().size2() == B.size1());
+      assert( (viennacl::traits::size1(proxy_A) == viennacl::traits::size2(proxy_A)) && "Size check failed in inplace_solve(): size1(A) != size2(A)");
+      assert( (viennacl::traits::size1(proxy_A) == viennacl::traits::size1(B))       && "Size check failed in inplace_solve(): size1(A^T) != size1(B)");
       
-      typedef typename viennacl::tools::MATRIX_SOLVE_KERNEL_CLASS_DEDUCER< matrix<SCALARTYPE, F1, A1>,
-                                                                           matrix<SCALARTYPE, F2, A2> >::ResultType    KernelClass;
-      KernelClass::init();
-
-      std::stringstream ss;
-      ss << "trans_" << SOLVERTAG::name() << "_solve";
-      viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(KernelClass::program_name(), ss.str());
-
-      k.global_work_size(0, B.size2() * k.local_work_size());
-      viennacl::ocl::enqueue(k(proxy.lhs(), cl_uint(proxy.lhs().size1()), cl_uint(proxy.lhs().size2()),
-                                            cl_uint(proxy.lhs().internal_size1()), cl_uint(proxy.lhs().internal_size2()),
-                                         B, cl_uint(B.size1()), cl_uint(B.size2()),
-                                            cl_uint(B.internal_size1()), cl_uint(B.internal_size2()))
-                            );        
+      switch (viennacl::traits::handle(proxy_A.lhs()).get_active_handle_id())
+      {
+        case viennacl::backend::MAIN_MEMORY:
+          viennacl::linalg::single_threaded::inplace_solve(proxy_A, B, SOLVERTAG());
+          break;
+        case viennacl::backend::OPENCL_MEMORY:
+          viennacl::linalg::opencl::inplace_solve(proxy_A, B, SOLVERTAG());
+          break;
+        default:
+          throw "not implemented";
+      }
     }
 
-    /** @brief Direct inplace solver for dense upper triangular systems that stem from transposed lower triangular systems
+    /** @brief Direct inplace solver for dense triangular systems. Matlab notation: A' \ B'
     *
-    * @param proxy    The system matrix proxy
-    * @param B        The matrix holding the load vectors, where the solution is directly written to
+    * @param proxy_A  The system matrix proxy
+    * @param proxy_B  The matrix holding the load vectors, where the solution is directly written to
     */
-    template<typename SCALARTYPE, typename F1, typename F2, unsigned int A1, unsigned int A2, typename SOLVERTAG>
-    void inplace_solve(const matrix_expression< const matrix<SCALARTYPE, F1, A1>,
-                                                const matrix<SCALARTYPE, F1, A1>,
-                                                op_trans> & proxy,
-                       const matrix_expression< const matrix<SCALARTYPE, F2, A2>,
-                                                const matrix<SCALARTYPE, F2, A2>,
-                                                op_trans> & B,
-                       SOLVERTAG)
+    template <typename M1,
+              typename M2, typename SOLVERTAG>
+    typename viennacl::enable_if<    viennacl::is_any_dense_nonstructured_matrix<M1>::value
+                                  && viennacl::is_any_dense_nonstructured_matrix<M2>::value
+                                >::type
+    inplace_solve(const matrix_expression< const M1, const M1, op_trans> & proxy_A,
+                        matrix_expression< const M2, const M2, op_trans>   proxy_B,
+                        SOLVERTAG)
     {
-      assert(proxy.lhs().size1() == proxy.lhs().size2());
-      assert(proxy.lhs().size2() == B.lhs().size2());
+      assert( (viennacl::traits::size1(proxy_A) == viennacl::traits::size2(proxy_A)) && "Size check failed in inplace_solve(): size1(A) != size2(A)");
+      assert( (viennacl::traits::size1(proxy_A) == viennacl::traits::size1(proxy_B)) && "Size check failed in inplace_solve(): size1(A^T) != size1(B^T)");
       
-      typedef typename viennacl::tools::MATRIX_SOLVE_KERNEL_CLASS_DEDUCER< matrix<SCALARTYPE, F1, A1>,
-                                                                           matrix<SCALARTYPE, F2, A2> >::ResultType    KernelClass;
-      KernelClass::init();
-
-      std::stringstream ss;
-      ss << "trans_" << SOLVERTAG::name() << "_trans_solve";
-      viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(KernelClass::program_name(), ss.str());
-
-      k.global_work_size(0, B.lhs().size1() * k.local_work_size());
-      viennacl::ocl::enqueue(k(proxy.lhs(), cl_uint(proxy.lhs().size1()), cl_uint(proxy.lhs().size2()),
-                                            cl_uint(proxy.lhs().internal_size1()), cl_uint(proxy.lhs().internal_size2()),
-                               B.lhs(), cl_uint(B.lhs().size1()), cl_uint(B.lhs().size2()),
-                                        cl_uint(B.lhs().internal_size1()), cl_uint(B.lhs().internal_size2()))
-                            );        
+      switch (viennacl::traits::handle(proxy_A.lhs()).get_active_handle_id())
+      {
+        case viennacl::backend::MAIN_MEMORY:
+          viennacl::linalg::single_threaded::inplace_solve(proxy_A, proxy_B, SOLVERTAG());
+          break;
+        case viennacl::backend::OPENCL_MEMORY:
+          viennacl::linalg::opencl::inplace_solve(proxy_A, proxy_B, SOLVERTAG());
+          break;
+        default:
+          throw "not implemented";
+      }
     }
 
+    //
+    // A \ b
+    //
+    
     template<typename SCALARTYPE, typename F, unsigned int ALIGNMENT, unsigned int VEC_ALIGNMENT, typename SOLVERTAG>
     void inplace_solve(const matrix<SCALARTYPE, F, ALIGNMENT> & mat,
                        vector<SCALARTYPE, VEC_ALIGNMENT> & vec,
                        SOLVERTAG)
     {
-      assert(mat.size1() == vec.size());
-      assert(mat.size2() == vec.size());
+      assert( (mat.size1() == vec.size()) && "Size check failed in inplace_solve(): size1(A) != size(b)");
+      assert( (mat.size2() == vec.size()) && "Size check failed in inplace_solve(): size2(A) != size(b)");
       
-      typedef typename viennacl::tools::MATRIX_KERNEL_CLASS_DEDUCER< matrix<SCALARTYPE, F, ALIGNMENT> >::ResultType    KernelClass;
-
-      std::stringstream ss;
-      ss << SOLVERTAG::name() << "_triangular_substitute_inplace";
-      viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(KernelClass::program_name(), ss.str());
-
-      k.global_work_size(0, k.local_work_size());
-      viennacl::ocl::enqueue(k(mat, cl_uint(mat.size1()), cl_uint(mat.size2()), 
-                                    cl_uint(mat.internal_size1()), cl_uint(mat.internal_size2()), vec));        
+      switch (viennacl::traits::handle(mat).get_active_handle_id())
+      {
+        case viennacl::backend::MAIN_MEMORY:
+          viennacl::linalg::single_threaded::inplace_solve(mat, vec, SOLVERTAG());
+          break;
+        case viennacl::backend::OPENCL_MEMORY:
+          viennacl::linalg::opencl::inplace_solve(mat, vec, SOLVERTAG());
+          break;
+        default:
+          throw "not implemented";
+      }
     }
 
     /** @brief Direct inplace solver for dense upper triangular systems that stem from transposed lower triangular systems
@@ -191,21 +192,59 @@ namespace viennacl
                        vector<SCALARTYPE, VEC_ALIGNMENT> & vec,
                        SOLVERTAG)
     {
-      assert(proxy.lhs().size1() == vec.size());
-      assert(proxy.lhs().size2() == vec.size());
+      assert( (proxy.lhs().size1() == vec.size()) && "Size check failed in inplace_solve(): size1(A) != size(b)");
+      assert( (proxy.lhs().size2() == vec.size()) && "Size check failed in inplace_solve(): size2(A) != size(b)");
 
-      typedef typename viennacl::tools::MATRIX_KERNEL_CLASS_DEDUCER< matrix<SCALARTYPE, F, ALIGNMENT> >::ResultType    KernelClass;
-      
-      std::stringstream ss;
-      ss << "trans_" << SOLVERTAG::name() << "_triangular_substitute_inplace";
-      viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(KernelClass::program_name(), ss.str());
-      
-      k.global_work_size(0, k.local_work_size());
-      viennacl::ocl::enqueue(k(proxy.lhs(), cl_uint(proxy.lhs().size1()), cl_uint(proxy.lhs().size2()),
-                                            cl_uint(proxy.lhs().internal_size1()), cl_uint(proxy.lhs().internal_size2()), vec));        
+      switch (viennacl::traits::handle(proxy.lhs()).get_active_handle_id())
+      {
+        case viennacl::backend::MAIN_MEMORY:
+          viennacl::linalg::single_threaded::inplace_solve(proxy, vec, SOLVERTAG());
+          break;
+        case viennacl::backend::OPENCL_MEMORY:
+          viennacl::linalg::opencl::inplace_solve(proxy, vec, SOLVERTAG());
+          break;
+        default:
+          throw "not implemented";
+      }
     }
     
     /////////////////// general wrappers for non-inplace solution //////////////////////    
+    
+    
+    namespace detail
+    {
+      template <typename T>
+      struct extract_embedded_type
+      {
+        typedef T    type;
+      };
+      
+      template <typename T>
+      struct extract_embedded_type< matrix_range<T> >
+      {
+        typedef T   type;
+      };
+      
+      template <typename T>
+      struct extract_embedded_type< matrix_slice<T> >
+      {
+        typedef T   type;
+      };
+
+      
+      template <typename T>
+      struct extract_embedded_type< vector_range<T> >
+      {
+        typedef T   type;
+      };
+      
+      template <typename T>
+      struct extract_embedded_type< vector_slice<T> >
+      {
+        typedef T   type;
+      };
+      
+    }
 
     /** @brief Convenience functions for C = solve(A, B, some_tag()); Creates a temporary result matrix and forwards the request to inplace_solve()
     *
@@ -213,36 +252,48 @@ namespace viennacl
     * @param B    The matrix of load vectors
     * @param tag    Dispatch tag
     */
-    template<typename SCALARTYPE, typename F1, typename F2, unsigned int ALIGNMENT_A, unsigned int ALIGNMENT_B, typename TAG>
-    matrix<SCALARTYPE, F2, ALIGNMENT_B> solve(const matrix<SCALARTYPE, F1, ALIGNMENT_A> & A,
-                                        const matrix<SCALARTYPE, F2, ALIGNMENT_B> & B,
-                                        TAG const & tag)
+    template <typename M1,
+              typename M2,
+              typename SOLVERTAG>
+    typename viennacl::enable_if<    viennacl::is_any_dense_nonstructured_matrix<M1>::value
+                                  && viennacl::is_any_dense_nonstructured_matrix<M2>::value,
+                                  typename detail::extract_embedded_type<M2>::type
+                                >::type
+    solve(const M1 & A, const M2 & B, SOLVERTAG tag)
     {
+      typedef typename detail::extract_embedded_type<M2>::type             MatrixType;
+      
       // do an inplace solve on the result vector:
-      matrix<SCALARTYPE, F2, ALIGNMENT_A> result(B.size1(), B.size2());
-      result = B;
+      MatrixType result(B);
     
       inplace_solve(A, result, tag);
     
       return result;
     }
-
+    
+    
+    //////////
+    
     /** @brief Convenience functions for C = solve(A, B^T, some_tag()); Creates a temporary result matrix and forwards the request to inplace_solve()
     *
     * @param A    The system matrix
     * @param proxy  The transposed load vector
     * @param tag    Dispatch tag
     */
-    template<typename SCALARTYPE, typename F1, typename F2, unsigned int ALIGNMENT_A, unsigned int ALIGNMENT_B, typename TAG>
-    matrix<SCALARTYPE, F2, ALIGNMENT_B> solve(const matrix<SCALARTYPE, F1, ALIGNMENT_A> & A,
-                                        const matrix_expression< const matrix<SCALARTYPE, F2, ALIGNMENT_B>,
-                                                                     const matrix<SCALARTYPE, F2, ALIGNMENT_B>,
-                                                                     op_trans> & proxy,
-                                        TAG const & tag)
+    template <typename M1,
+              typename M2, typename SOLVERTAG>
+    typename viennacl::enable_if<    viennacl::is_any_dense_nonstructured_matrix<M1>::value
+                                  && viennacl::is_any_dense_nonstructured_matrix<M2>::value,
+                                  typename detail::extract_embedded_type<M2>::type
+                                >::type
+    solve(const M1 & A,
+          const matrix_expression< const M2, const M2, op_trans> & proxy,
+          SOLVERTAG tag)
     {
+      typedef typename detail::extract_embedded_type<M2>::type             MatrixType;
+                     
       // do an inplace solve on the result vector:
-      matrix<SCALARTYPE, F2, ALIGNMENT_B> result(proxy.lhs().size2(), proxy.lhs().size1());
-      result = proxy;
+      MatrixType result(proxy);
     
       inplace_solve(A, result, tag);
     
@@ -261,8 +312,7 @@ namespace viennacl
                                         TAG const & tag)
     {
       // do an inplace solve on the result vector:
-      vector<SCALARTYPE, VEC_ALIGNMENT> result(vec.size());
-      result = vec;
+      vector<SCALARTYPE, VEC_ALIGNMENT> result(vec);
     
       inplace_solve(mat, result, tag);
     
@@ -277,16 +327,20 @@ namespace viennacl
     * @param B      The matrix of load vectors
     * @param tag    Dispatch tag
     */
-    template<typename SCALARTYPE, typename F1, typename F2, unsigned int ALIGNMENT_A, unsigned int ALIGNMENT_B, typename TAG>
-    matrix<SCALARTYPE, F2, ALIGNMENT_B> solve(const matrix_expression< const matrix<SCALARTYPE, F1, ALIGNMENT_A>,
-                                                                     const matrix<SCALARTYPE, F1, ALIGNMENT_A>,
-                                                                     op_trans> & proxy,
-                                            const matrix<SCALARTYPE, F2, ALIGNMENT_B> & B,
-                                            TAG const & tag)
+    template <typename M1,
+              typename M2, typename SOLVERTAG>
+    typename viennacl::enable_if<    viennacl::is_any_dense_nonstructured_matrix<M1>::value
+                                  && viennacl::is_any_dense_nonstructured_matrix<M2>::value,
+                                  typename detail::extract_embedded_type<M2>::type
+                                >::type
+    solve(const matrix_expression< const M1, const M1, op_trans> & proxy,
+          const M2 & B,
+          SOLVERTAG tag)
     {
+      typedef typename detail::extract_embedded_type<M2>::type             MatrixType;
+                     
       // do an inplace solve on the result vector:
-      matrix<SCALARTYPE, F2, ALIGNMENT_B> result(B.size1(), B.size2());
-      result = B;
+      MatrixType result(B);
     
       inplace_solve(proxy, result, tag);
     
@@ -300,18 +354,20 @@ namespace viennacl
     * @param proxy_B  The transposed matrix of load vectors, where the solution is directly written to
     * @param tag    Dispatch tag
     */
-    template<typename SCALARTYPE, typename F1, typename F2, unsigned int ALIGNMENT_A, unsigned int ALIGNMENT_B, typename TAG>
-    matrix<SCALARTYPE, F2, ALIGNMENT_B> solve(const matrix_expression< const matrix<SCALARTYPE, F1, ALIGNMENT_A>,
-                                                                     const matrix<SCALARTYPE, F1, ALIGNMENT_A>,
-                                                                     op_trans> & proxy_A,
-                                            const matrix_expression< const matrix<SCALARTYPE, F2, ALIGNMENT_B>,
-                                                                     const matrix<SCALARTYPE, F2, ALIGNMENT_B>,
-                                                                     op_trans> & proxy_B,
-                                            TAG const & tag)
+    template <typename M1,
+              typename M2, typename SOLVERTAG>
+    typename viennacl::enable_if<    viennacl::is_any_dense_nonstructured_matrix<M1>::value
+                                  && viennacl::is_any_dense_nonstructured_matrix<M2>::value,
+                                  typename detail::extract_embedded_type<M2>::type
+                                >::type
+    solve(const matrix_expression< const M1, const M1, op_trans> & proxy_A,
+          const matrix_expression< const M2, const M2, op_trans> & proxy_B,
+          SOLVERTAG tag)
     {
+      typedef typename detail::extract_embedded_type<M2>::type             MatrixType;
+                     
       // do an inplace solve on the result vector:
-      matrix<SCALARTYPE, F2, ALIGNMENT_B> result(proxy_B.lhs().size2(), proxy_B.lhs().size1());
-      result = trans(proxy_B.lhs());
+      MatrixType result(proxy_B);
     
       inplace_solve(proxy_A, result, tag);
     
@@ -332,8 +388,7 @@ namespace viennacl
                                             TAG const & tag)
     {
       // do an inplace solve on the result vector:
-      vector<SCALARTYPE, VEC_ALIGNMENT> result(vec.size());
-      result = vec;
+      vector<SCALARTYPE, VEC_ALIGNMENT> result(vec);
     
       inplace_solve(proxy, result, tag);
     
@@ -341,7 +396,13 @@ namespace viennacl
     }
     
     
+    
+    
+    //
     ///////////////////////////// lu factorization ///////////////////////
+    //
+    
+    
     /** @brief LU factorization of a dense matrix.
     *
     * @param mat    The system matrix, where the LU matrices are directly written to. The implicit unit diagonal of L is not written.
@@ -349,15 +410,21 @@ namespace viennacl
     template<typename SCALARTYPE, typename F, unsigned int ALIGNMENT>
     void lu_factorize(matrix<SCALARTYPE, F, ALIGNMENT> & mat)
     {
-      assert(mat.size1() == mat.size2());
+      assert( (mat.size1() == mat.size2()) && "Size check failed for LU factorization: size1(A) != size2(A)");
 
       typedef typename viennacl::tools::MATRIX_KERNEL_CLASS_DEDUCER< matrix<SCALARTYPE, F, ALIGNMENT> >::ResultType    KernelClass;
       
-      viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(KernelClass::program_name(), "lu_factorize");
-      
-      k.global_work_size(0, k.local_work_size());
-      viennacl::ocl::enqueue(k(mat, cl_uint(mat.size1()), cl_uint(mat.size2()),
-                                    cl_uint(mat.internal_size1()), cl_uint(mat.internal_size2())) );        
+      switch (viennacl::traits::handle(mat).get_active_handle_id())
+      {
+        case viennacl::backend::MAIN_MEMORY:
+          viennacl::linalg::single_threaded::lu_factorize(mat);
+          break;
+        case viennacl::backend::OPENCL_MEMORY:
+          viennacl::linalg::opencl::lu_factorize(mat);
+          break;
+        default:
+          throw "not implemented";
+      }
     }
 
 

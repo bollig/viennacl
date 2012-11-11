@@ -155,7 +155,7 @@ namespace viennacl
       // P test
       //test_interpolation(A[level], P[level], Pointvector[level]);
       
-      #ifdef DEBUG
+      #ifdef VIENNACL_AMG_DEBUG
       std::cout << "Prolongation Matrix:" << std::endl;
       printmatrix (P[level]);
       #endif  
@@ -279,7 +279,7 @@ namespace viennacl
   }
       }
       
-      #ifdef DEBUG
+      #ifdef VIENNACL_AMG_DEBUG
       std::cout << "Prolongation Matrix:" << std::endl;
       printmatrix (P[level]);
       #endif  
@@ -358,7 +358,7 @@ namespace viennacl
      * @param tag    AMG preconditioner tag
     */
     template <typename InternalType1, typename InternalType2>
-    void amg_interpol_ag(unsigned int level, InternalType1 & A, InternalType1 & P, InternalType2 & Pointvector, amg_tag & tag)
+    void amg_interpol_ag(unsigned int level, InternalType1 & A, InternalType1 & P, InternalType2 & Pointvector, amg_tag)
     {
       typedef typename InternalType1::value_type SparseMatrixType;
       typedef typename InternalType2::value_type PointVectorType;
@@ -388,7 +388,7 @@ namespace viennacl
   P[level](x,pointy->get_coarse_index()) = 1;
       }
       
-      #ifdef DEBUG
+      #ifdef VIENNACL_AMG_DEBUG
       std::cout << "Aggregation based Prolongation:" << std::endl;
       printmatrix(P[level]);
       #endif
@@ -454,7 +454,7 @@ namespace viennacl
   Jacobi (x,x) = 1 - tag.get_interpolweight();
       }
           
-      #ifdef DEBUG
+      #ifdef VIENNACL_AMG_DEBUG
       std::cout << "Jacobi Matrix:" << std::endl;
       printmatrix(Jacobi);
       #endif
@@ -462,7 +462,7 @@ namespace viennacl
       // Use AG interpolation as tentative prolongation
       amg_interpol_ag(level, A, P_tentative, Pointvector, tag);
       
-      #ifdef DEBUG
+      #ifdef VIENNACL_AMG_DEBUG
       std::cout << "Tentative Prolongation:" << std::endl;
       printmatrix(P_tentative[level]);
       #endif
@@ -470,7 +470,7 @@ namespace viennacl
       // Multiply Jacobi matrix with tentative prolongation to get actual prolongation
       amg_mat_prod(Jacobi,P_tentative[level],P[level]);
       
-      #ifdef DEBUG
+      #ifdef VIENNACL_AMG_DEBUG
       std::cout << "Prolongation Matrix:" << std::endl;
       printmatrix (P[level]);
       #endif    

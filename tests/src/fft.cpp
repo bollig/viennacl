@@ -146,7 +146,7 @@ void convolve_ref(std::vector<ScalarType>& in1,
 
 ScalarType opencl_fft(std::vector<ScalarType>& in,
                       std::vector<ScalarType>& out,
-                      unsigned int row, unsigned int col, unsigned int batch_size)
+                      unsigned int /*row*/, unsigned int /*col*/, unsigned int batch_size)
 {
     viennacl::vector<ScalarType> input(in.size());
     viennacl::vector<ScalarType> output(in.size());
@@ -164,7 +164,7 @@ ScalarType opencl_fft(std::vector<ScalarType>& in,
 
 ScalarType opencl_2d_fft_1arg(std::vector<ScalarType>& in,
                               std::vector<ScalarType>& out,
-                              unsigned int row, unsigned int col, unsigned int batch_size)
+                              unsigned int row, unsigned int col, unsigned int /*batch_size*/)
 {
     viennacl::matrix<ScalarType> input(row, 2 * col);
 
@@ -181,7 +181,7 @@ ScalarType opencl_2d_fft_1arg(std::vector<ScalarType>& in,
 
 ScalarType opencl_2d_fft_2arg(std::vector<ScalarType>& in,
                               std::vector<ScalarType>& out,
-                              unsigned int row, unsigned int col, unsigned int batch_size)
+                              unsigned int row, unsigned int col, unsigned int /*batch_size*/)
 {
     viennacl::matrix<ScalarType> input(row, 2 * col);
     viennacl::matrix<ScalarType> output(row, 2 * col);
@@ -199,7 +199,7 @@ ScalarType opencl_2d_fft_2arg(std::vector<ScalarType>& in,
 
 ScalarType opencl_direct(std::vector<ScalarType>& in,
                          std::vector<ScalarType>& out,
-                         unsigned int row, unsigned int col, unsigned int batch_num)
+                         unsigned int /*row*/, unsigned int /*col*/, unsigned int batch_num)
 {
     viennacl::vector<ScalarType> input(in.size());
     viennacl::vector<ScalarType> output(in.size());
@@ -210,7 +210,7 @@ ScalarType opencl_direct(std::vector<ScalarType>& in,
 
     unsigned int size = (input.size() >> 1) / batch_num;
 
-    viennacl::detail::fft::direct<ScalarType>(input.handle(), output.handle(), size, size, batch_num);
+    viennacl::detail::fft::direct<ScalarType>(input.handle().opencl_handle(), output.handle().opencl_handle(), size, size, batch_num);
 
     viennacl::fast_copy(output, res);
 
@@ -219,7 +219,7 @@ ScalarType opencl_direct(std::vector<ScalarType>& in,
 
 ScalarType opencl_bluestein(std::vector<ScalarType>& in,
                             std::vector<ScalarType>& out,
-                            unsigned int row, unsigned int col, unsigned int batch_size)
+                            unsigned int /*row*/, unsigned int /*col*/, unsigned int batch_size)
 {
     viennacl::vector<ScalarType> input(in.size());
     viennacl::vector<ScalarType> output(in.size());
@@ -237,7 +237,7 @@ ScalarType opencl_bluestein(std::vector<ScalarType>& in,
 
 ScalarType opencl_radix2(std::vector<ScalarType>& in,
                          std::vector<ScalarType>& out,
-                         unsigned int row, unsigned int col, unsigned int batch_num)
+                         unsigned int /*row*/, unsigned int /*col*/, unsigned int batch_num)
 {
     viennacl::vector<ScalarType> input(in.size());
     viennacl::vector<ScalarType> output(in.size());
@@ -248,7 +248,7 @@ ScalarType opencl_radix2(std::vector<ScalarType>& in,
 
     unsigned int size = (input.size() >> 1) / batch_num;
 
-    viennacl::detail::fft::radix2<ScalarType>(input.handle(), size, size, batch_num);
+    viennacl::detail::fft::radix2<ScalarType>(input.handle().opencl_handle(), size, size, batch_num);
 
     viennacl::fast_copy(input, res);
 
@@ -257,7 +257,7 @@ ScalarType opencl_radix2(std::vector<ScalarType>& in,
 
 ScalarType opencl_convolve(std::vector<ScalarType>& in1,
                            std::vector<ScalarType>& in2,
-                           unsigned int row, unsigned int col, unsigned int batch_size)
+                           unsigned int /*row*/, unsigned int /*col*/, unsigned int batch_size)
 {
     //if(in1.size() > 2048) return -1;
     viennacl::vector<ScalarType> input1(in1.size());
@@ -313,54 +313,59 @@ int test_correctness(const std::string& log_tag,
 
 
 
-int main() {
-    std::cout << "*" << std::endl;
-    std::cout << "* ViennaCL test: FFT" << std::endl;
-    std::cout << "*" << std::endl;
+int main() 
+{
+  std::cout << "*" << std::endl;
+  std::cout << "* ViennaCL test: FFT" << std::endl;
+  std::cout << "*" << std::endl;
 
-    //1D FFT tests
-    if (test_correctness("fft::direct", "../non-release/testdata/cufft.data", read_vectors_pair, &opencl_direct) == EXIT_FAILURE)
-      return EXIT_FAILURE;
-    if (test_correctness("fft::fft", "../non-release/testdata/cufft.data", read_vectors_pair, &opencl_fft) == EXIT_FAILURE)
-      return EXIT_FAILURE;
-    if (test_correctness("fft::batch::direct", "../non-release/testdata/batch_radix.data", read_vectors_pair, &opencl_direct) == EXIT_FAILURE)
-      return EXIT_FAILURE;
-    if (test_correctness("fft::radix2", "../non-release/testdata/radix2.data", read_vectors_pair, &opencl_radix2) == EXIT_FAILURE)
-      return EXIT_FAILURE;
-    if (test_correctness("fft::batch::radix2", "../non-release/testdata/batch_radix.data", read_vectors_pair, &opencl_radix2) == EXIT_FAILURE)
-      return EXIT_FAILURE;
-    if (test_correctness("fft::batch::fft", "../non-release/testdata/batch_radix.data", read_vectors_pair, &opencl_fft) == EXIT_FAILURE)
-      return EXIT_FAILURE;
-    if (test_correctness("fft::convolve::1", "../non-release/testdata/cufft.data", read_vectors_pair, &opencl_convolve) == EXIT_FAILURE)
-      return EXIT_FAILURE;
-    if (test_correctness("fft::convolve::2", "../non-release/testdata/radix2.data", read_vectors_pair, &opencl_convolve) == EXIT_FAILURE)
-      return EXIT_FAILURE;
-    if (test_correctness("fft::bluestein::1", "../non-release/testdata/cufft.data", read_vectors_pair, &opencl_bluestein) == EXIT_FAILURE)
-      return EXIT_FAILURE;
-    if (test_correctness("fft::bluestein::2", "../non-release/testdata/radix2.data", read_vectors_pair, &opencl_bluestein) == EXIT_FAILURE)
-      return EXIT_FAILURE;
+  //1D FFT tests
+  if (test_correctness("fft::direct", "../non-release/testdata/cufft.data", read_vectors_pair, &opencl_direct) == EXIT_FAILURE)
+    return EXIT_FAILURE;
+  if (test_correctness("fft::fft", "../non-release/testdata/cufft.data", read_vectors_pair, &opencl_fft) == EXIT_FAILURE)
+    return EXIT_FAILURE;
+  if (test_correctness("fft::batch::direct", "../non-release/testdata/batch_radix.data", read_vectors_pair, &opencl_direct) == EXIT_FAILURE)
+    return EXIT_FAILURE;
+  if (test_correctness("fft::radix2", "../non-release/testdata/radix2.data", read_vectors_pair, &opencl_radix2) == EXIT_FAILURE)
+    return EXIT_FAILURE;
+  if (test_correctness("fft::batch::radix2", "../non-release/testdata/batch_radix.data", read_vectors_pair, &opencl_radix2) == EXIT_FAILURE)
+    return EXIT_FAILURE;
+  if (test_correctness("fft::batch::fft", "../non-release/testdata/batch_radix.data", read_vectors_pair, &opencl_fft) == EXIT_FAILURE)
+    return EXIT_FAILURE;
+  if (test_correctness("fft::convolve::1", "../non-release/testdata/cufft.data", read_vectors_pair, &opencl_convolve) == EXIT_FAILURE)
+    return EXIT_FAILURE;
+  if (test_correctness("fft::convolve::2", "../non-release/testdata/radix2.data", read_vectors_pair, &opencl_convolve) == EXIT_FAILURE)
+    return EXIT_FAILURE;
+  if (test_correctness("fft::bluestein::1", "../non-release/testdata/cufft.data", read_vectors_pair, &opencl_bluestein) == EXIT_FAILURE)
+    return EXIT_FAILURE;
+  if (test_correctness("fft::bluestein::2", "../non-release/testdata/radix2.data", read_vectors_pair, &opencl_bluestein) == EXIT_FAILURE)
+    return EXIT_FAILURE;
 
-    //2D FFT tests
-    if (test_correctness("fft:2d::radix2::sml::1_arg", 
-                         "../non-release/testdata/fft2d_radix2.data", read_matrices_pair, &opencl_2d_fft_1arg) == EXIT_FAILURE)
-      return EXIT_FAILURE;
-    if (test_correctness("fft:2d::direct::sml::1_arg",
-                         "../non-release/testdata/fft2d_direct.data", read_matrices_pair, &opencl_2d_fft_1arg) == EXIT_FAILURE)
-      return EXIT_FAILURE;
-    if (test_correctness("fft:2d::direct::big::1_arg",
-                         "../non-release/testdata/fft2d_direct_big.data", read_matrices_pair, &opencl_2d_fft_1arg) == EXIT_FAILURE)
-      return EXIT_FAILURE;
+  //2D FFT tests
+  if (test_correctness("fft:2d::radix2::sml::1_arg", 
+                        "../non-release/testdata/fft2d_radix2.data", read_matrices_pair, &opencl_2d_fft_1arg) == EXIT_FAILURE)
+    return EXIT_FAILURE;
+  if (test_correctness("fft:2d::direct::sml::1_arg",
+                        "../non-release/testdata/fft2d_direct.data", read_matrices_pair, &opencl_2d_fft_1arg) == EXIT_FAILURE)
+    return EXIT_FAILURE;
+  if (test_correctness("fft:2d::direct::big::1_arg",
+                        "../non-release/testdata/fft2d_direct_big.data", read_matrices_pair, &opencl_2d_fft_1arg) == EXIT_FAILURE)
+    return EXIT_FAILURE;
 
-    if (test_correctness("fft:2d::radix2::sml::2_arg", 
-                         "../non-release/testdata/fft2d_radix2.data", read_matrices_pair, &opencl_2d_fft_2arg) == EXIT_FAILURE)
-      return EXIT_FAILURE;
-    if (test_correctness("fft:2d::direct::sml::2_arg",
-                         "../non-release/testdata/fft2d_direct.data", read_matrices_pair, &opencl_2d_fft_2arg) == EXIT_FAILURE)
-      return EXIT_FAILURE;
-    if (test_correctness("fft:2d::direct::bscalarig::2_arg", 
-                         "../non-release/testdata/fft2d_direct_big.data", read_matrices_pair, &opencl_2d_fft_2arg) == EXIT_FAILURE)
-      return EXIT_FAILURE;
+  if (test_correctness("fft:2d::radix2::sml::2_arg", 
+                        "../non-release/testdata/fft2d_radix2.data", read_matrices_pair, &opencl_2d_fft_2arg) == EXIT_FAILURE)
+    return EXIT_FAILURE;
+  if (test_correctness("fft:2d::direct::sml::2_arg",
+                        "../non-release/testdata/fft2d_direct.data", read_matrices_pair, &opencl_2d_fft_2arg) == EXIT_FAILURE)
+    return EXIT_FAILURE;
+  if (test_correctness("fft:2d::direct::bscalarig::2_arg", 
+                        "../non-release/testdata/fft2d_direct_big.data", read_matrices_pair, &opencl_2d_fft_2arg) == EXIT_FAILURE)
+    return EXIT_FAILURE;
 
+  std::cout << std::endl;
+  std::cout << "------- Test completed --------" << std::endl;
+  std::cout << std::endl;
+   
 
-    return EXIT_SUCCESS;
+  return EXIT_SUCCESS;
 }

@@ -33,9 +33,10 @@
 #include <math.h>
 #include <map>
 
-//local includes
+// ViennaCL includes
 #include "viennacl/linalg/detail/spai/spai_tag.hpp"
 #include "viennacl/linalg/qr.hpp"
+#include "viennacl/linalg/prod.hpp"
 #include "viennacl/linalg/detail/spai/spai-dynamic.hpp"
 #include "viennacl/linalg/detail/spai/spai-static.hpp"
 #include "viennacl/linalg/detail/spai/sparse_vector.hpp"
@@ -54,19 +55,6 @@
 #include "boost/numeric/ublas/lu.hpp"
 #include "boost/numeric/ublas/triangular.hpp"
 #include "boost/numeric/ublas/matrix_expression.hpp"
-
-// ViennaCL includes
-#include "viennacl/linalg/prod.hpp"
-#include "viennacl/matrix.hpp"
-#include "viennacl/compressed_matrix.hpp"
-#include "viennacl/linalg/compressed_matrix_operations.hpp"
-#include "viennacl/linalg/matrix_operations.hpp"
-#include "viennacl/scalar.hpp"
-#include "viennacl/linalg/inner_prod.hpp"
-#include "viennacl/linalg/ilu.hpp"
-#include "viennacl/ocl/backend.hpp"
-#include "viennacl/linalg/kernels/spai_source.h"
-#include "viennacl/linalg/kernels/spai_kernels.h"
 
 
 namespace viennacl
@@ -93,7 +81,7 @@ namespace viennacl
              * @param tag spai tag 
              */
             spai_precond(const MatrixType& A,
-                         const spai_tag& tag): _tag(tag){
+                         const spai_tag& tag): tag_(tag){
                 
                 //VCLMatrixType vcl_Ap((unsigned int)A.size2(), (unsigned int)A.size1()), vcl_A((unsigned int)A.size1(), (unsigned int)A.size2()), 
                 //vcl_At((unsigned int)A.size1(), (unsigned int)A.size2());
@@ -101,15 +89,15 @@ namespace viennacl
                 MatrixType pA(A.size1(), A.size2());
                 MatrixType At;
                 //std::cout<<A<<std::endl;
-                if(!_tag.getIsRight()){
+                if(!tag_.getIsRight()){
                     viennacl::linalg::detail::spai::sparse_transpose(A, At);
                 }else{
                     At = A;
                 }
                 pA = At;
-                viennacl::linalg::detail::spai::initPreconditioner(pA, _spai_m);
-                viennacl::linalg::detail::spai::computeSPAI(At, _spai_m, _tag);
-                //(At, pA, _tag.getIsRight(), _tag.getIsStatic(), (ScalarType)_tag.getResidualNormThreshold(), (unsigned int)_tag.getIterationLimit(),
+                viennacl::linalg::detail::spai::initPreconditioner(pA, spai_m_);
+                viennacl::linalg::detail::spai::computeSPAI(At, spai_m_, tag_);
+                //(At, pA, tag_.getIsRight(), tag_.getIsStatic(), (ScalarType)_tag.getResidualNormThreshold(), (unsigned int)_tag.getIterationLimit(),
                  //_spai_m);
                 
             }
@@ -117,13 +105,13 @@ namespace viennacl
              * @param vec rhs vector
              */
             void apply(VectorType& vec) const {
-                vec = viennacl::linalg::prod(_spai_m, vec);
+                vec = viennacl::linalg::prod(spai_m_, vec);
             }
         private:
             // variables
-            spai_tag _tag;
+            spai_tag tag_;
             // result of SPAI
-            MatrixType _spai_m;
+            MatrixType spai_m_;
         };   
         
         //VIENNACL version
@@ -143,7 +131,7 @@ namespace viennacl
              * @param tag spai tag
              */
             spai_precond(const MatrixType& A,
-                         const spai_tag& tag): _tag(tag)
+                         const spai_tag& tag): tag_(tag)
             {
                 viennacl::linalg::kernels::spai<ScalarType, 1>::init();
               
@@ -151,7 +139,7 @@ namespace viennacl
                 UBLASSparseMatrixType ubls_A, ubls_spai_m;
                 UBLASSparseMatrixType ubls_At;
                 viennacl::copy(A, ubls_A);;
-                if(!_tag.getIsRight()){
+                if(!tag_.getIsRight()){
                     viennacl::linalg::detail::spai::sparse_transpose(ubls_A, ubls_At);
                 }
                 else{
@@ -162,21 +150,21 @@ namespace viennacl
                 //execute SPAI with ublas matrix types
                 viennacl::linalg::detail::spai::initPreconditioner(ubls_At, ubls_spai_m);
                 viennacl::copy(ubls_At, At);
-                viennacl::linalg::detail::spai::computeSPAI(At, ubls_At, ubls_spai_m, _spai_m, _tag);
-                //viennacl::copy(ubls_spai_m, _spai_m);
+                viennacl::linalg::detail::spai::computeSPAI(At, ubls_At, ubls_spai_m, spai_m_, tag_);
+                //viennacl::copy(ubls_spai_m, spai_m_);
                 
             }
             /** @brief Application of current preconditioner, multiplication on the right-hand side vector
              * @param vec rhs vector
              */
             void apply(VectorType& vec) const {
-                vec = viennacl::linalg::prod(_spai_m, vec);
+                vec = viennacl::linalg::prod(spai_m_, vec);
             }
         private:
             // variables
-            spai_tag _tag;
+            spai_tag tag_;
             // result of SPAI
-            MatrixType _spai_m;
+            MatrixType spai_m_;
         };
         
         

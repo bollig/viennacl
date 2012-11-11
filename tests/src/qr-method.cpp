@@ -8,7 +8,7 @@ M=fscanfMat('nsm1.example');e=spec(M);e=gsort(e);rr=real(e);ii=imag(e);e=cat(1, 
   #define NDEBUG
 #endif
   
-#define VIENNACL_DEBUG_ALL
+//#define VIENNACL_DEBUG_ALL
 #include <iostream>
 #include <fstream>
 #include <stdexcept>
@@ -162,7 +162,7 @@ void test_eigen(const std::string& fn, bool is_symm)
 
     A_ref = A_input;
 
-    std::cout << "Caclulation..." << "\n";
+    std::cout << "Calculation..." << "\n";
     
     Timer timer;
     timer.start();
@@ -220,14 +220,18 @@ void test_eigen(const std::string& fn, bool is_symm)
 
 int main()
 {
-    // test_eigen("../../examples/testdata/eigen/symm1.example", true);
-    // test_eigen("../../examples/testdata/eigen/symm2.example", true);
-    // test_eigen("../../examples/testdata/eigen/symm3.example", true);
+  // test_eigen("../../examples/testdata/eigen/symm1.example", true);
+  // test_eigen("../../examples/testdata/eigen/symm2.example", true);
+  // test_eigen("../../examples/testdata/eigen/symm3.example", true);
 
-    test_eigen("../../examples/testdata/eigen/nsm1.example", false);
-    test_eigen("../../examples/testdata/eigen/nsm2.example", false);
-    test_eigen("../../examples/testdata/eigen/nsm3.example", false);
-    test_eigen("../../examples/testdata/eigen/nsm4.example", false);
+  test_eigen("../../examples/testdata/eigen/nsm1.example", false);
+  test_eigen("../../examples/testdata/eigen/nsm2.example", false);
+  test_eigen("../../examples/testdata/eigen/nsm3.example", false);
+  test_eigen("../../examples/testdata/eigen/nsm4.example", false);
 
-    return 0;
+  std::cout << std::endl;
+  std::cout << "------- Test completed --------" << std::endl;
+  std::cout << std::endl;
+   
+  return EXIT_SUCCESS;
 }

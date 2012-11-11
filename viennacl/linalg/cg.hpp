@@ -1,5 +1,5 @@
-#ifndef VIENNACL_CG_HPP_
-#define VIENNACL_CG_HPP_
+#ifndef VIENNACL_LINALG_CG_HPP_
+#define VIENNACL_LINALG_CG_HPP_
 
 /* =========================================================================
    Copyright (c) 2010-2012, Institute for Microelectronics,
@@ -17,7 +17,7 @@
    License:         MIT (X11), see file LICENSE in the base directory
 ============================================================================= */
 
-/** @file cg.hpp
+/** @file viennacl/linalg/cg.hpp
     @brief The conjugate gradient method is implemented here
 */
 
@@ -48,12 +48,12 @@ namespace viennacl
         * @param tol              Relative tolerance for the residual (solver quits if ||r|| < tol * ||r_initial||)
         * @param max_iterations   The maximum number of iterations
         */
-        cg_tag(double tol = 1e-8, unsigned int max_iterations = 300) : _tol(tol), _iterations(max_iterations) {};
+        cg_tag(double tol = 1e-8, unsigned int max_iterations = 300) : tol_(tol), iterations_(max_iterations) {};
       
         /** @brief Returns the relative tolerance */
-        double tolerance() const { return _tol; }
+        double tolerance() const { return tol_; }
         /** @brief Returns the maximum number of iterations */
-        unsigned int max_iterations() const { return _iterations; }
+        unsigned int max_iterations() const { return iterations_; }
         
         /** @brief Return the number of solver iterations: */
         unsigned int iters() const { return iters_taken_; }
@@ -66,8 +66,8 @@ namespace viennacl
         
         
       private:
-        double _tol;
-        unsigned int _iterations;
+        double tol_;
+        unsigned int iterations_;
         
         //return values from solver
         mutable unsigned int iters_taken_;
@@ -99,8 +99,6 @@ namespace viennacl
       VectorType p = rhs;
       VectorType tmp(problem_size);
 
-      ScalarType tmp_in_p;
-      ScalarType residual_norm_squared;
       CPU_ScalarType ip_rr = viennacl::linalg::inner_prod(rhs,rhs);
       CPU_ScalarType alpha;
       CPU_ScalarType new_ip_rr = 0;
@@ -116,28 +114,22 @@ namespace viennacl
         tag.iters(i+1);
         tmp = viennacl::linalg::prod(matrix, p);
 
-        //alpha = ip_rr / viennacl::linalg::inner_prod(tmp, p);
-        tmp_in_p = viennacl::linalg::inner_prod(tmp, p);
-        alpha = ip_rr / static_cast<CPU_ScalarType>(tmp_in_p);
-        
+        alpha = ip_rr / viennacl::linalg::inner_prod(tmp, p);
         result += alpha * p;
         residual -= alpha * tmp;
         
-        residual_norm_squared = viennacl::linalg::inner_prod(residual,residual);
-        new_ip_rr = static_cast<CPU_ScalarType>(residual_norm_squared);
+        new_ip_rr = viennacl::linalg::inner_prod(residual, residual);
         if (new_ip_rr / norm_rhs_squared < tag.tolerance() *  tag.tolerance())//squared norms involved here
           break;
         
         beta = new_ip_rr / ip_rr;
         ip_rr = new_ip_rr;
 
-        //p = residual + beta*p;
-        p *= beta;
-        p += residual;
+        p = residual + beta * p;
       } 
       
       //store last error estimate:
-      tag.error(sqrt(new_ip_rr / norm_rhs_squared));
+      tag.error(std::sqrt(new_ip_rr / norm_rhs_squared));
       
       return result;
     }
@@ -175,8 +167,6 @@ namespace viennacl
       precond.apply(z);
       VectorType p = z;
 
-      ScalarType tmp_in_p;
-      ScalarType residual_in_z;
       CPU_ScalarType ip_rr = viennacl::linalg::inner_prod(residual, z);
       CPU_ScalarType alpha;
       CPU_ScalarType new_ip_rr = 0;
@@ -192,16 +182,14 @@ namespace viennacl
         tag.iters(i+1);
         tmp = viennacl::linalg::prod(matrix, p);
         
-        tmp_in_p = viennacl::linalg::inner_prod(tmp, p);
-        alpha = ip_rr / static_cast<CPU_ScalarType>(tmp_in_p);
+        alpha = ip_rr / viennacl::linalg::inner_prod(tmp, p);
         
         result += alpha * p;
         residual -= alpha * tmp;
         z = residual;
         precond.apply(z);
         
-        residual_in_z = viennacl::linalg::inner_prod(residual, z);
-        new_ip_rr = static_cast<CPU_ScalarType>(residual_in_z);
+        new_ip_rr = viennacl::linalg::inner_prod(residual, z);
         new_ipp_rr_over_norm_rhs = new_ip_rr / norm_rhs_squared;
         if (std::fabs(new_ipp_rr_over_norm_rhs) < tag.tolerance() *  tag.tolerance())    //squared norms involved here
           break;
@@ -209,13 +197,11 @@ namespace viennacl
         beta = new_ip_rr / ip_rr;
         ip_rr = new_ip_rr;
         
-        //p = z + beta*p;
-        p *= beta;
-        p += z;
+        p = z + beta*p;
       } 
 
       //store last error estimate:
-      tag.error(sqrt(std::fabs(new_ip_rr / norm_rhs_squared)));
+      tag.error(std::sqrt(std::fabs(new_ip_rr / norm_rhs_squared)));
 
       return result;
     }

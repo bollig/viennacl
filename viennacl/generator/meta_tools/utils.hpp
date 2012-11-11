@@ -127,7 +127,6 @@ namespace viennacl
   T any_cast(any& a)
   {
     value<T>* v = dynamic_cast<value<T>*>(a.v);
-    
     if(v == 0)
       throw bad_any_cast();
     else
@@ -139,38 +138,45 @@ namespace viennacl
       enum { value = 1 };
   };
 
-  template<template<class> class T>
-  struct is_not{
-    template<class U>
-    struct Pred{
-      enum {
-        value = !T<U>::value
-      };
-    };
-  };
 
-  template<template<class> class S, template<class> class T>
-  struct and_is{
-    template<class U>
-    struct Pred{
-      enum {
-        value = S<U>::value && T<U>::value
-      };
-    };
-  };
-
-  template<template<class> class S, template<class> class T>
-  struct or_is{
-    template<class U>
-    struct Pred{
-      enum {
-        value = S<U>::value || T<U>::value
-      };
-    };
-  };
 
   namespace generator
   {
+
+  namespace result_of
+  {
+
+    template<template<class> class T>
+    struct is_not{
+      template<class U>
+      struct Pred{
+        enum {
+          value = !T<U>::value
+        };
+      };
+    };
+
+    template<template<class> class S, template<class> class T>
+    struct and_is{
+      template<class U>
+      struct Pred{
+        enum {
+          value = S<U>::value && T<U>::value
+        };
+      };
+    };
+
+    template<template<class> class S, template<class> class T>
+    struct or_is{
+      template<class U>
+      struct Pred{
+        enum {
+          value = S<U>::value || T<U>::value
+        };
+      };
+    };
+
+  }
 
     struct NullType 
     {

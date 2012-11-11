@@ -48,7 +48,7 @@ namespace viennacl
       typedef typename MatrixType::value_type      ScalarType;
       
       public:
-        jacobi_precond(MatrixType const & mat, jacobi_tag const & tag) : system_matrix(mat)
+        jacobi_precond(MatrixType const & mat, jacobi_tag const &) : system_matrix(mat)
         {
           assert(mat.size1() == mat.size2());
           diag_A_inv.resize(mat.size1());  //resize without preserving values
@@ -101,7 +101,7 @@ namespace viennacl
       typedef compressed_matrix<ScalarType, MAT_ALIGNMENT>   MatrixType;
       
       public:
-        jacobi_precond(MatrixType const & mat, jacobi_tag const & tag) : system_matrix(mat), diag_A_inv(mat.size1())
+        jacobi_precond(MatrixType const & mat, jacobi_tag const &) : system_matrix(mat), diag_A_inv(mat.size1())
         {
           assert(system_matrix.size1() == system_matrix.size2());
 
@@ -146,8 +146,8 @@ namespace viennacl
                                               viennacl::linalg::kernels::compressed_matrix<ScalarType, MAT_ALIGNMENT>::program_name(),
                                               "jacobi_precond");
 
-          viennacl::ocl::enqueue( k(system_matrix.handle1(), system_matrix.handle2(), system_matrix.handle(), 
-                                    diag_A_inv, static_cast<cl_uint>(diag_A_inv.size())) );        
+          viennacl::ocl::enqueue( k(system_matrix.handle1().opencl_handle(), system_matrix.handle2().opencl_handle(), system_matrix.handle().opencl_handle(), 
+                                    viennacl::traits::opencl_handle(diag_A_inv), static_cast<cl_uint>(diag_A_inv.size())) );        
         }
         
         
@@ -161,11 +161,11 @@ namespace viennacl
                                                                 "diag_precond");
 
           viennacl::ocl::enqueue(
-             k(viennacl::traits::handle(diag_A_inv),
+             k(viennacl::traits::opencl_handle(diag_A_inv),
                 cl_uint(viennacl::traits::start(diag_A_inv)),
                 cl_uint(viennacl::traits::stride(diag_A_inv)),
                 cl_uint(viennacl::traits::size(diag_A_inv)),
-               viennacl::traits::handle(vec),
+               viennacl::traits::opencl_handle(vec),
                 cl_uint(viennacl::traits::start(vec)),
                 cl_uint(viennacl::traits::stride(vec)),
                 cl_uint(viennacl::traits::size(vec)) )
