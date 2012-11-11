@@ -22,20 +22,23 @@
 */
 
 #include "viennacl/forwards.h"
-#include "viennacl/ocl/device.hpp"
-#include "viennacl/ocl/handle.hpp"
-#include "viennacl/ocl/kernel.hpp"
 #include "viennacl/scalar.hpp"
 #include "viennacl/tools/tools.hpp"
-#include "viennacl/linalg/kernels/vector_kernels.h"
 #include "viennacl/meta/predicate.hpp"
 #include "viennacl/meta/enable_if.hpp"
 #include "viennacl/traits/size.hpp"
 #include "viennacl/traits/start.hpp"
 #include "viennacl/traits/handle.hpp"
 #include "viennacl/traits/stride.hpp"
-#include "viennacl/linalg/opencl/vector_operations.hpp"
 #include "viennacl/linalg/single_threaded/vector_operations.hpp"
+
+#ifdef VIENNACL_WITH_OPENCL
+  #include "viennacl/linalg/opencl/vector_operations.hpp"
+#endif
+
+#ifdef VIENNACL_WITH_CUDA
+  #include "viennacl/linalg/cuda/vector_operations.hpp"
+#endif
 
 namespace viennacl
 {
@@ -50,16 +53,23 @@ namespace viennacl
     av(V1 & vec1, 
        V2 const & vec2, ScalarType1 const & alpha, std::size_t len_alpha, bool reciprocal_alpha, bool flip_sign_alpha) 
     {
-      assert(viennacl::traits::size(vec1) == viennacl::traits::size(vec2) && "Incompatible vector sizes in v1 = v2 @ alpha: size(v1) != size(v2)");
+      assert(viennacl::traits::size(vec1) == viennacl::traits::size(vec2) && bool("Incompatible vector sizes in v1 = v2 @ alpha: size(v1) != size(v2)"));
       
       switch (viennacl::traits::handle(vec1).get_active_handle_id())
       {
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::av(vec1, vec2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::av(vec1, vec2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::av(vec1, vec2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -79,8 +89,8 @@ namespace viennacl
          V2 const & vec2, ScalarType1 const & alpha, std::size_t len_alpha, bool reciprocal_alpha, bool flip_sign_alpha,
          V3 const & vec3, ScalarType2 const & beta, std::size_t len_beta, bool reciprocal_beta, bool flip_sign_beta) 
     {
-      assert(viennacl::traits::size(vec1) == viennacl::traits::size(vec2) && "Incompatible vector sizes in v1 = v2 @ alpha + v3 @ beta: size(v1) != size(v2)");
-      assert(viennacl::traits::size(vec2) == viennacl::traits::size(vec3) && "Incompatible vector sizes in v1 = v2 @ alpha + v3 @ beta: size(v2) != size(v3)");
+      assert(viennacl::traits::size(vec1) == viennacl::traits::size(vec2) && bool("Incompatible vector sizes in v1 = v2 @ alpha + v3 @ beta: size(v1) != size(v2)"));
+      assert(viennacl::traits::size(vec2) == viennacl::traits::size(vec3) && bool("Incompatible vector sizes in v1 = v2 @ alpha + v3 @ beta: size(v2) != size(v3)"));
       
       switch (viennacl::traits::handle(vec1).get_active_handle_id())
       {
@@ -89,11 +99,20 @@ namespace viennacl
                                                   vec2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha,
                                                   vec3,  beta, len_beta,  reciprocal_beta,  flip_sign_beta);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::avbv(vec1,
                                          vec2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha,
                                          vec3,  beta, len_beta,  reciprocal_beta,  flip_sign_beta);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::avbv(vec1,
+                                       vec2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha,
+                                       vec3,  beta, len_beta,  reciprocal_beta,  flip_sign_beta);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -113,8 +132,8 @@ namespace viennacl
            V2 const & vec2, ScalarType1 const & alpha, std::size_t len_alpha, bool reciprocal_alpha, bool flip_sign_alpha,
            V3 const & vec3, ScalarType2 const & beta,  std::size_t len_beta,  bool reciprocal_beta,  bool flip_sign_beta) 
     {
-      assert(viennacl::traits::size(vec1) == viennacl::traits::size(vec2) && "Incompatible vector sizes in v1 += v2 @ alpha + v3 @ beta: size(v1) != size(v2)");
-      assert(viennacl::traits::size(vec2) == viennacl::traits::size(vec3) && "Incompatible vector sizes in v1 += v2 @ alpha + v3 @ beta: size(v2) != size(v3)");
+      assert(viennacl::traits::size(vec1) == viennacl::traits::size(vec2) && bool("Incompatible vector sizes in v1 += v2 @ alpha + v3 @ beta: size(v1) != size(v2)"));
+      assert(viennacl::traits::size(vec2) == viennacl::traits::size(vec3) && bool("Incompatible vector sizes in v1 += v2 @ alpha + v3 @ beta: size(v2) != size(v3)"));
       
       switch (viennacl::traits::handle(vec1).get_active_handle_id())
       {
@@ -123,11 +142,20 @@ namespace viennacl
                                                     vec2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha,
                                                     vec3,  beta, len_beta,  reciprocal_beta,  flip_sign_beta);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::avbv_v(vec1,
                                            vec2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha,
                                            vec3,  beta, len_beta,  reciprocal_beta,  flip_sign_beta);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::avbv_v(vec1,
+                                         vec2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha,
+                                         vec3,  beta, len_beta,  reciprocal_beta,  flip_sign_beta);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -150,9 +178,16 @@ namespace viennacl
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::vector_assign(vec1, alpha);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::vector_assign(vec1, alpha);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::vector_assign(vec1, alpha);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -170,16 +205,23 @@ namespace viennacl
                                 >::type
     vector_swap(V1 & vec1, V2 & vec2)
     {
-      assert(viennacl::traits::size(vec1) == viennacl::traits::size(vec2) && "Incompatible vector sizes in vector_swap()");
+      assert(viennacl::traits::size(vec1) == viennacl::traits::size(vec2) && bool("Incompatible vector sizes in vector_swap()"));
 
       switch (viennacl::traits::handle(vec1).get_active_handle_id())
       {
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::vector_swap(vec1, vec2);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::vector_swap(vec1, vec2);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::vector_swap(vec1, vec2);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -206,14 +248,23 @@ namespace viennacl
                     V2 const & vec2,
                     S3 & result)
     {
+      assert( vec1.size() == vec2.size() && bool("Size mismatch") );
+      
       switch (viennacl::traits::handle(vec1).get_active_handle_id())
       {
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::inner_prod_impl(vec1, vec2, result);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::inner_prod_impl(vec1, vec2, result);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA          
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::inner_prod_impl(vec1, vec2, result);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -235,14 +286,23 @@ namespace viennacl
                    V2 const & vec2,
                    S3 & result)
     {
+      assert( vec1.size() == vec2.size() && bool("Size mismatch") );
+      
       switch (viennacl::traits::handle(vec1).get_active_handle_id())
       {
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::inner_prod_impl(vec1, vec2, result);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::inner_prod_cpu(vec1, vec2, result);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::inner_prod_cpu(vec1, vec2, result);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -288,9 +348,16 @@ namespace viennacl
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::norm_1_impl(vec, result);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::norm_1_impl(vec, result);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::norm_1_impl(vec, result);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -313,9 +380,16 @@ namespace viennacl
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::norm_2_impl(vec, result);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::norm_2_impl(vec, result);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::norm_2_impl(vec, result);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -338,9 +412,16 @@ namespace viennacl
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::norm_inf_impl(vec, result);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::norm_inf_impl(vec, result);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::norm_inf_impl(vec, result);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -364,8 +445,14 @@ namespace viennacl
       {
         case viennacl::backend::MAIN_MEMORY:
           return viennacl::linalg::single_threaded::index_norm_inf(vec);
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           return viennacl::linalg::opencl::index_norm_inf(vec);
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          return viennacl::linalg::cuda::index_norm_inf(vec);
+#endif
         default:
           throw "not implemented";
       }
@@ -396,9 +483,16 @@ namespace viennacl
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::plane_rotation(vec1, vec2, alpha, beta);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::plane_rotation(vec1, vec2, alpha, beta);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::plane_rotation(vec1, vec2, alpha, beta);
+          break;
+#endif
         default:
           throw "not implemented";
       }

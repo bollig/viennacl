@@ -23,7 +23,7 @@
 */
 
 /**
- @mainpage Source Code Documentation for ViennaCL 1.3.1
+ @mainpage Source Code Documentation for ViennaCL 1.4.0
 
  This is the source code documentation of ViennaCL. Detailed information about the functions in ViennaCL can be found here.
  
@@ -31,8 +31,22 @@
 
 */
 
+
+//compatibility defines:
+#ifdef VIENNACL_HAVE_UBLAS
+  #define VIENNACL_WITH_UBLAS
+#endif
+
+#ifdef VIENNACL_HAVE_EIGEN
+  #define VIENNACL_WITH_EIGEN
+#endif
+
+#ifdef VIENNACL_HAVE_MTL4
+  #define VIENNACL_WITH_MTL4
+#endif
+
 #include <cstddef>
-#include "viennacl/ocl/forwards.h"
+#include <cassert>
 #include "viennacl/meta/enable_if.hpp"
 
 namespace viennacl
@@ -238,6 +252,12 @@ namespace viennacl
 
   template <typename T>
   struct is_any_dense_nonstructured_matrix;
+  
+  template <typename T>
+  struct is_any_dense_nonstructured_transposed_matrix;
+  
+  template <typename T>
+  struct is_row_major;
   
   template <typename T>
   struct is_sparse_matrix;

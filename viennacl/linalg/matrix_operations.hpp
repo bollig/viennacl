@@ -1,5 +1,5 @@
-#ifndef VIENNACL_MATRIX_OPERATIONS_HPP_
-#define VIENNACL_MATRIX_OPERATIONS_HPP_
+#ifndef VIENNACL_LINALG_MATRIX_OPERATIONS_HPP_
+#define VIENNACL_LINALG_MATRIX_OPERATIONS_HPP_
 
 /* =========================================================================
    Copyright (c) 2010-2012, Institute for Microelectronics,
@@ -17,14 +17,11 @@
    License:         MIT (X11), see file LICENSE in the base directory
 ============================================================================= */
 
-/** @file matrix_operations.hpp
+/** @file viennacl/linalg/matrix_operations.hpp
     @brief Implementations of dense matrix related operations. also matrix-vector products.
 */
 
 #include "viennacl/forwards.h"
-#include "viennacl/ocl/device.hpp"
-#include "viennacl/ocl/handle.hpp"
-#include "viennacl/ocl/kernel.hpp"
 #include "viennacl/scalar.hpp"
 #include "viennacl/vector.hpp"
 #include "viennacl/vector_proxy.hpp"
@@ -36,9 +33,15 @@
 #include "viennacl/traits/start.hpp"
 #include "viennacl/traits/handle.hpp"
 #include "viennacl/traits/stride.hpp"
-
-#include "viennacl/linalg/opencl/matrix_operations.hpp"
 #include "viennacl/linalg/single_threaded/matrix_operations.hpp"
+
+#ifdef VIENNACL_WITH_OPENCL
+  #include "viennacl/linalg/opencl/matrix_operations.hpp"
+#endif
+
+#ifdef VIENNACL_WITH_CUDA
+  #include "viennacl/linalg/cuda/matrix_operations.hpp"
+#endif
 
 namespace viennacl
 {
@@ -59,9 +62,16 @@ namespace viennacl
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::am(mat1, mat2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::am(mat1, mat2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::am(mat1, mat2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -88,11 +98,20 @@ namespace viennacl
                                                   mat2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha,
                                                   mat3,  beta, len_beta,  reciprocal_beta,  flip_sign_beta);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::ambm(mat1,
                                          mat2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha,
                                          mat3,  beta, len_beta,  reciprocal_beta,  flip_sign_beta);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::ambm(mat1,
+                                       mat2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha,
+                                       mat3,  beta, len_beta,  reciprocal_beta,  flip_sign_beta);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -119,11 +138,20 @@ namespace viennacl
                                                     mat2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha,
                                                     mat3,  beta, len_beta,  reciprocal_beta,  flip_sign_beta);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::ambm_m(mat1,
                                            mat2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha,
                                            mat3,  beta, len_beta,  reciprocal_beta,  flip_sign_beta);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::ambm_m(mat1,
+                                         mat2, alpha, len_alpha, reciprocal_alpha, flip_sign_alpha,
+                                         mat3,  beta, len_beta,  reciprocal_beta,  flip_sign_beta);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -172,17 +200,24 @@ namespace viennacl
               const VectorType1 & vec, 
                     VectorType2 & result)
     {
-      assert( (viennacl::traits::size1(mat) == viennacl::traits::size(result)) && "Size check failed at v1 = prod(A, v2): size1(A) != size(v1)");
-      assert( (viennacl::traits::size2(mat) == viennacl::traits::size(vec))    && "Size check failed at v1 = prod(A, v2): size2(A) != size(v2)");
+      assert( (viennacl::traits::size1(mat) == viennacl::traits::size(result)) && bool("Size check failed at v1 = prod(A, v2): size1(A) != size(v1)"));
+      assert( (viennacl::traits::size2(mat) == viennacl::traits::size(vec))    && bool("Size check failed at v1 = prod(A, v2): size2(A) != size(v2)"));
       
       switch (viennacl::traits::handle(mat).get_active_handle_id())
       {
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::prod_impl(mat, vec, result);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::prod_impl(mat, vec, result);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::prod_impl(mat, vec, result);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -232,17 +267,24 @@ namespace viennacl
               const V1 & vec, 
                     V2 & result)
     {
-      assert( (viennacl::traits::size1(mat_trans.lhs()) == viennacl::traits::size(vec))    && "Size check failed at v1 = trans(A) * v2: size1(A) != size(v2)");
-      assert( (viennacl::traits::size2(mat_trans.lhs()) == viennacl::traits::size(result)) && "Size check failed at v1 = trans(A) * v2: size2(A) != size(v1)");
+      assert( (viennacl::traits::size1(mat_trans.lhs()) == viennacl::traits::size(vec))    && bool("Size check failed at v1 = trans(A) * v2: size1(A) != size(v2)"));
+      assert( (viennacl::traits::size2(mat_trans.lhs()) == viennacl::traits::size(result)) && bool("Size check failed at v1 = trans(A) * v2: size2(A) != size(v1)"));
       
       switch (viennacl::traits::handle(mat_trans.lhs()).get_active_handle_id())
       {
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::prod_impl(mat_trans, vec, result);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::prod_impl(mat_trans, vec, result);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::prod_impl(mat_trans, vec, result);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -269,9 +311,9 @@ namespace viennacl
               ScalarType alpha,
               ScalarType beta)
     {
-      assert( (viennacl::traits::size1(A) == viennacl::traits::size1(C)) && "Size check failed at C = prod(A, B): size1(A) != size1(C)");
-      assert( (viennacl::traits::size2(A) == viennacl::traits::size1(B)) && "Size check failed at C = prod(A, B): size2(A) != size1(B)");
-      assert( (viennacl::traits::size2(B) == viennacl::traits::size2(C)) && "Size check failed at C = prod(A, B): size2(B) != size2(C)");
+      assert( (viennacl::traits::size1(A) == viennacl::traits::size1(C)) && bool("Size check failed at C = prod(A, B): size1(A) != size1(C)"));
+      assert( (viennacl::traits::size2(A) == viennacl::traits::size1(B)) && bool("Size check failed at C = prod(A, B): size2(A) != size1(B)"));
+      assert( (viennacl::traits::size2(B) == viennacl::traits::size2(C)) && bool("Size check failed at C = prod(A, B): size2(B) != size2(C)"));
 
       
       switch (viennacl::traits::handle(A).get_active_handle_id())
@@ -279,9 +321,16 @@ namespace viennacl
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::prod_impl(A, B, C, alpha, beta);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::prod_impl(A, B, C, alpha, beta);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::prod_impl(A, B, C, alpha, beta);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -307,18 +356,25 @@ namespace viennacl
               ScalarType alpha,
               ScalarType beta)
     {
-      assert(viennacl::traits::size2(A.lhs()) == viennacl::traits::size1(C) && "Size check failed at C = prod(trans(A), B): size2(A) != size1(C)");
-      assert(viennacl::traits::size1(A.lhs()) == viennacl::traits::size1(B) && "Size check failed at C = prod(trans(A), B): size1(A) != size1(B)");
-      assert(viennacl::traits::size2(B)       == viennacl::traits::size2(C) && "Size check failed at C = prod(trans(A), B): size2(B) != size2(C)");
+      assert(viennacl::traits::size2(A.lhs()) == viennacl::traits::size1(C) && bool("Size check failed at C = prod(trans(A), B): size2(A) != size1(C)"));
+      assert(viennacl::traits::size1(A.lhs()) == viennacl::traits::size1(B) && bool("Size check failed at C = prod(trans(A), B): size1(A) != size1(B)"));
+      assert(viennacl::traits::size2(B)       == viennacl::traits::size2(C) && bool("Size check failed at C = prod(trans(A), B): size2(B) != size2(C)"));
       
       switch (viennacl::traits::handle(A.lhs()).get_active_handle_id())
       {
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::prod_impl(A, B, C, alpha, beta);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::prod_impl(A, B, C, alpha, beta);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::prod_impl(A, B, C, alpha, beta);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -343,18 +399,25 @@ namespace viennacl
               ScalarType alpha,
               ScalarType beta)
     {
-      assert(viennacl::traits::size1(A)       == viennacl::traits::size1(C)       && "Size check failed at C = prod(A, trans(B)): size1(A) != size1(C)");
-      assert(viennacl::traits::size2(A)       == viennacl::traits::size2(B.lhs()) && "Size check failed at C = prod(A, trans(B)): size2(A) != size2(B)");
-      assert(viennacl::traits::size1(B.lhs()) == viennacl::traits::size2(C)       && "Size check failed at C = prod(A, trans(B)): size1(B) != size2(C)");
+      assert(viennacl::traits::size1(A)       == viennacl::traits::size1(C)       && bool("Size check failed at C = prod(A, trans(B)): size1(A) != size1(C)"));
+      assert(viennacl::traits::size2(A)       == viennacl::traits::size2(B.lhs()) && bool("Size check failed at C = prod(A, trans(B)): size2(A) != size2(B)"));
+      assert(viennacl::traits::size1(B.lhs()) == viennacl::traits::size2(C)       && bool("Size check failed at C = prod(A, trans(B)): size1(B) != size2(C)"));
       
       switch (viennacl::traits::handle(A).get_active_handle_id())
       {
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::prod_impl(A, B, C, alpha, beta);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::prod_impl(A, B, C, alpha, beta);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::prod_impl(A, B, C, alpha, beta);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -378,18 +441,25 @@ namespace viennacl
               ScalarType alpha,
               ScalarType beta)
     {
-      assert(viennacl::traits::size2(A.lhs()) == viennacl::traits::size1(C)       && "Size check failed at C = prod(trans(A), trans(B)): size2(A) != size1(C)");
-      assert(viennacl::traits::size1(A.lhs()) == viennacl::traits::size2(B.lhs()) && "Size check failed at C = prod(trans(A), trans(B)): size1(A) != size2(B)");
-      assert(viennacl::traits::size1(B.lhs()) == viennacl::traits::size2(C)       && "Size check failed at C = prod(trans(A), trans(B)): size1(B) != size2(C)");
+      assert(viennacl::traits::size2(A.lhs()) == viennacl::traits::size1(C)       && bool("Size check failed at C = prod(trans(A), trans(B)): size2(A) != size1(C)"));
+      assert(viennacl::traits::size1(A.lhs()) == viennacl::traits::size2(B.lhs()) && bool("Size check failed at C = prod(trans(A), trans(B)): size1(A) != size2(B)"));
+      assert(viennacl::traits::size1(B.lhs()) == viennacl::traits::size2(C)       && bool("Size check failed at C = prod(trans(A), trans(B)): size1(B) != size2(C)"));
       
       switch (viennacl::traits::handle(A.lhs()).get_active_handle_id())
       {
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::prod_impl(A, B, C, alpha, beta);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::prod_impl(A, B, C, alpha, beta);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::prod_impl(A, B, C, alpha, beta);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -446,11 +516,20 @@ namespace viennacl
                                                                   alpha, len_alpha, reciprocal_alpha, flip_sign_alpha,
                                                                   vec1, vec2);
           break;
+#ifdef VIENNACL_WITH_OPENCL          
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::scaled_rank_1_update(mat1,
                                                          alpha, len_alpha, reciprocal_alpha, flip_sign_alpha,
                                                          vec1, vec2);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::scaled_rank_1_update(mat1,
+                                                       alpha, len_alpha, reciprocal_alpha, flip_sign_alpha,
+                                                       vec1, vec2);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -484,7 +563,7 @@ namespace viennacl
                                                                                         const V1,
                                                                                         viennacl::op_prod> & proxy) 
   {
-    assert(viennacl::traits::size1(proxy.lhs()) == size() && "Size check failed for v1 = A * v2: size1(A) != size(v1)");
+    assert(viennacl::traits::size1(proxy.lhs()) == size() && bool("Size check failed for v1 = A * v2: size1(A) != size(v1)"));
     
     // check for the special case x = A * x
     if (viennacl::traits::handle(proxy.rhs()) == viennacl::traits::handle(*this))
@@ -516,7 +595,7 @@ namespace viennacl
   {
     typedef typename viennacl::result_of::cpu_value_type<V1>::type   cpu_value_type;
     
-    assert(viennacl::traits::size1(proxy.lhs()) == v1.size() && "Size check failed for v1 += A * v2: size1(A) != size(v1)");
+    assert(viennacl::traits::size1(proxy.lhs()) == v1.size() && bool("Size check failed for v1 += A * v2: size1(A) != size(v1)"));
     
     vector<cpu_value_type> result(viennacl::traits::size1(proxy.lhs()));
     viennacl::linalg::prod_impl(proxy.lhs(), proxy.rhs(), result);
@@ -539,7 +618,7 @@ namespace viennacl
   {
     typedef typename viennacl::result_of::cpu_value_type<V1>::type   cpu_value_type;
     
-    assert(viennacl::traits::size1(proxy.lhs()) == v1.size() && "Size check failed for v1 -= A * v2: size1(A) != size(v1)");
+    assert(viennacl::traits::size1(proxy.lhs()) == v1.size() && bool("Size check failed for v1 -= A * v2: size1(A) != size(v1)"));
     
     vector<cpu_value_type> result(viennacl::traits::size1(proxy.lhs()));
     viennacl::linalg::prod_impl(proxy.lhs(), proxy.rhs(), result);
@@ -566,7 +645,7 @@ namespace viennacl
   operator+(const V1 & v1,
             const vector_expression< const M1, const V2, op_prod> & proxy) 
   {
-    assert(viennacl::traits::size1(proxy.lhs()) == viennacl::traits::size(v1) && "Size check failed for v1 + A * v2: size1(A) != size(v1)");
+    assert(viennacl::traits::size1(proxy.lhs()) == viennacl::traits::size(v1) && bool("Size check failed for v1 + A * v2: size1(A) != size(v1)"));
     
     vector<typename viennacl::result_of::cpu_value_type<V1>::type,
            viennacl::result_of::alignment<V1>::value> result(viennacl::traits::size(v1));
@@ -589,7 +668,7 @@ namespace viennacl
   operator-(const V1 & v1,
             const vector_expression< const M1, const V2, op_prod> & proxy) 
   {
-    assert(viennacl::traits::size1(proxy.lhs()) == viennacl::traits::size(v1) && "Size check failed for v1 - A * v2: size1(A) != size(v1)");
+    assert(viennacl::traits::size1(proxy.lhs()) == viennacl::traits::size(v1) && bool("Size check failed for v1 - A * v2: size1(A) != size(v1)"));
     
     vector<typename viennacl::result_of::cpu_value_type<V1>::type,
            viennacl::result_of::alignment<V1>::value> result(viennacl::traits::size(v1));
@@ -617,7 +696,7 @@ namespace viennacl
                                                                                         const V1,
                                                                                         viennacl::op_prod> & proxy) 
   {
-    assert(viennacl::traits::size1(proxy.lhs()) == size() && "Size check failed in v1 = trans(A) * v2: size2(A) != size(v1)");
+    assert(viennacl::traits::size1(proxy.lhs()) == size() && bool("Size check failed in v1 = trans(A) * v2: size2(A) != size(v1)"));
 
     // check for the special case x = trans(A) * x
     if (viennacl::traits::handle(proxy.rhs()) == viennacl::traits::handle(*this))
@@ -625,12 +704,10 @@ namespace viennacl
       viennacl::vector<SCALARTYPE, ALIGNMENT> result(viennacl::traits::size1(proxy.lhs()));
       viennacl::linalg::prod_impl(proxy.lhs(), proxy.rhs(), result);
       *this = result;
-      return *this;
     }
     else
     {
       viennacl::linalg::prod_impl(proxy.lhs(), proxy.rhs(), *this);
-      return *this;
     }
     return *this;
   }
@@ -652,7 +729,7 @@ namespace viennacl
   {
     typedef typename viennacl::result_of::cpu_value_type<V1>::type   cpu_value_type;
     
-    assert(viennacl::traits::size2(proxy.lhs()) == v1.size() && "Size check failed in v1 += trans(A) * v2: size2(A) != size(v1)");
+    assert(viennacl::traits::size2(proxy.lhs()) == v1.size() && bool("Size check failed in v1 += trans(A) * v2: size2(A) != size(v1)"));
     
     vector<cpu_value_type> result(viennacl::traits::size2(proxy.lhs()));
     viennacl::linalg::prod_impl(proxy.lhs(), proxy.rhs(), result);
@@ -676,7 +753,7 @@ namespace viennacl
   {
     typedef typename viennacl::result_of::cpu_value_type<V1>::type   cpu_value_type;
     
-    assert(viennacl::traits::size2(proxy.lhs()) == v1.size() && "Size check failed in v1 += trans(A) * v2: size2(A) != size(v1)");
+    assert(viennacl::traits::size2(proxy.lhs()) == v1.size() && bool("Size check failed in v1 += trans(A) * v2: size2(A) != size(v1)"));
     
     vector<cpu_value_type> result(viennacl::traits::size2(proxy.lhs()));
     viennacl::linalg::prod_impl(proxy.lhs(), proxy.rhs(), result);
@@ -702,7 +779,7 @@ namespace viennacl
                                     const V2,
                                     op_prod> & proxy) 
   {
-    assert(viennacl::traits::size2(proxy.lhs()) == viennacl::traits::size(v1) && "Size check failed in v1 + trans(A) * v2: size2(A) != size(v1)");
+    assert(viennacl::traits::size2(proxy.lhs()) == viennacl::traits::size(v1) && bool("Size check failed in v1 + trans(A) * v2: size2(A) != size(v1)"));
     
     vector<typename viennacl::result_of::cpu_value_type<V1>::type,
            viennacl::result_of::alignment<V1>::value> result(viennacl::traits::size(v1));
@@ -727,7 +804,7 @@ namespace viennacl
                                      const V2,
                                      op_prod> & proxy) 
   {
-    assert(viennacl::traits::size2(proxy.lhs()) == viennacl::traits::size(v1) && "Size check failed in v1 - trans(A) * v2: size2(A) != size(v1)");
+    assert(viennacl::traits::size2(proxy.lhs()) == viennacl::traits::size(v1) && bool("Size check failed in v1 - trans(A) * v2: size2(A) != size(v1)"));
     
     vector<typename viennacl::result_of::cpu_value_type<V1>::type,
            viennacl::result_of::alignment<V1>::value> result(viennacl::traits::size(v1));

@@ -14,6 +14,9 @@
    License:         MIT (X11), see file LICENSE in the base directory
 ============================================================================= */
 
+#ifndef VIENNACL_WITH_OPENCL
+  #define VIENNACL_WITH_OPENCL
+#endif
 
 #include "viennacl/scalar.hpp"
 #include "viennacl/vector.hpp"

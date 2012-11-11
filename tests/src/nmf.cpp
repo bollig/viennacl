@@ -1,6 +1,7 @@
 #include <ctime>
 #include <cmath>
 
+
 #include "viennacl/linalg/prod.hpp"
 #include "viennacl/linalg/nmf.hpp"
 

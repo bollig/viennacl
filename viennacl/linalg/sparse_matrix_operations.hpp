@@ -25,8 +25,15 @@
 #include "viennacl/scalar.hpp"
 #include "viennacl/vector.hpp"
 #include "viennacl/tools/tools.hpp"
-#include "viennacl/linalg/opencl/sparse_matrix_operations.hpp"
 #include "viennacl/linalg/single_threaded/sparse_matrix_operations.hpp"
+
+#ifdef VIENNACL_WITH_OPENCL
+  #include "viennacl/linalg/opencl/sparse_matrix_operations.hpp"
+#endif
+
+#ifdef VIENNACL_WITH_CUDA
+  #include "viennacl/linalg/cuda/sparse_matrix_operations.hpp"
+#endif
 
 namespace viennacl
 {
@@ -57,7 +64,7 @@ namespace viennacl
     }
     
     
-    /** @brief Carries out matrix-vector multiplication with a coordinate_matrix
+    /** @brief Carries out matrix-vector multiplication involving a sparse matrix type
     *
     * Implementation of the convenience expression result = prod(mat, vec);
     *
@@ -71,17 +78,24 @@ namespace viennacl
               const viennacl::vector<ScalarType, ALIGNMENT> & vec,
                     viennacl::vector<ScalarType, ALIGNMENT> & result)
     {
-      assert( (mat.size1() == result.size()) && "Size check failed for compressed matrix-vector product: size1(mat) != size(result)");
-      assert( (mat.size2() == vec.size())    && "Size check failed for compressed matrix-vector product: size2(mat) != size(x)");
+      assert( (mat.size1() == result.size()) && bool("Size check failed for compressed matrix-vector product: size1(mat) != size(result)"));
+      assert( (mat.size2() == vec.size())    && bool("Size check failed for compressed matrix-vector product: size2(mat) != size(x)"));
 
       switch (viennacl::traits::handle(mat).get_active_handle_id())
       {
         case viennacl::backend::MAIN_MEMORY:
           viennacl::linalg::single_threaded::prod_impl(mat, vec, result);
           break;
+#ifdef VIENNACL_WITH_OPENCL
         case viennacl::backend::OPENCL_MEMORY:
           viennacl::linalg::opencl::prod_impl(mat, vec, result);
           break;
+#endif
+#ifdef VIENNACL_WITH_CUDA
+        case viennacl::backend::CUDA_MEMORY:
+          viennacl::linalg::cuda::prod_impl(mat, vec, result);
+          break;
+#endif
         default:
           throw "not implemented";
       }
@@ -161,7 +175,7 @@ namespace viennacl
     operator+(viennacl::vector<SCALARTYPE, ALIGNMENT> & result,
               const viennacl::vector_expression< const SparseMatrixType, const viennacl::vector<SCALARTYPE, ALIGNMENT>, viennacl::op_prod> & proxy) 
     {
-      assert(proxy.lhs().size1() == result.size() && "Dimensions for addition of sparse matrix-vector product to vector don't match!");
+      assert(proxy.lhs().size1() == result.size() && bool("Dimensions for addition of sparse matrix-vector product to vector don't match!"));
       vector<SCALARTYPE, ALIGNMENT> temp(proxy.lhs().size1());
       viennacl::linalg::prod_impl(proxy.lhs(), proxy.rhs(), temp);
       result += temp;
@@ -178,7 +192,7 @@ namespace viennacl
     operator-(viennacl::vector<SCALARTYPE, ALIGNMENT> & result,
               const viennacl::vector_expression< const SparseMatrixType, const viennacl::vector<SCALARTYPE, ALIGNMENT>, viennacl::op_prod> & proxy) 
     {
-      assert(proxy.lhs().size1() == result.size() && "Dimensions for addition of sparse matrix-vector product to vector don't match!");
+      assert(proxy.lhs().size1() == result.size() && bool("Dimensions for addition of sparse matrix-vector product to vector don't match!"));
       vector<SCALARTYPE, ALIGNMENT> temp(proxy.lhs().size1());
       viennacl::linalg::prod_impl(proxy.lhs(), proxy.rhs(), temp);
       result += temp;

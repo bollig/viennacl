@@ -17,6 +17,10 @@
 //#define VIENNACL_DEBUG_ALL
 //#define NDEBUG
 
+#ifndef VIENNACL_WITH_OPENCL
+  #define VIENNACL_WITH_OPENCL
+#endif
+
 #include "viennacl/scalar.hpp"
 #include "viennacl/vector.hpp"
 #include "viennacl/matrix.hpp"

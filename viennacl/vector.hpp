@@ -116,8 +116,8 @@ namespace viennacl
         *   @param stride Stride for the support of vector_slice
         */        
         const_vector_iterator(vector<SCALARTYPE, ALIGNMENT> const & vec,
-                              cl_uint index,
-                              cl_uint start = 0,
+                              std::size_t index,
+                              std::size_t start = 0,
                               vcl_ptrdiff_t stride = 1) : elements_(vec.handle()), index_(index), start_(start), stride_(stride) {};
                               
         /** @brief Constructor for vector-like treatment of arbitrary buffers
@@ -127,8 +127,8 @@ namespace viennacl
         *   @param stride    Stride for the support of vector_slice
         */        
         const_vector_iterator(handle_type const & elements,
-                              cl_uint index,
-                              cl_uint start = 0,
+                              std::size_t index,
+                              std::size_t start = 0,
                               vcl_ptrdiff_t stride = 1) : elements_(elements), index_(index), start_(start), stride_(stride) {};
 
         /** @brief Dereferences the iterator and returns the value of the element. For convenience only, performance is poor due to OpenCL overhead! */
@@ -153,7 +153,7 @@ namespace viennacl
 
         difference_type operator-(self_type const & other) const 
         {
-          assert( (other.start_ == start_) && (other.stride_ == stride_) && "Iterators are not from the same vector (proxy)!");
+          assert( (other.start_ == start_) && (other.stride_ == stride_) && bool("Iterators are not from the same vector (proxy)!"));
           return static_cast<difference_type>(index_) - static_cast<difference_type>(other.index_); 
         }
         self_type operator+(difference_type diff) const { return self_type(elements_, index_ + diff * stride_, start_, stride_); }
@@ -203,10 +203,10 @@ namespace viennacl
         typedef typename base_type::handle_type               handle_type;
         typedef typename base_type::difference_type           difference_type;
         
-        vector_iterator() : base_type(){};
+        vector_iterator() : base_type(), elements_(NULL) {};
         vector_iterator(handle_type & elements,
                         std::size_t index,
-                        cl_uint start = 0,
+                        std::size_t start = 0,
                         vcl_ptrdiff_t stride = 1)  : base_type(elements, index, start, stride), elements_(elements) {};
         /** @brief Constructor
         *   @param vec    The vector over which to iterate
@@ -214,7 +214,7 @@ namespace viennacl
         */        
         vector_iterator(vector<SCALARTYPE, ALIGNMENT> & vec,
                         std::size_t index,
-                        cl_uint start = 0,
+                        std::size_t start = 0,
                         vcl_ptrdiff_t stride = 1) : base_type(vec, index, start, stride), elements_(vec.handle()) {};
         //vector_iterator(base_type const & b) : base_type(b) {};
 
@@ -231,10 +231,10 @@ namespace viennacl
         handle_type       & handle()       { return elements_; }
         handle_type const & handle() const { return base_type::elements_; }
         
-        operator base_type() const
-        {
-          return base_type(base_type::elements_, base_type::index_, base_type::start_, base_type::stride_);
-        }
+        //operator base_type() const
+        //{
+        //  return base_type(base_type::elements_, base_type::index_, base_type::start_, base_type::stride_);
+        //}
       private:
         handle_type & elements_;
     };
@@ -273,8 +273,6 @@ namespace viennacl
       */
       explicit vector(size_type vec_size) : size_(vec_size)
       {
-        viennacl::linalg::kernels::vector<SCALARTYPE, ALIGNMENT>::init(); 
-        
         if (size_ > 0)
         {
           std::vector<SCALARTYPE> temp(internal_size());
@@ -290,20 +288,18 @@ namespace viennacl
       * @param existing_mem   An OpenCL handle representing the memory
       * @param vec_size       The size of the vector. 
       */
+#ifdef VIENNACL_WITH_OPENCL
       explicit vector(cl_mem existing_mem, size_type vec_size) : size_(vec_size)
       {
-        viennacl::linalg::kernels::vector<SCALARTYPE, 1>::init(); 
-        
         elements_.switch_active_handle_id(viennacl::backend::OPENCL_MEMORY);
         elements_.opencl_handle() = existing_mem;
         elements_.opencl_handle().inc();  //prevents that the user-provided memory is deleted once the vector object is destroyed.
       }
+#endif
       
       template <typename LHS, typename RHS, typename OP>
       vector(vector_expression<LHS, RHS, OP> const & proxy) : size_(proxy.size())
       {
-        viennacl::linalg::kernels::vector<SCALARTYPE, 1>::init(); 
-        
         elements_.switch_active_handle_id(viennacl::traits::active_handle_id(proxy));
         viennacl::backend::memory_create(elements_, sizeof(SCALARTYPE)*proxy.size());
         *this = proxy;
@@ -315,8 +311,6 @@ namespace viennacl
       */
       vector(const self_type & vec) : size_(vec.size())
       {
-        viennacl::linalg::kernels::vector<SCALARTYPE, 1>::init(); 
-        
         if (size() != 0)
         {
           elements_.switch_active_handle_id(vec.handle().get_active_handle_id());
@@ -347,7 +341,7 @@ namespace viennacl
       self_type & operator=(const self_type & vec)
       {
         assert( ( (vec.size() == size()) || (size() == 0) )
-                && "Incompatible vector sizes!");
+                && bool("Incompatible vector sizes!"));
 
         if (size() != 0)
           viennacl::backend::memory_copy(vec.handle(), elements_, 0, 0, sizeof(SCALARTYPE)*internal_size());
@@ -376,7 +370,7 @@ namespace viennacl
       operator = (const vector_expression< const V1, const S1, OP> & proxy)
       {
         assert( ( (proxy.lhs().size() == size()) || (size() == 0) )
-                && "Incompatible vector sizes!");
+                && bool("Incompatible vector sizes!"));
         
         if (size() == 0)
         {
@@ -405,7 +399,7 @@ namespace viennacl
                                            OP> & proxy)
       {
         assert( ( (proxy.lhs().size() == size()) || (size() == 0) )
-                && "Incompatible vector sizes!");
+                && bool("Incompatible vector sizes!"));
         
         if (size() == 0)
         {
@@ -436,7 +430,7 @@ namespace viennacl
                                            OP> & proxy)
       {
         assert( ( (proxy.lhs().size() == size()) || (size() == 0) )
-                && "Incompatible vector sizes!");
+                && bool("Incompatible vector sizes!"));
         
         if (size() == 0)
         {
@@ -472,7 +466,7 @@ namespace viennacl
                                            OP> & proxy)
       {
         assert( ( (proxy.size() == size()) || (size() == 0) )
-                && "Incompatible vector sizes!");
+                && bool("Incompatible vector sizes!"));
         
         if (size() == 0)
         {
@@ -503,7 +497,7 @@ namespace viennacl
                                            OP> & proxy)
       {
         assert( ( (proxy.lhs().size() == size()) || (size() == 0) )
-                && "Incompatible vector sizes!");
+                && bool("Incompatible vector sizes!"));
         
         if (size() == 0)
         {
@@ -531,7 +525,7 @@ namespace viennacl
       operator = (const V1 & v1)
       {
         assert( ( (v1.size() == size()) || (size() == 0) )
-                && "Incompatible vector sizes!");
+                && bool("Incompatible vector sizes!"));
         
         if (this->size() > 0)
           viennacl::linalg::av(*this, 
@@ -789,10 +783,7 @@ namespace viennacl
       */
       void resize(size_type new_size, bool preserve = true)
       {
-        assert(new_size > 0 && "Positive size required when resizing vector!");
-        
-        if (size() == 0)  // Required for some corner cases when no vector with nonzero size has been created yet.
-          viennacl::linalg::kernels::vector<SCALARTYPE, 1>::init(); 
+        assert(new_size > 0 && bool("Positive size required when resizing vector!"));
         
         if (new_size != size_)
         {
@@ -821,7 +812,7 @@ namespace viennacl
       */
       entry_proxy<SCALARTYPE> operator()(size_type index)
       {
-        assert( (size() > 0)  && "Cannot apply operator() to vector of size zero!");
+        assert( (size() > 0)  && bool("Cannot apply operator() to vector of size zero!"));
         
         return entry_proxy<SCALARTYPE>(index, elements_);
       }
@@ -830,7 +821,7 @@ namespace viennacl
       */
       entry_proxy<SCALARTYPE> operator[](size_type index)
       {
-        assert( (size() > 0)  && "Cannot apply operator() to vector of size zero!");
+        assert( (size() > 0)  && bool("Cannot apply operator() to vector of size zero!"));
         
         return entry_proxy<SCALARTYPE>(index, elements_);
       }
@@ -840,7 +831,7 @@ namespace viennacl
       */
       const entry_proxy<SCALARTYPE> operator()(size_type index) const
       {
-        assert( (size() > 0)  && "Cannot apply operator() to vector of size zero!");
+        assert( (size() > 0)  && bool("Cannot apply operator() to vector of size zero!"));
         
         return entry_proxy<SCALARTYPE>(index, elements_);
       }
@@ -849,7 +840,7 @@ namespace viennacl
       */
       scalar<SCALARTYPE> operator[](size_type index) const
       {
-        assert( (size() > 0)  && "Cannot apply operator[] to vector of size zero!");
+        assert( (size() > 0)  && bool("Cannot apply operator[] to vector of size zero!"));
         
         scalar<SCALARTYPE> tmp = 1.0;
         viennacl::backend::memory_copy(viennacl::traits::handle(*this), viennacl::traits::handle(tmp),
@@ -864,7 +855,7 @@ namespace viennacl
       
       self_type & operator += (const self_type & vec)
       {
-        assert(vec.size() == size() && "Incompatible vector sizes!");
+        assert(vec.size() == size() && bool("Incompatible vector sizes!"));
 
         if (size() > 0)
           viennacl::linalg::avbv(*this, 
@@ -875,7 +866,7 @@ namespace viennacl
       
       self_type & operator -= (const self_type & vec)
       {
-        assert(vec.size() == size() && "Incompatible vector sizes!");
+        assert(vec.size() == size() && bool("Incompatible vector sizes!"));
 
         if (size() > 0)
           viennacl::linalg::avbv(*this, 
@@ -955,7 +946,7 @@ namespace viennacl
       */
       self_type & swap(self_type & other)
       {
-        swap(*this, other);
+        viennacl::linalg::vector_swap(*this, other);
         return *this;
       };
       
@@ -963,7 +954,7 @@ namespace viennacl
       */ 
       self_type & fast_swap(self_type & other) 
       { 
-        assert(this->size_ == other.size_); 
+        assert(this->size_ == other.size_ && bool("Vector size mismatch")); 
         this->elements_.swap(other.elements_); 
         return *this; 
       };       
@@ -1078,7 +1069,7 @@ namespace viennacl
               const const_vector_iterator<SCALARTYPE, ALIGNMENT> & gpu_end,
               CPU_ITERATOR cpu_begin )
     {
-      assert(gpu_end - gpu_begin >= 0);
+      assert(gpu_end - gpu_begin >= 0 && bool("Iterators incompatible"));
       if (gpu_end - gpu_begin != 0)
       {
         std::vector<SCALARTYPE> temp_buffer(gpu_end - gpu_begin);
@@ -1120,7 +1111,7 @@ namespace viennacl
 
 
 
-    #ifdef VIENNACL_HAVE_EIGEN
+    #ifdef VIENNACL_WITH_EIGEN
     template <unsigned int ALIGNMENT>
     void copy(vector<float, ALIGNMENT> const & gpu_vec,
               Eigen::VectorXf & eigen_vec)
@@ -1205,7 +1196,7 @@ namespace viennacl
               CPU_ITERATOR const & cpu_end,
               vector_iterator<SCALARTYPE, ALIGNMENT> gpu_begin)
     {
-      assert(cpu_end - cpu_begin > 0);
+      assert(cpu_end - cpu_begin > 0 && bool("Iterators incompatible"));
       if (cpu_begin != cpu_end)
       {
         //we require that the size of the gpu_vector is larger or equal to the cpu-size
@@ -1230,7 +1221,7 @@ namespace viennacl
     }
 
 
-    #ifdef VIENNACL_HAVE_EIGEN
+    #ifdef VIENNACL_WITH_EIGEN
     template <unsigned int ALIGNMENT>
     void copy(Eigen::VectorXf const & eigen_vec,
               vector<float, ALIGNMENT> & gpu_vec)
@@ -1269,13 +1260,9 @@ namespace viennacl
               vector_iterator<SCALARTYPE, ALIGNMENT_DEST> gpu_dest_begin)
     {
       assert(gpu_src_end - gpu_src_begin >= 0);
-      
-      if (gpu_src_begin.stride() != 1)
-      {
-        std::cout << "ViennaCL ERROR: copy() for GPU->GPU not implemented for slices! Use operator= instead for the moment." << std::endl;
-        exit(EXIT_FAILURE);
-      }      
-      else if (gpu_src_begin != gpu_src_end)
+      assert(gpu_src_begin.stride() == 1 && bool("ViennaCL ERROR: copy() for GPU->GPU not implemented for slices! Use operator= instead for the moment."));
+
+      if (gpu_src_begin != gpu_src_end)
         viennacl::backend::memory_copy(gpu_src_begin.handle(), gpu_dest_begin.handle(),
                                        sizeof(SCALARTYPE) * gpu_src_begin.offset(),
                                        sizeof(SCALARTYPE) * gpu_dest_begin.offset(),
@@ -1323,7 +1310,6 @@ namespace viennacl
     template<class SCALARTYPE, unsigned int ALIGNMENT>
     std::ostream & operator<<(std::ostream & s, vector<SCALARTYPE,ALIGNMENT> const & val)
     {
-      viennacl::ocl::get_queue().finish();
       std::vector<SCALARTYPE> tmp(val.size());
       viennacl::copy(val.begin(), val.end(), tmp.begin());
       std::cout << "[" << val.size() << "](";
@@ -1388,7 +1374,7 @@ namespace viennacl
     {
       typedef typename viennacl::result_of::cpu_value_type<V1>::type   cpu_value_type;
       
-      assert(v1.size() == v2.size() && "Incompatible vector sizes!");
+      assert(v1.size() == v2.size() && bool("Incompatible vector sizes!"));
 
       if (v1.size() > 0)
         viennacl::linalg::avbv(v1, 
@@ -1409,7 +1395,7 @@ namespace viennacl
     {
       typedef typename viennacl::result_of::cpu_value_type<V1>::type   cpu_value_type;
       
-      assert(proxy.lhs().size() == v1.size() && "Incompatible vector sizes!");
+      assert(proxy.lhs().size() == v1.size() && bool("Incompatible vector sizes!"));
 
       if (v1.size() > 0)
         viennacl::linalg::avbv(v1, 
@@ -1434,7 +1420,7 @@ namespace viennacl
     {
       typedef typename viennacl::result_of::cpu_value_type<V1>::type   cpu_value_type;
       
-      assert(proxy.lhs().size() == v1.size() && "Incompatible vector sizes!");
+      assert(proxy.lhs().size() == v1.size() && bool("Incompatible vector sizes!"));
 
       if (v1.size() > 0)
         viennacl::linalg::avbv_v(v1, 
@@ -1463,7 +1449,7 @@ namespace viennacl
     {
       typedef typename viennacl::result_of::cpu_value_type<V1>::type   cpu_value_type;
       
-      assert(proxy.lhs().size() == v1.size() && "Incompatible vector sizes!");
+      assert(proxy.lhs().size() == v1.size() && bool("Incompatible vector sizes!"));
 
       if (v1.size() > 0)
       {
@@ -1497,7 +1483,7 @@ namespace viennacl
     {
       typedef typename viennacl::result_of::cpu_value_type<V1>::type   cpu_value_type;
       
-      assert(proxy.size() == v1.size() && "Incompatible vector sizes!");
+      assert(proxy.size() == v1.size() && bool("Incompatible vector sizes!"));
 
       if (v1.size() > 0)
         viennacl::linalg::avbv_v(v1, 
@@ -1524,7 +1510,7 @@ namespace viennacl
                                           const vector_expression<const V3, const S3, OP3>,
                                           OP> & proxy)
     {
-      assert(proxy.lhs().size() == v1.size() && "Incompatible vector sizes!");
+      assert(proxy.lhs().size() == v1.size() && bool("Incompatible vector sizes!"));
 
       if (v1.size() > 0)
       {
@@ -1552,7 +1538,7 @@ namespace viennacl
     {
       typedef typename viennacl::result_of::cpu_value_type<V1>::type   cpu_value_type;
       
-      assert(vec.size() == v1.size() && "Incompatible vector sizes!");
+      assert(vec.size() == v1.size() && bool("Incompatible vector sizes!"));
 
       if (v1.size() > 0)
         viennacl::linalg::avbv(v1, 
@@ -1573,7 +1559,7 @@ namespace viennacl
     {
       typedef typename viennacl::result_of::cpu_value_type<V1>::type   cpu_value_type;
       
-      assert(proxy.lhs().size() == v1.size() && "Incompatible vector sizes!");
+      assert(proxy.lhs().size() == v1.size() && bool("Incompatible vector sizes!"));
 
       if (v1.size() > 0)
         viennacl::linalg::avbv(v1, 
@@ -1596,7 +1582,7 @@ namespace viennacl
     {
       typedef typename viennacl::result_of::cpu_value_type<V1>::type   cpu_value_type;
       
-      assert(proxy.lhs().size() == v1.size() && "Incompatible vector sizes!");
+      assert(proxy.lhs().size() == v1.size() && bool("Incompatible vector sizes!"));
 
       if (v1.size() > 0)
         viennacl::linalg::avbv_v(v1, 
@@ -1625,7 +1611,7 @@ namespace viennacl
     {
       typedef typename viennacl::result_of::cpu_value_type<V1>::type   cpu_value_type;
       
-      assert(proxy.lhs().size() == v1.size() && "Incompatible vector sizes!");
+      assert(proxy.lhs().size() == v1.size() && bool("Incompatible vector sizes!"));
 
       if (v1.size() > 0)
       {
@@ -1659,7 +1645,7 @@ namespace viennacl
     {
       typedef typename viennacl::result_of::cpu_value_type<V1>::type   cpu_value_type;
       
-      assert(proxy.size() == v1.size() && "Incompatible vector sizes!");
+      assert(proxy.size() == v1.size() && bool("Incompatible vector sizes!"));
 
       if (v1.size() > 0)
         viennacl::linalg::avbv_v(v1, 
@@ -1686,7 +1672,7 @@ namespace viennacl
                                           const vector_expression<const V3, const S3, OP3>,
                                           OP> & proxy)
     {
-      assert(proxy.lhs().size() == v1.size() && "Incompatible vector sizes!");
+      assert(proxy.lhs().size() == v1.size() && bool("Incompatible vector sizes!"));
 
       if (v1.size() > 0)
       {
@@ -1758,7 +1744,7 @@ namespace viennacl
     operator + (vector_expression< LHS1, RHS1, OP1> const & proxy1,
                 vector_expression< LHS2, RHS2, OP2> const & proxy2)
     {
-      assert(proxy1.size() == proxy2.size() && "Incompatible vector sizes!");
+      assert(proxy1.size() == proxy2.size() && bool("Incompatible vector sizes!"));
       typename vector_expression< LHS1, RHS1, OP1>::VectorType result(proxy1.size());
       result = proxy1;
       result += proxy2;
@@ -1778,7 +1764,7 @@ namespace viennacl
     operator + (vector_expression<LHS, RHS, OP> const & proxy,
                 V1 const & vec)
     {
-      assert(proxy.size() == vec.size() && "Incompatible vector sizes!");
+      assert(proxy.size() == vec.size() && bool("Incompatible vector sizes!"));
       viennacl::vector<typename viennacl::result_of::cpu_value_type<V1>::type, V1::alignment> result(vec.size());
       result = proxy;
       result += vec;
@@ -1877,7 +1863,7 @@ namespace viennacl
     operator - (vector_expression< LHS1, RHS1, OP1> const & proxy1,
                 vector_expression< LHS2, RHS2, OP2> const & proxy2)
     {
-      assert(proxy1.size() == proxy2.size() && "Incompatible vector sizes!");
+      assert(proxy1.size() == proxy2.size() && bool("Incompatible vector sizes!"));
       typename vector_expression< LHS1, RHS1, OP1>::VectorType result(proxy1.size());
       result = proxy1;
       result -= proxy2;
@@ -1897,7 +1883,7 @@ namespace viennacl
     operator - (vector_expression< LHS, RHS, OP> const & proxy,
                 V1 const & vec)
     {
-      assert(proxy.size() == vec.size() && "Incompatible vector sizes!");
+      assert(proxy.size() == vec.size() && bool("Incompatible vector sizes!"));
       viennacl::vector<typename viennacl::result_of::cpu_value_type<V1>::type, V1::alignment> result(vec.size());
       result = proxy;
       result -= vec;

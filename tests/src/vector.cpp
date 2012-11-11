@@ -81,7 +81,9 @@ template <typename ScalarType, typename ViennaCLVectorType>
 ScalarType diff(ublas::vector<ScalarType> const & v1, ViennaCLVectorType const & vcl_vec)
 {
    ublas::vector<ScalarType> v2_cpu(vcl_vec.size());
+#ifdef VIENNACL_HAVE_OPENCL   
    viennacl::ocl::get_queue().finish();
+#endif
    viennacl::copy(vcl_vec, v2_cpu);
 
    for (unsigned int i=0;i<v1.size(); ++i)
@@ -145,36 +147,39 @@ int test(Epsilon const& epsilon,
   
   // --------------------------------------------------------------------------
   std::cout << "Testing inner_prod..." << std::endl;
-  cpu_result = viennacl::linalg::inner_prod(ublas_v1, ublas_v1);
-  gpu_result = viennacl::linalg::inner_prod(vcl_v1, vcl_v1);
+  cpu_result = viennacl::linalg::inner_prod(ublas_v1, ublas_v2);
+  NumericT cpu_result2 = viennacl::linalg::inner_prod(vcl_v1, vcl_v2);
+  gpu_result = viennacl::linalg::inner_prod(vcl_v1, vcl_v2);
 
+  if (check(cpu_result, cpu_result2, epsilon) != EXIT_SUCCESS)
+    return EXIT_FAILURE;
   if (check(cpu_result, gpu_result, epsilon) != EXIT_SUCCESS)
     return EXIT_FAILURE;
   // --------------------------------------------------------------------------
   std::cout << "Testing norm_1..." << std::endl;
-  cpu_result = norm_1(ublas_v1);
+  cpu_result = ublas::norm_1(ublas_v1);
   gpu_result = viennacl::linalg::norm_1(vcl_v1);
 
   if (check(cpu_result, gpu_result, epsilon) != EXIT_SUCCESS)
     return EXIT_FAILURE;
   // --------------------------------------------------------------------------
   std::cout << "Testing norm_2..." << std::endl;
-  cpu_result = norm_2(ublas_v1);
+  cpu_result = ublas::norm_2(ublas_v1);
   gpu_result = viennacl::linalg::norm_2(vcl_v1);
 
   if (check(cpu_result, gpu_result, epsilon) != EXIT_SUCCESS)
     return EXIT_FAILURE;
   // --------------------------------------------------------------------------
   std::cout << "Testing norm_inf..." << std::endl;
-  cpu_result = norm_inf(ublas_v1);
+  cpu_result = ublas::norm_inf(ublas_v1);
   gpu_result = viennacl::linalg::norm_inf(vcl_v1);
 
   if (check(cpu_result, gpu_result, epsilon) != EXIT_SUCCESS)
     return EXIT_FAILURE;
   // --------------------------------------------------------------------------
   std::cout << "Testing index_norm_inf..." << std::endl;
-  size_t cpu_index = index_norm_inf(ublas_v1);
-  size_t gpu_index = viennacl::linalg::index_norm_inf(vcl_v1);
+  std::size_t cpu_index = ublas::index_norm_inf(ublas_v1);
+  std::size_t gpu_index = viennacl::linalg::index_norm_inf(vcl_v1);
 
   if (check(cpu_index, gpu_index, epsilon) != EXIT_SUCCESS)
     return EXIT_FAILURE;
@@ -821,7 +826,9 @@ int main()
    std::cout << std::endl;
    std::cout << "----------------------------------------------" << std::endl;
    std::cout << std::endl;
+#ifdef VIENNACL_HAVE_OPENCL   
    if( viennacl::ocl::current_device().double_support() )
+#endif
    {
       {
          typedef double NumericT;

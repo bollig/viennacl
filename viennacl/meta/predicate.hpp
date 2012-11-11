@@ -177,8 +177,56 @@ namespace viennacl
     {
       enum { value = true };
     };
+
+    //
+    // is_any_dense_nonstructured_transposed_matrix
+    //
+    template <typename T>
+    struct is_any_dense_nonstructured_transposed_matrix
+    {
+      enum { value = false };
+    };
+
+    template <typename T>
+    struct is_any_dense_nonstructured_transposed_matrix< viennacl::matrix_expression<const T, const T, op_trans> >
+    {
+      enum { value = is_any_dense_nonstructured_matrix<T>::value };
+    };
     
 
+    //
+    // is_row_major
+    //
+    template <typename T>
+    struct is_row_major
+    {
+      enum { value = false };
+    };
+
+    template <typename ScalarType, unsigned int A>
+    struct is_row_major<viennacl::matrix<ScalarType, viennacl::row_major, A> >
+    {
+      enum { value = true };
+    };
+    
+    template <typename T>
+    struct is_row_major<viennacl::matrix_range<T> >
+    {
+      enum { value = is_row_major<T>::value };
+    };
+
+    template <typename T>
+    struct is_row_major<viennacl::matrix_slice<T> >
+    {
+      enum { value = is_row_major<T>::value };
+    };
+
+    template <typename T>
+    struct is_row_major<viennacl::matrix_expression<T, T, viennacl::op_trans> >
+    {
+      enum { value = is_row_major<T>::value };
+    };
+    
     
     //
     // is_circulant_matrix

@@ -56,8 +56,8 @@ namespace viennacl
          V2 const & vec2, ScalarType1 const & alpha, std::size_t len_alpha, bool reciprocal_alpha, bool flip_sign_alpha) 
       {
         typedef typename viennacl::result_of::cpu_value_type<V1>::type        value_type;
-        
         const unsigned int ALIGNMENT = viennacl::result_of::alignment<V1>::value;
+        viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::init();
         
         cl_uint options_alpha =   ((len_alpha > 1) ? (len_alpha << 2) : 0)
                                 + (reciprocal_alpha ? 2 : 0)
@@ -67,16 +67,25 @@ namespace viennacl
                                                               (viennacl::is_cpu_scalar<ScalarType1>::value ? "av_cpu" : "av_gpu"));
         k.global_work_size(0, std::min<std::size_t>(128 * k.local_work_size(),
                                                     viennacl::tools::roundUpToNextMultiple<std::size_t>(viennacl::traits::size(vec1), k.local_work_size()) ) );
+        
+        viennacl::ocl::packed_cl_uint size_vec1;
+        size_vec1.start  = cl_uint(viennacl::traits::start(vec1));
+        size_vec1.stride = cl_uint(viennacl::traits::stride(vec1));
+        size_vec1.size   = cl_uint(viennacl::traits::size(vec1));
+
+        viennacl::ocl::packed_cl_uint size_vec2;
+        size_vec2.start  = cl_uint(viennacl::traits::start(vec2));
+        size_vec2.stride = cl_uint(viennacl::traits::stride(vec2));
+        size_vec2.size   = cl_uint(viennacl::traits::size(vec2));
+        
+        
         viennacl::ocl::enqueue(k(viennacl::traits::opencl_handle(vec1),
-                                 cl_uint(viennacl::traits::start(vec1)),
-                                 cl_uint(viennacl::traits::stride(vec1)),
-                                 cl_uint(viennacl::traits::size(vec1)),
+                                 size_vec1,
                                 
                                  viennacl::traits::opencl_handle(viennacl::tools::promote_if_host_scalar<value_type>(alpha)),
                                  options_alpha,
                                  viennacl::traits::opencl_handle(vec2),
-                                 cl_uint(viennacl::traits::start(vec2)),
-                                 cl_uint(viennacl::traits::stride(vec2)) )
+                                 size_vec2 )
                               );
       }
       
@@ -95,8 +104,8 @@ namespace viennacl
           V3 const & vec3, ScalarType2 const & beta, std::size_t len_beta, bool reciprocal_beta, bool flip_sign_beta) 
       {
         typedef typename viennacl::result_of::cpu_value_type<V1>::type        value_type;
-        
         const unsigned int ALIGNMENT = viennacl::result_of::alignment<V1>::value;
+        viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::init();
         
         std::string kernel_name;
         if (viennacl::is_cpu_scalar<ScalarType1>::value && viennacl::is_cpu_scalar<ScalarType2>::value)
@@ -118,22 +127,34 @@ namespace viennacl
         viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), kernel_name);
         k.global_work_size(0, std::min<std::size_t>(128 * k.local_work_size(),
                                                     viennacl::tools::roundUpToNextMultiple<std::size_t>(viennacl::traits::size(vec1), k.local_work_size()) ) );
+        
+        viennacl::ocl::packed_cl_uint size_vec1;
+        size_vec1.start  = cl_uint(viennacl::traits::start(vec1));
+        size_vec1.stride = cl_uint(viennacl::traits::stride(vec1));
+        size_vec1.size   = cl_uint(viennacl::traits::size(vec1));
+
+        viennacl::ocl::packed_cl_uint size_vec2;
+        size_vec2.start  = cl_uint(viennacl::traits::start(vec2));
+        size_vec2.stride = cl_uint(viennacl::traits::stride(vec2));
+        size_vec2.size   = cl_uint(viennacl::traits::size(vec2));
+
+        viennacl::ocl::packed_cl_uint size_vec3;
+        size_vec3.start  = cl_uint(viennacl::traits::start(vec3));
+        size_vec3.stride = cl_uint(viennacl::traits::stride(vec3));
+        size_vec3.size   = cl_uint(viennacl::traits::size(vec3));
+        
         viennacl::ocl::enqueue(k(viennacl::traits::opencl_handle(vec1),
-                                 cl_uint(viennacl::traits::start(vec1)),
-                                 cl_uint(viennacl::traits::stride(vec1)),
-                                 cl_uint(viennacl::traits::size(vec1)),
+                                 size_vec1,
                                 
                                  viennacl::traits::opencl_handle(viennacl::tools::promote_if_host_scalar<value_type>(alpha)),
                                  options_alpha,
                                  viennacl::traits::opencl_handle(vec2),
-                                 cl_uint(viennacl::traits::start(vec2)),
-                                 cl_uint(viennacl::traits::stride(vec2)),
+                                 size_vec2,
                                 
                                  viennacl::traits::opencl_handle(viennacl::tools::promote_if_host_scalar<value_type>(beta)),
                                  options_beta,
                                  viennacl::traits::opencl_handle(vec3),
-                                 cl_uint(viennacl::traits::start(vec3)),
-                                 cl_uint(viennacl::traits::stride(vec3)) )
+                                 size_vec3 )
                               );
       }
       
@@ -152,8 +173,8 @@ namespace viennacl
             V3 const & vec3, ScalarType2 const & beta,  std::size_t len_beta,  bool reciprocal_beta,  bool flip_sign_beta) 
       {
         typedef typename viennacl::result_of::cpu_value_type<V1>::type        value_type;
-
         const unsigned int ALIGNMENT = viennacl::result_of::alignment<V1>::value;
+        viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::init();
         
         std::string kernel_name;
         if (viennacl::is_cpu_scalar<ScalarType1>::value && viennacl::is_cpu_scalar<ScalarType2>::value)
@@ -175,22 +196,34 @@ namespace viennacl
         viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), kernel_name);
         k.global_work_size(0, std::min<std::size_t>(128 * k.local_work_size(),
                                                     viennacl::tools::roundUpToNextMultiple<std::size_t>(viennacl::traits::size(vec1), k.local_work_size()) ) );
+        
+        viennacl::ocl::packed_cl_uint size_vec1;
+        size_vec1.start  = cl_uint(viennacl::traits::start(vec1));
+        size_vec1.stride = cl_uint(viennacl::traits::stride(vec1));
+        size_vec1.size   = cl_uint(viennacl::traits::size(vec1));
+
+        viennacl::ocl::packed_cl_uint size_vec2;
+        size_vec2.start  = cl_uint(viennacl::traits::start(vec2));
+        size_vec2.stride = cl_uint(viennacl::traits::stride(vec2));
+        size_vec2.size   = cl_uint(viennacl::traits::size(vec2));
+
+        viennacl::ocl::packed_cl_uint size_vec3;
+        size_vec3.start  = cl_uint(viennacl::traits::start(vec3));
+        size_vec3.stride = cl_uint(viennacl::traits::stride(vec3));
+        size_vec3.size   = cl_uint(viennacl::traits::size(vec3));
+        
         viennacl::ocl::enqueue(k(viennacl::traits::opencl_handle(vec1),
-                                 cl_uint(viennacl::traits::start(vec1)),
-                                 cl_uint(viennacl::traits::stride(vec1)),
-                                 cl_uint(viennacl::traits::size(vec1)),
+                                 size_vec1,
                                 
                                  viennacl::traits::opencl_handle(viennacl::tools::promote_if_host_scalar<value_type>(alpha)),
                                  options_alpha,
                                  viennacl::traits::opencl_handle(vec2),
-                                 cl_uint(viennacl::traits::start(vec2)),
-                                 cl_uint(viennacl::traits::stride(vec2)),
+                                 size_vec2,
                                 
                                  viennacl::traits::opencl_handle(viennacl::tools::promote_if_host_scalar<value_type>(beta)),
                                  options_beta,
                                  viennacl::traits::opencl_handle(vec3),
-                                 cl_uint(viennacl::traits::start(vec3)),
-                                 cl_uint(viennacl::traits::stride(vec3)) )
+                                 size_vec3 )
                               );
       }
       
@@ -207,8 +240,8 @@ namespace viennacl
       vector_assign(V1 & vec1, const S1 & alpha)
       {
         typedef typename viennacl::result_of::cpu_value_type<V1>::type        value_type;
-        
         const unsigned int ALIGNMENT = viennacl::result_of::alignment<V1>::value;
+        viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::init();
         
         viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), "assign_cpu");
         k.global_work_size(0, std::min<std::size_t>(128 * k.local_work_size(),
@@ -234,8 +267,8 @@ namespace viennacl
       vector_swap(V1 & vec1, V2 & vec2)
       {
         typedef typename viennacl::result_of::cpu_value_type<V1>::type        value_type;
-        
         const unsigned int ALIGNMENT = viennacl::result_of::alignment<V1>::value;
+        viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::init();
         
         viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), "swap");
 
@@ -272,11 +305,11 @@ namespace viennacl
                       S3 & result)
       {
         typedef typename viennacl::result_of::cpu_value_type<V1>::type        value_type;
-        
         const unsigned int ALIGNMENT = viennacl::result_of::alignment<V1>::value;
+        viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::init();
       
         assert( (viennacl::traits::size(vec1) == viennacl::traits::size(vec2))
-              && "Incompatible vector sizes in inner_prod_impl()!");
+              && bool("Incompatible vector sizes in inner_prod_impl()!"));
         
         viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), "inner_prod");
         //cl_uint size = static_cast<cl_uint>(std::min(vec1.internal_size(), vec2.internal_size()));
@@ -319,6 +352,8 @@ namespace viennacl
                                     cl_uint(viennacl::traits::start(temp)),
                                     cl_uint(viennacl::traits::stride(temp)),
                                     cl_uint(viennacl::traits::size(temp)),
+                                    cl_uint(1),
+                                    viennacl::ocl::local_mem(sizeof(value_type) * ksum.local_work_size()),
                                     viennacl::traits::opencl_handle(result) )
                               );
       }
@@ -342,8 +377,8 @@ namespace viennacl
                      S3 & result)
       {
         typedef typename viennacl::result_of::cpu_value_type<V1>::type        value_type;
-        
         const unsigned int ALIGNMENT = viennacl::result_of::alignment<V1>::value;
+        viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::init();
       
         viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), "inner_prod");
         static const unsigned int work_groups = k.global_work_size() / k.local_work_size();
@@ -400,19 +435,11 @@ namespace viennacl
                   S2 & result)
       {
         typedef typename viennacl::result_of::cpu_value_type<V1>::type        value_type;
-        
-        //TODO: Ensure that correct alignment is chosen for the kernels.
         const unsigned int ALIGNMENT = viennacl::result_of::alignment<V1>::value;
+        viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::init();
         
-        viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), "norm_1");
+        viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), "norm");
         //cl_uint size = static_cast<cl_uint>(vcl_vec.internal_size());
-        
-        if (k.local_work_size() != k.global_work_size())
-        {
-          //NOTE: For some reasons the kernel could not be started with several work groups on NVIDIA hardware. This forces us to use as many parallel threads within a single work group as possible
-          k.local_work_size(0, viennacl::ocl::current_device().max_work_group_size());
-          k.global_work_size(0, viennacl::ocl::current_device().max_work_group_size());
-        }
         
         unsigned int work_groups = k.global_work_size() / k.local_work_size();
         viennacl::vector<value_type> temp(work_groups);
@@ -434,7 +461,8 @@ namespace viennacl
         viennacl::ocl::enqueue(k(viennacl::traits::opencl_handle(vec),
                                  cl_uint(viennacl::traits::start(vec)),
                                  cl_uint(viennacl::traits::stride(vec)),
-                                 cl_uint(viennacl::traits::size(vec)),                                 
+                                 cl_uint(viennacl::traits::size(vec)),
+                                 cl_uint(1),
                                  viennacl::ocl::local_mem(sizeof(value_type) * k.local_work_size()),
                                  viennacl::traits::opencl_handle(temp) )
                               );        
@@ -447,6 +475,8 @@ namespace viennacl
                                     cl_uint(viennacl::traits::start(temp)),
                                     cl_uint(viennacl::traits::stride(temp)),
                                     cl_uint(viennacl::traits::size(temp)),
+                                    cl_uint(1),
+                                    viennacl::ocl::local_mem(sizeof(value_type) * ksum.local_work_size()),
                                     result)
                               );
       }
@@ -465,19 +495,12 @@ namespace viennacl
                   S2 & result)
       {
         typedef typename viennacl::result_of::cpu_value_type<V1>::type        value_type;
-        
         const unsigned int ALIGNMENT = viennacl::result_of::alignment<V1>::value;
+        viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::init();
         
-        viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), "norm_2");
+        viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), "norm");
         //cl_uint size = static_cast<cl_uint>(vcl_vec.internal_size());
         
-        if (k.local_work_size() != k.global_work_size())
-        {
-          //NOTE: For some reasons the kernel could not be started with several work groups on NVIDIA hardware. This forces us to use as many parallel threads within a single work group as possible
-          k.local_work_size(0, viennacl::ocl::current_device().max_work_group_size());
-          k.global_work_size(0, viennacl::ocl::current_device().max_work_group_size());
-        }
-
         unsigned int work_groups = k.global_work_size() / k.local_work_size();
         viennacl::vector<value_type> temp(work_groups);
           
@@ -499,20 +522,22 @@ namespace viennacl
                                    cl_uint(viennacl::traits::start(vec)),
                                    cl_uint(viennacl::traits::stride(vec)),
                                    cl_uint(viennacl::traits::size(vec)),                                 
+                                   cl_uint(2),
                                    viennacl::ocl::local_mem(sizeof(value_type) * k.local_work_size()),
                                    temp)
                                 );
 
-          viennacl::ocl::kernel & sqrt_sum = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), "sqrt_sum");
+          viennacl::ocl::kernel & ksum = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), "sum");
           
-          sqrt_sum.local_work_size(0, work_groups);
-          sqrt_sum.global_work_size(0, work_groups);
-          viennacl::ocl::enqueue(
-                          sqrt_sum(viennacl::traits::opencl_handle(temp),
-                                   cl_uint(viennacl::traits::start(temp)),
-                                   cl_uint(viennacl::traits::stride(temp)),
-                                   cl_uint(viennacl::traits::size(temp)),
-                                   result)
+          ksum.local_work_size(0, work_groups);
+          ksum.global_work_size(0, work_groups);
+          viennacl::ocl::enqueue( ksum(viennacl::traits::opencl_handle(temp),
+                                       cl_uint(viennacl::traits::start(temp)),
+                                       cl_uint(viennacl::traits::stride(temp)),
+                                       cl_uint(viennacl::traits::size(temp)),
+                                       cl_uint(2),
+                                       viennacl::ocl::local_mem(sizeof(value_type) * ksum.local_work_size()),
+                                       result)
                                 );
       }
 
@@ -529,18 +554,11 @@ namespace viennacl
                     S2 & result)
       {
         typedef typename viennacl::result_of::cpu_value_type<V1>::type        value_type;
-        
         const unsigned int ALIGNMENT = viennacl::result_of::alignment<V1>::value;
+        viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::init();
         
         //cl_uint size = static_cast<cl_uint>(vcl_vec.internal_size());
-        viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), "norm_inf");
-
-        if (k.local_work_size() != k.global_work_size())
-        {
-          //NOTE: For some reasons the kernel could not be started with several work groups on NVIDIA hardware. This forces us to use as many parallel threads within a single work group as possible
-          k.local_work_size(0, viennacl::ocl::current_device().max_work_group_size());
-          k.global_work_size(0, viennacl::ocl::current_device().max_work_group_size());
-        }
+        viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), "norm");
         
         unsigned int work_groups = k.global_work_size() / k.local_work_size();
         viennacl::vector<value_type> temp(work_groups);
@@ -563,20 +581,23 @@ namespace viennacl
                                  cl_uint(viennacl::traits::start(vec)),
                                  cl_uint(viennacl::traits::stride(vec)),
                                  cl_uint(viennacl::traits::size(vec)),                                 
+                                 cl_uint(0),
                                  viennacl::ocl::local_mem(sizeof(value_type) * k.local_work_size()),
                                  temp));
         //viennacl::ocl::get_queue().finish();
         
         //part 2: parallel reduction of reduced kernel:
-        viennacl::ocl::kernel & max_kernel = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), "vmax");
-        max_kernel.local_work_size(0, work_groups);
-        max_kernel.global_work_size(0, work_groups);
+        viennacl::ocl::kernel & ksum = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), "sum");
+        ksum.local_work_size(0, work_groups);
+        ksum.global_work_size(0, work_groups);
         
-        viennacl::ocl::enqueue( max_kernel(viennacl::traits::opencl_handle(temp),
-                                           cl_uint(viennacl::traits::start(temp)),
-                                           cl_uint(viennacl::traits::stride(temp)),
-                                           cl_uint(viennacl::traits::size(temp)),
-                                           result)
+        viennacl::ocl::enqueue( ksum(viennacl::traits::opencl_handle(temp),
+                                     cl_uint(viennacl::traits::start(temp)),
+                                     cl_uint(viennacl::traits::stride(temp)),
+                                     cl_uint(viennacl::traits::size(temp)),
+                                     cl_uint(0),
+                                     viennacl::ocl::local_mem(sizeof(value_type) * ksum.local_work_size()),
+                                     result)
                               );
       }
 
@@ -595,14 +616,16 @@ namespace viennacl
       index_norm_inf(V1 const & vec)
       {
         typedef typename viennacl::result_of::cpu_value_type<V1>::type        value_type;
-        
         const unsigned int ALIGNMENT = viennacl::result_of::alignment<V1>::value;
+        viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::init();
         
         viennacl::ocl::handle<cl_mem> h = viennacl::ocl::current_context().create_memory(CL_MEM_READ_WRITE, sizeof(cl_uint));
         
         viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::program_name(), "index_norm_inf");
         //cl_uint size = static_cast<cl_uint>(vcl_vec.internal_size());
 
+        //TODO: Use multi-group kernel for large vector sizes
+        
         k.global_work_size(0, k.local_work_size());
         viennacl::ocl::enqueue(k(viennacl::traits::opencl_handle(vec),
                                  cl_uint(viennacl::traits::start(vec)),
@@ -639,9 +662,8 @@ namespace viennacl
                     SCALARTYPE beta)
       {
         typedef typename viennacl::result_of::cpu_value_type<V1>::type        value_type;
-        
-        //TODO: Ensure that correct alignment is chosen for the kernels.
         const unsigned int ALIGNMENT = V1::alignment;
+        viennacl::linalg::kernels::vector<value_type, ALIGNMENT>::init();
         
         assert(viennacl::traits::size(vec1) == viennacl::traits::size(vec2));
         viennacl::ocl::kernel & k = viennacl::ocl::get_kernel(viennacl::linalg::kernels::vector<SCALARTYPE, ALIGNMENT>::program_name(), "plane_rotation");

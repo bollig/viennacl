@@ -13,6 +13,7 @@
 //
 // *** ViennaCL
 //
+
 //#define VIENNACL_DEBUG_ALL
 #define VIENNACL_HAVE_UBLAS 1
 //#define VIENNACL_DEBUG_BUILD
