@@ -104,8 +104,14 @@ public:
 private:
     typedef typename tree_utils::extract_if<Head,result_of::is_inner_product_leaf>::Result InProds;
     typedef typename add_to_res<typename typelist_utils::ForEachType<InProds,transform_inner_prod>::Result,Res,CurrentIndex - 1>::Result TmpNewRes;
-    static const bool inc = tree_utils::count_if<typename get_head<Tail>::Result, result_of::or_is<result_of::is_product_leaf,result_of::is_inner_product_leaf>::Pred >::value
-                            + tree_utils::count_if<Head,result_of::is_product_leaf>::value;
+    static const bool is_inprod_next = tree_utils::count_if<typename get_head<Tail>::Result, result_of::is_inner_product_leaf >::value;
+    static const bool is_prod_next = tree_utils::count_if<typename get_head<Tail>::Result,result_of::is_product_leaf>::value;
+    static const bool is_current_prod = tree_utils::count_if<Head,result_of::is_product_leaf>::value;
+    static const bool next_RAW= tree_utils::count_if_type<typename get_head<Tail>::Result,typename Head::LHS>::value;
+    static const bool inc = (is_inprod_next && next_RAW)
+                            ||
+                             (is_prod_next && next_RAW);
+//    static const bool inc = is_inprod_next || is_prod_next;
 public:
     typedef typename add_to_res<typelist<Head,NullType>,TmpNewRes,CurrentIndex>::Result NewRes;
     typedef typename register_kernels<Tail,NewRes,CurrentIndex+inc>::Result Result;

@@ -46,6 +46,10 @@ mark_as_advanced(BUILD_DOXYGEN_DOCS BUILD_MANUAL ENABLE_DIST)
 
 # Find prerequisites
 ####################
+file( GLOB_RECURSE QtCreatorCompatibility_SRC
+    *.hpp *.h)
+add_custom_target( QtCreatorCompatibility SOURCES ${QtCreatorCompatibility_SRC} )
+
 
 if(BUILD_DOXYGEN_DOCS)
    find_package(Doxygen REQUIRED)

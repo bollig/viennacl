@@ -46,19 +46,16 @@ namespace viennacl
     };
 
     /** @brief Base structure for representing Matrix-Matrix Product token */
-    template <class Expr, class OP_, class Assigned_>
+    template <class Expr>
     struct MatMatToken : public Token<Expr>
     {
-        typedef OP_ OP;
-        typedef Assigned_ Assigned;
+
     };
 
     /** @brief Base structure for representing Matrix-Vector Product token */
-    template <class Expr, class OP_, class Assigned_>
+    template <class Expr>
     struct MatVecToken : public Token<Expr>
     {
-        typedef OP_ OP;
-        typedef Assigned_ Assigned;
     };
 
     /** @brief Base structure for representing Inner Product token
@@ -295,9 +292,8 @@ namespace viennacl
         /** @brief Generates code for simple matrix-vector product */
         static const std::string vector_code_impl(Int2Type<1> /*matvec_prod*/)
         {
-          typedef typename OperationsList::Head Root;
           std::string res;
-          res += make_code<MatVecToken<typename Root::RHS,typename Root::OP,typename Root::LHS> >::value();
+          res += make_code<MatVecToken<OperationsList> >::value();
           return res;
         }
 
