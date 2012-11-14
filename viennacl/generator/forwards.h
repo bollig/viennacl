@@ -66,10 +66,10 @@ namespace viennacl
     template<unsigned int ID,typename SCALARTYPE>
     class gpu_symbolic_scalar;
 
-    template<class Expr, class OP, class Assigned>
+    template<class Expr>
     struct MatVecToken;
 
-    template<class Expr, class OP, class Assigned>
+    template<class Expr>
     struct MatMatToken;
 
     template<class Expr,unsigned int Step>

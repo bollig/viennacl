@@ -88,6 +88,7 @@ namespace viennacl
             return elementwise_modifier<FUNC_NAME ## _modifier<T> >();\
         }\
 
+
     namespace math{
 
 
