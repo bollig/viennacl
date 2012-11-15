@@ -124,6 +124,8 @@ struct register_kernels<NullType,Res,CurrentIndex>
     typedef Res Result;
 };
 
+enum KernelType{ MatVecProdKernel, InProdFirstKernel, Other};
+
 /**
   * @brief functor to get the information necessary to create a program
   * @tparam ARG A typelist containing all the operations.
@@ -134,6 +136,22 @@ struct program_infos
 
     static const bool first_has_ip = tree_utils::count_if<typename ARG::Head,result_of::is_inner_product_leaf>::value;
     typedef typename register_kernels<ARG,NullType,first_has_ip>::Result          KernelsList;
+
+    template<class Operations>
+    struct fill_kernels_nature{
+        static void execute(std::map<std::string, KernelType> & kernel_types,std::string const & operation_name){
+            unsigned int n = typelist_utils::index_of<KernelsList,Operations>::value;
+            std::string current_kernel_name("__" + operation_name + "_k" + to_string(n));
+            KernelType type;
+            if(tree_utils::count_if<Operations,result_of::is_inner_product_impl>::value)
+                type=InProdFirstKernel;
+            else if(tree_utils::count_if<Operations,result_of::is_product_leaf>::value)
+                type=MatVecProdKernel;
+            else
+                type=Other;
+            kernel_types.insert(std::make_pair(current_kernel_name,type));
+        }
+    };
 
     template<class Operations>
     struct fill_args
@@ -166,11 +184,6 @@ struct program_infos
             unsigned int n = typelist_utils::index_of<KernelsList,Operations>::value;
             std::string current_kernel_name("__" + operation_name + "_k" + to_string(n));
             typelist_utils::ForEach<Arguments,functor>::execute(arg_pos,runtime_wrappers,current_kernel_name);
-            if(tree_utils::count_if<Operations,result_of::is_inner_product_leaf>::value || tree_utils::count_if<Operations,result_of::is_product_leaf>::value){
-                runtime_wrappers.insert(runtime_wrappers_t::value_type(current_kernel_name,
-                                                                       std::make_pair(arg_pos,
-                                                                                      new result_of::shared_memory_wrapper())));
-            }
         }
 
 
@@ -208,8 +221,6 @@ struct program_infos
                 res+="__kernel void " + name + "(\n";
                 bool state=true;
                 typelist_utils::ForEach<Arguments,functor>::execute(res,state);
-                if(tree_utils::count_if<TList,result_of::is_inner_product_leaf>::value || tree_utils::count_if<Operations,result_of::is_product_leaf>::value)
-                    res+=",__local float* shared_memory_ptr\n";
                 res+=")\n";
                 return res;
             }
@@ -230,11 +241,13 @@ struct program_infos
     /**
       * @brief Generates the source using the name operation_name. Fills the sources map and the runtime_wrappers map.
       */
-    static void fill(std::string const & operation_name, std::map<std::string,std::string> & sources, runtime_wrappers_t & runtime_wrappers)
+    static void fill(std::string const & operation_name, std::map<std::string,std::string> & sources, runtime_wrappers_t & runtime_wrappers, std::map<std::string, KernelType> & kernel_types)
     {
         //std::cout << KernelsList::name() << std::endl;
         typelist_utils::ForEach<KernelsList,fill_sources>::execute(sources,operation_name);
         typelist_utils::ForEach<KernelsList,fill_args>::execute(runtime_wrappers,operation_name);
+        typelist_utils::ForEach<KernelsList,fill_kernels_nature>::execute(kernel_types,operation_name);
+
     }
 };
 

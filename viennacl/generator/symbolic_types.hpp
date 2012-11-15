@@ -452,6 +452,34 @@ namespace viennacl
           }
       };
 
+      template <class T>
+      struct inner_prod_impl_t
+      {
+        typedef T Type;
+
+        static std::string name()
+        {
+          return T::name();
+        }
+
+        static std::string private_value()
+        {
+          return "private_"+name();
+        }
+
+        static std::string declarations()
+        {
+          return print_type<typename T::ScalarType,1>::value() + " " + private_value() + "=0;\n" ;
+        }
+
+        static std::string kernel_arguments()
+        {
+          return T::kernel_arguments();
+        }
+
+        enum { id = T::id };
+      };
+
       template<class LHS_, class RHS_>
       class compound_node<LHS_,inner_prod_type,RHS_>
       {
