@@ -178,13 +178,8 @@ namespace viennacl
     public:
         mat_expr_infos(std::string const & expression_string_base) : expression_string_base_(expression_string_base){ }
 
-        void add_infos(std::string const & scalartype,
-                       std::string const & name,
-                       std::string const & size1,
-                       std::string const & size2,
-                       bool const & is_rowmajor,
-                       bool const & is_transposed){
-            mats_.push_back(mat_infos(scalartype,name,size1,size2,is_rowmajor,is_transposed));
+        void add_infos(mat_infos const & infos){
+            mats_.push_back(infos);
         }
 
         std::list<mat_infos> const & matrices() const{ return mats_; }
@@ -231,10 +226,8 @@ namespace viennacl
 
         vec_expr_infos(std::string const & expression_string_base) : expression_string_base_(expression_string_base){ }
 
-        void add_infos(std::string const & scalartype,
-                       std::string const & name,
-                       std::string const & size){
-            vecs_.push_back(vec_infos(scalartype,name,size));
+        void add_infos(vec_infos const & infos){
+            vecs_.push_back(infos);
         }
 
         std::list<vec_infos> const & vectors() const{
@@ -258,20 +251,49 @@ namespace viennacl
      * @brief The matvec_prod_infos struct
      */
     struct matvec_prod_infos{
-        matvec_prod_infos(mat_expr_infos const & lhs, vec_expr_infos const & rhs, vec_expr_infos const & additional_expression): lhs_(lhs)
-                                                                                                            , rhs_(rhs)
-                                                                                                            , additional_expression_(additional_expression){ }
+        matvec_prod_infos(std::string const & name
+                          ,vec_infos const & assigned
+                          ,std::string const & op_str
+                          ,mat_expr_infos const & lhs
+                          ,vec_expr_infos const & rhs
+                          ,vec_expr_infos const & additional_expression
+                          ,std::string const & expression_string_base): name_(name)
+                                                                        ,assigned_(assigned)
+                                                                        ,lhs_(lhs)
+                                                                         ,op_str_(op_str)
+                                                                        , rhs_(rhs)
+                                                                        , additional_expression_(additional_expression)
+                                                                        , expression_string_base_(expression_string_base){ }
         mat_expr_infos const & lhs() const { return lhs_; }
         vec_expr_infos const & rhs() const { return rhs_; }
         vec_expr_infos const & additional_expression() const { return additional_expression_; }
+        vec_infos const & assigned() const { return assigned_; }
+        void access_name(std::string const & new_name) const{ access_name_ = new_name; }
+        std::string generate(){
+            std::string prod(expression_string_base_);
+            replace_all_string(prod,name_,access_name_);
+            return assigned_.access_name() + op_str_ + prod + "+" + additional_expression_.generate();
+        }
 
     private:
+        std::string name_;
+        std::string op_str_;
+        vec_infos assigned_;
         mat_expr_infos lhs_;
         vec_expr_infos rhs_;
         vec_expr_infos additional_expression_;
+        mutable std::string expression_string_base_;
+        mutable std::string access_name_;
     };
 
 
+
+    template<class U>
+    static vec_infos wrap_vector(){
+         return vec_infos(print_type<typename U::ScalarType,1>::value(),
+                                  U::name(),
+                                  U::internal_size2_name());
+    }
 
     /**
      * @brief wrap_vec_expr class
@@ -283,9 +305,7 @@ namespace viennacl
         template<class U>
         struct functor{
             static void execute(vec_expr_infos & res){
-                res.add_infos(print_type<typename U::ScalarType,1>::value(),
-                              U::name(),
-                              U::internal_size2_name());
+                res.add_infos(wrap_vector<U>());
             }
         };
 
@@ -296,6 +316,16 @@ namespace viennacl
         }
     };
 
+    template<class U>
+    static mat_infos wrap_matrix(){
+       return mat_infos(print_type<typename U::ScalarType,1>::value(),
+                                      U::name(),
+                                      U::size1_name(),
+                                      U::size2_name(),
+                                      result_of::is_row_major<U>::value,
+                                      false);
+    }
+
     template<class T>
     struct wrap_mat_expr{
         typedef typename tree_utils::extract_if<T,result_of::is_symbolic_matrix>::Result MatricesList;
@@ -303,12 +333,7 @@ namespace viennacl
         template<class U>
         struct functor{
             static void execute(mat_expr_infos & res){
-                res.add_infos(print_type<typename U::ScalarType,1>::value(),
-                              U::name(),
-                              U::size1_name(),
-                              U::size2_name(),
-                              result_of::is_row_major<U>::value,
-                              false);
+                res.add_infos(wrap_matrix<U>());
             }
         };
 
@@ -329,7 +354,13 @@ namespace viennacl
         typedef typename result_of::expression_type<T>::Result    IntermediateType;
         static const unsigned int Alignment = IntermediateType::Alignment;
         VIENNACL_STATIC_ASSERT(Alignment==1,AlignmentNotSupported);
-        return matvec_prod_infos(wrap_mat_expr<ProdLHS>::create(),wrap_vec_expr<ProdRHS>::create(),wrap_vec_expr<Vectors>::create());
+        return matvec_prod_infos(Product::name()
+                                 ,wrap_vector<typename T::LHS>()
+                                 ,T::OP::expression_string()
+                                 ,wrap_mat_expr<ProdLHS>::create()
+                                 ,wrap_vec_expr<ProdRHS>::create()
+                                 ,wrap_vec_expr<Vectors>::create()
+                                 ,make_expression_code<Product>::value(""));
     }
 
 
