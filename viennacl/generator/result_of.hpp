@@ -62,25 +62,6 @@ namespace viennacl
                                std::map<std::string, viennacl::ocl::handle<cl_mem> > & temporaries) = 0;
       };
 
-      class shared_memory_wrapper : public runtime_wrapper
-      {
-        public:
-            shared_memory_wrapper() : runtime_wrapper( "shared_memory_ptr", -1 ){ }
-  
-          void enqueue(unsigned int arg_pos,
-                       viennacl::ocl::kernel & k,
-                       std::map<unsigned int, viennacl::any> & /* runtime_args */,
-                       std::map<std::string, viennacl::ocl::handle<cl_mem> > & /* temporaries */)
-          {
-            unsigned int lmem_size = k.local_work_size();
-            #ifdef VIENNACL_DEBUG_CUSTOM_OPERATION
-            std::cout << "Enqueuing Local memory of size " << lmem_size << " at pos " << arg_pos << std::endl;
-            #endif
-            k.arg(arg_pos, viennacl::ocl::local_mem(lmem_size*sizeof(float)));
-          }
-  
-      };
-
       template <class T, class SIZE_T>
       struct vector_runtime_wrapper : public runtime_wrapper 
       {
@@ -232,21 +213,6 @@ namespace viennacl
           return 9;
         }
       };
-
-//      template <class T>
-//      struct scalar_size_descriptor
-//      {
-//        static unsigned int size(viennacl::ocl::kernel & k) { return 1; }
-//      };
-
-//      template <class LHS, class RHS>
-//      struct scalar_size_descriptor<compound_node<LHS,inner_prod_type,RHS> >
-//      {
-//        static unsigned int size(viennacl::ocl::kernel & k)
-//        {
-//          return k.global_work_size(0)/k.local_work_size(0);
-//        }
-//      };
 
       template <class T>
       struct scalar_runtime_wrapper: public runtime_wrapper

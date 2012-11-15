@@ -84,7 +84,7 @@ namespace viennacl
             static void execute()
             {
                 VIENNACL_STATIC_ASSERT(is_inplace_product == false,InplaceProductsForbidden);
-                VIENNACL_STATIC_ASSERT(n_products ==1,OnlyOneProductLine);
+                VIENNACL_STATIC_ASSERT(n_products <=1,OnlyOneProductLine);
                 VIENNACL_STATIC_ASSERT(n_nested_products==0,NestedProductsForbidden);
             }
         };
@@ -105,7 +105,7 @@ namespace viennacl
             typedef typename typelist_utils::make_typelist<T0>::Result Expressions;
             typedef typename get_operations_from_expressions<Expressions>::Result Operations;
             typelist_utils::ForEach<Operations,CHECK_OPERATIONS_STRUCTURE>::execute();
-            viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_);
+            viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_,kernel_types_);
             bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Operations,result_of::is_double_type>::value);
             create_program (has_double);
         }
@@ -120,7 +120,7 @@ namespace viennacl
             typedef typename typelist_utils::make_typelist<T0,T1>::Result Expressions;
             typedef typename get_operations_from_expressions<Expressions>::Result Operations;
             typelist_utils::ForEach<Operations,CHECK_OPERATIONS_STRUCTURE>::execute();
-            viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_);
+            viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_,kernel_types_);
             bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Operations,result_of::is_double_type>::value);
             create_program (has_double);
         }
@@ -131,7 +131,7 @@ namespace viennacl
             typedef typename typelist_utils::make_typelist<T0,T1,T2>::Result Expressions;
             typedef typename get_operations_from_expressions<Expressions>::Result Operations;
             typelist_utils::ForEach<Operations,CHECK_OPERATIONS_STRUCTURE>::execute();
-            viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_);
+            viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_,kernel_types_);
             bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Operations,result_of::is_double_type>::value);
             create_program (has_double);
         }
@@ -142,7 +142,7 @@ namespace viennacl
             typedef typename typelist_utils::make_typelist<T0,T1,T2,T3>::Result Expressions;
             typedef typename get_operations_from_expressions<Expressions>::Result Operations;
             typelist_utils::ForEach<Operations,CHECK_OPERATIONS_STRUCTURE>::execute();
-            viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_);
+            viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_,kernel_types_);
             bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Operations,result_of::is_double_type>::value);
             create_program (has_double);
         }
@@ -153,7 +153,7 @@ namespace viennacl
             typedef typename typelist_utils::make_typelist<T0,T1,T2,T3,T4>::Result Expressions;
             typedef typename get_operations_from_expressions<Expressions>::Result Operations;
             typelist_utils::ForEach<Operations,CHECK_OPERATIONS_STRUCTURE>::execute();
-            viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_);
+            viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_,kernel_types_);
             bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Operations,result_of::is_double_type>::value);
             create_program (has_double);
         }
@@ -164,7 +164,7 @@ namespace viennacl
             typedef typename typelist_utils::make_typelist<T0,T1,T2,T3,T4,T5>::Result Expressions;
             typedef typename get_operations_from_expressions<Expressions>::Result Operations;
             typelist_utils::ForEach<Operations,CHECK_OPERATIONS_STRUCTURE>::execute();
-            viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_);
+            viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_,kernel_types_);
             bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Operations,result_of::is_double_type>::value);
             create_program (has_double);
         }
@@ -175,7 +175,7 @@ namespace viennacl
             typedef typename typelist_utils::make_typelist<T0,T1,T2,T3,T4,T5,T6>::Result Expressions;
             typedef typename get_operations_from_expressions<Expressions>::Result Operations;
             typelist_utils::ForEach<Operations,CHECK_OPERATIONS_STRUCTURE>::execute();
-            viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_);
+            viennacl::generator::program_infos<Expressions>::fill(operation_name, sources_,runtime_wrappers_,kernel_types_);
             bool has_double = static_cast<bool>(viennacl::generator::tree_utils::count_if<Operations,result_of::is_double_type>::value);
             create_program (has_double);
         }
@@ -717,11 +717,32 @@ namespace viennacl
           }
         }
 
+
+        void fill_kernel_sizes()
+        {
+          for (std::map<std::string,KernelType>::iterator it  = kernel_types_.begin();
+                                                       it != kernel_types_.end();
+                                                     ++it)
+          {
+            std::string const & kernel_name = it->first;
+            viennacl::ocl::kernel& current_kernel = viennacl::ocl::current_context().get_program(program_name_).get_kernel(kernel_name);
+            KernelType type = it->second;
+            if(type == MatVecProdKernel){
+                current_kernel.local_work_size(0,64);
+            }
+            else if(type == InProdFirstKernel){
+                current_kernel.local_work_size(0,64);
+            }
+
+          }
+        }
+
       private :
         std::map<unsigned int, viennacl::any> user_args_;
         std::string program_name_;
         std::vector<viennacl::ocl::local_mem> lmem_;
         std::map<std::string,std::string> sources_;
+        std::map<std::string,KernelType> kernel_types_;
         viennacl::generator::runtime_wrappers_t runtime_wrappers_;
         std::map<std::string, viennacl::ocl::handle<cl_mem> > temporaries_;
     };

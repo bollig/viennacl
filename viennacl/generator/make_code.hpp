@@ -35,36 +35,6 @@ namespace viennacl
   namespace generator
   {
 
-
-
-    template <class T>
-    struct inner_prod_impl_t
-    {
-      typedef T Type;
-
-      static std::string name()
-      {
-        return T::name();
-      }
-
-      static std::string private_value()
-      {
-        return "private_"+name();
-      }
-
-      static std::string declarations()
-      {
-        return print_type<typename T::ScalarType,1>::value() + " " + private_value() + "=0;\n" ;
-      }
-
-      static std::string kernel_arguments()
-      {
-        return T::kernel_arguments();
-      }
-
-      enum { id = T::id };
-    };
-
     /** @brief Inline code for an expression from scalars
         @tparam T Tree specifying the expression
     */
@@ -333,6 +303,7 @@ namespace viennacl
           {
               generated_code+=
                       "{\n"
+                      "   __local shared_memory_ptr[64];\n"
                       "   float sum = 0;\n"
                       "   for (unsigned int i = get_local_id(0) ; i<get_num_groups(0) ; i+=get_local_size(0))\n"
                       "   {\n"
@@ -475,7 +446,7 @@ namespace viennacl
     std::string generate_matvec_prod_backend(std::vector<matvec_prod_infos> const & infos){
         std::string res;
         if (infos.front().lhs().is_rowmajor()){
-          res += "{\n";
+          res += "   __local shared_memory_ptr[64];\n";
           res += "   unsigned int row_gid = get_global_id(0)/get_local_size(0);\n";
           res += "   unsigned int col_gid = get_global_id(0)%get_local_size(0);\n";
           res += "   unsigned int lid = get_local_id(0);\n";
