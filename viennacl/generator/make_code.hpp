@@ -29,6 +29,7 @@
 #include "viennacl/generator/symbolic_types.hpp"
 #include "viennacl/generator/result_of.hpp"
 #include "viennacl/generator/tree_operations.hpp"
+#include <list>
 
 namespace viennacl
 {
@@ -43,8 +44,7 @@ namespace viennacl
     {
       static std::string value(std::string const & loop_accessor)
       {
-        if(loop_accessor == "gid") return  T::gid_val_name();
-        else return T::name() + '[' + loop_accessor + ']';
+        return T::name();
       }
     };
 
@@ -63,15 +63,6 @@ namespace viennacl
       static std::string value(std::string const & )
       {
         return "";
-      }
-    };
-
-    template <unsigned int ID, class SCALARTYPE>
-    struct make_expression_code<cpu_symbolic_scalar<ID,SCALARTYPE> >
-    {
-      static std::string value(std::string const & )
-      {
-        return  cpu_symbolic_scalar<ID,SCALARTYPE>::name();
       }
     };
 
@@ -141,66 +132,244 @@ namespace viennacl
     };
 
 
+    static void replace_all_string(std::string & str, std::string const & from, std::string const & to){
+        size_t start_pos = 0;
+        while((start_pos = str.find(from, start_pos)) != std::string::npos) {
+                 str.replace(start_pos, from.length(), to);
+                 start_pos += to.length();
+        }
+    }
 
-    template<class LHS, class RHS, unsigned int Alignment>
-    struct dot_product_impl
-    {
-      static std::string value(std::string lhs_loop_id,
-                               std::string rhs_loop_id)
-      {
-        return "dot(" + make_expression_code<LHS>::value(lhs_loop_id) + "," + make_expression_code<RHS>::value(rhs_loop_id) + ")";
-      }
+    /**
+     * @brief The mat_infos class
+     */
+    class mat_infos{
+    public:
+        mat_infos(std::string const & scalartype,
+                  std::string const & name,
+                  std::string const & size1,
+                  std::string const & size2,
+                  bool const & is_rowmajor,
+                  bool const & is_transposed) : scalartype_(scalartype), name_(name)
+                                                              ,  size1_(size1), size2_(size2)
+                                                              , is_rowmajor_(is_rowmajor), is_transposed_(is_transposed){ }
+        std::string const & size1() const{ return size1_; }
+        std::string const & size2() const{ return size2_; }
+        std::string const & name() const{ return name_; }
+        std::string const & scalartype() const{ return scalartype_; }
+        bool const is_rowmajor() const { return is_rowmajor_; }
+        bool const is_transposed() const { return is_transposed_; }
+        void access_name(std::string const & new_name) const{ access_name_ = new_name; }
+        std::string access_name() const { return access_name_; }
+    private:
+        mutable std::string access_name_;
+        std::string scalartype_;
+        std::string name_;
+        std::string size1_;
+        std::string size2_;
+        bool is_rowmajor_;
+        bool is_transposed_;
     };
 
-    template<class LHS, class RHS>
-    struct dot_product_impl<LHS, RHS, 8>
-    {
-      static std::string value(std::string lhs_loop_id,
-                                std::string rhs_loop_id)
-      {
-          return "dot(" + make_expression_code<LHS>::value(lhs_loop_id) + ".s0123" + ","
-                  + make_expression_code<RHS>::value(rhs_loop_id) + ".s0123 )"
-                  +  " + dot("	+ make_expression_code<LHS>::value(lhs_loop_id) + ".s4567" + ","
-                  + make_expression_code<RHS>::value(rhs_loop_id) + ".s4567 );"
-                  ;
-      }
+    /**
+     * @brief The mat_expr_infos class
+     */
+    class mat_expr_infos{
+    public:
+        mat_expr_infos(std::string const & expression_string_base) : expression_string_base_(expression_string_base){ }
+
+        void add_infos(std::string const & scalartype,
+                       std::string const & name,
+                       std::string const & size1,
+                       std::string const & size2,
+                       bool const & is_rowmajor,
+                       bool const & is_transposed){
+            mats_.push_back(mat_infos(scalartype,name,size1,size2,is_rowmajor,is_transposed));
+        }
+
+        std::list<mat_infos> const & matrices() const{ return mats_; }
+
+        std::string generate() const{
+            std::string res(expression_string_base_);
+            for(std::list<mat_infos>::const_iterator it = mats_.begin() ; it!= mats_.end() ; ++it){
+                replace_all_string(res,it->name(),it->access_name());
+            }
+            return res;
+        }
+
+    private:
+        std::list<mat_infos> mats_;
+        mutable std::string expression_string_base_;
     };
 
-    template<class LHS, class RHS>
-    struct dot_product_impl<LHS, RHS, 16>
-    {
-      static std::string value(std::string lhs_loop_id,std::string rhs_loop_id)
-      {
-        return "dot(" + make_expression_code<LHS>::value(lhs_loop_id) + ".s0123" + ","
-                + make_expression_code<RHS>::value(rhs_loop_id) + ".s0123)"
-                +"\n + dot("	+ make_expression_code<LHS>::value(lhs_loop_id) + ".s4567" + ","
-                + make_expression_code<RHS>::value(rhs_loop_id) + ".s4567) "
-                +"\n + dot("	+ make_expression_code<LHS>::value(lhs_loop_id) + ".s89ab" + ","
-                + make_expression_code<RHS>::value ( rhs_loop_id ) + ".s89ab) "
-                +"\n + dot("	+ make_expression_code<LHS>::value ( lhs_loop_id ) + ".scdef" + ","
-                + make_expression_code<RHS>::value ( rhs_loop_id ) + ".scdef)"
-                ;
-      }
+    /**
+     * @brief The vec_infos class
+     */
+    class vec_infos{
+    public:
+        vec_infos(std::string const & scalartype,
+                          std::string const & name,
+                          std::string const & size) : scalartype_(scalartype), name_(name), size_(size){ }
+        std::string const & scalartype() const{ return scalartype_; }
+        std::string const & name() const{ return name_; }
+        std::string const & size() const{ return size_; }
+        void access_name(std::string const & new_name) const{ access_name_ = new_name; }
+        std::string access_name() const { return access_name_; }
+
+    private:
+        mutable std::string access_name_;
+        std::string scalartype_;
+        std::string name_;
+        std::string size_;
     };
 
-    template<class LHS, class RHS>
-    struct dot_product
-    {
-      static std::string value(std::string lhs_loop_id,std::string rhs_loop_id)
-      {
-        return dot_product_impl<LHS,RHS,LHS::Alignment>::value(lhs_loop_id,rhs_loop_id);
-      }
+    /**
+     * @brief The vec_expr_infos class
+     */
+    class vec_expr_infos{
+    public:
+
+        vec_expr_infos(std::string const & expression_string_base) : expression_string_base_(expression_string_base){ }
+
+        void add_infos(std::string const & scalartype,
+                       std::string const & name,
+                       std::string const & size){
+            vecs_.push_back(vec_infos(scalartype,name,size));
+        }
+
+        std::list<vec_infos> const & vectors() const{
+            return vecs_;
+        }
+
+        std::string generate() const{
+            std::string res(expression_string_base_);
+            for(std::list<vec_infos>::const_iterator it = vecs_.begin() ; it!= vecs_.end() ; ++it){
+                replace_all_string(res,it->name(),it->access_name());
+            }
+            return res;
+        }
+
+    private:
+        std::list<vec_infos> vecs_;
+        mutable std::string expression_string_base_;
     };
 
-    template<class LHS>
-    struct dot_product<LHS, symbolic_constant<1> >
-    {
-      static std::string value(std::string lhs_loop_id,std::string rhs_loop_id)
-      {
-        return make_expression_code<LHS>::value(lhs_loop_id);
-      }
+    /**
+     * @brief The matvec_prod_infos struct
+     */
+    struct matvec_prod_infos{
+        matvec_prod_infos(mat_expr_infos const & lhs, vec_expr_infos const & rhs, vec_expr_infos const & additional_expression): lhs_(lhs)
+                                                                                                            , rhs_(rhs)
+                                                                                                            , additional_expression_(additional_expression){ }
+        mat_expr_infos const & lhs() const { return lhs_; }
+        vec_expr_infos const & rhs() const { return rhs_; }
+        vec_expr_infos const & additional_expression() const { return additional_expression_; }
+
+    private:
+        mat_expr_infos lhs_;
+        vec_expr_infos rhs_;
+        vec_expr_infos additional_expression_;
     };
 
+
+
+    /**
+     * @brief wrap_vec_expr class
+     */
+    template<class T>
+    struct wrap_vec_expr{
+        typedef typename tree_utils::extract_if<T,result_of::is_symbolic_vector>::Result VectorsList;
+
+        template<class U>
+        struct functor{
+            static void execute(vec_expr_infos & res){
+                res.add_infos(print_type<typename U::ScalarType,1>::value(),
+                              U::name(),
+                              U::internal_size2_name());
+            }
+        };
+
+        static vec_expr_infos create(){
+            vec_expr_infos res(make_expression_code<T>::value(""));
+            typelist_utils::ForEach<VectorsList,functor>::execute(res);
+            return res;
+        }
+    };
+
+    template<class T>
+    struct wrap_mat_expr{
+        typedef typename tree_utils::extract_if<T,result_of::is_symbolic_matrix>::Result MatricesList;
+
+        template<class U>
+        struct functor{
+            static void execute(mat_expr_infos & res){
+                res.add_infos(print_type<typename U::ScalarType,1>::value(),
+                              U::name(),
+                              U::size1_name(),
+                              U::size2_name(),
+                              result_of::is_row_major<U>::value,
+                              false);
+            }
+        };
+
+        static mat_expr_infos create(){
+            mat_expr_infos res(make_expression_code<T>::value(""));
+            typelist_utils::ForEach<MatricesList,functor>::execute(res);
+            return res;
+        }
+    };
+
+
+    template<class T>
+    matvec_prod_infos create_matvec_prod_wrapper(){
+        typedef typename tree_utils::remove_if<T,result_of::is_symbolic_vector,false >::Result Product;
+        typedef typename tree_utils::remove_if<T,result_of::is_product_leaf,false >::Result Vectors;
+        typedef typename Product::LHS ProdLHS;
+        typedef typename Product::RHS ProdRHS;
+        typedef typename result_of::expression_type<T>::Result    IntermediateType;
+        static const unsigned int Alignment = IntermediateType::Alignment;
+        VIENNACL_STATIC_ASSERT(Alignment==1,AlignmentNotSupported);
+        return matvec_prod_infos(wrap_mat_expr<ProdLHS>::create(),wrap_vec_expr<ProdRHS>::create(),wrap_vec_expr<Vectors>::create());
+    }
+
+
+    std::string generate_matvec_prod_backend(std::vector<matvec_prod_infos> const & infos){
+        std::string res;
+        mat_infos const & mat = infos.front().lhs().matrices().front();
+        vec_infos const & vec = infos.front().rhs().vectors().front();
+        if (mat.is_rowmajor()){
+          res += "   __local shared_memory_ptr[64];\n";
+          res += "   unsigned int row_gid = get_global_id(0)/get_local_size(0);\n";
+          res += "   unsigned int col_gid = get_global_id(0)%get_local_size(0);\n";
+          res += "   unsigned int lid = get_local_id(0);\n";
+          res += "   for(unsigned int row = row_gid ; row < " + mat.size1() + " ; row+=get_num_groups(0)){\n";
+          res += "       " + mat.scalartype() + " sum = 0;\n";
+          res += "       for(unsigned int col = col_gid ; col < " + mat.size2() + " ; col+=get_local_size(0)){\n";
+          mat.access_name("row");
+          vec.access_name("col");
+          res += "            sum +=  " + infos.front().lhs().generate() + "*" +  infos.front().rhs().generate() + ";\n";
+          res += "       }\n";
+          res += "       shared_memory_ptr[lid]=sum;\n";
+          res += "       for(unsigned int stride=get_local_size(0)/2 ; stride>0 ; stride>>=1){\n";
+          res += "           barrier(CLK_LOCAL_MEM_FENCE);\n";
+          res += "           if(lid < stride) shared_memory_ptr[lid]+=shared_memory_ptr[lid+stride];\n";
+          res += "       }\n";
+          res += "       if(lid==0) shared_memory_ptr[0] ;\n";
+          res+=";\n";
+          res += "   }\n";
+          res += "}\n";
+        }
+//        else
+//        {
+//          res += "   for(unsigned int row = get_global_id(0) ; row < " + FirstMatrix::internal_size1_name() + " ; row+=get_global_size(0)){\n";
+//          res += "       " + print_type<typename FirstMatrix::ScalarType,1>::value() + " sum = 0;\n";
+//          res += "       for(unsigned int col = 0 ; col < " + FirstMatrix::internal_size2_name() + " ; col++){\n";
+//          res += "            sum +=  " + make_expression_code<Products>::value("") + ";\n";
+//          res += "       }\n";
+//          res += "  }\n";
+//        }
+        return res;
+    }
 
     /** @brief Functor to make code from a token
         @tparam TOKEN The token to make the code for
@@ -243,7 +412,7 @@ namespace viennacl
         public:
           static void execute(std::string & generated_code)
           {
-              generated_code+= U::private_value() + " += " + dot_product<LHS,RHS>::value("gid","gid") + ";\n";
+//              generated_code+= U::private_value() + " += " + dot_product<LHS,RHS>::value("gid","gid") + ";\n";
           }
       };
 
@@ -331,151 +500,7 @@ namespace viennacl
       }
     };
 
-    void replace_all_string(std::string & str, std::string const & from, std::string const & to){
-        size_t start_pos = 0;
-        while((start_pos = str.find(from, start_pos)) != std::string::npos) {
-                 str.replace(start_pos, from.length(), to);
-                 start_pos += to.length();
-        }
-    }
 
-    class mat_infos{
-    public:
-        mat_infos(std::string const & scalartype,
-                  std::string const & name,
-                  std::string const & size1,
-                  std::string const & size2,
-                  bool const & is_rowmajor,
-                  bool const & is_transposed,
-                  std::string const & expression_string_base) : scalartype_(scalartype), name_(name)
-                                                              ,  size1_(size1), size2_(size2)
-                                                              , is_rowmajor_(is_rowmajor), is_transposed_(is_transposed)
-                                                              , expression_string_base_(expression_string_base){ }
-        std::string access_element(std::string const & offset) const{
-            std::string res(expression_string_base_);
-            replace_all_string(res,"__OFFSET__",offset);
-            return res;
-        }
-
-        std::string const & size1() const{ return size1_; }
-        std::string const & size2() const{ return size2_; }
-        std::string const & name() const{ return name_; }
-        std::string const & scalartype() const{ return scalartype_; }
-        bool const is_rowmajor() const { return is_rowmajor_; }
-        bool const is_transposed() const { return is_transposed_; }
-
-    private:
-        std::string scalartype_;
-        std::string name_;
-        std::string size1_;
-        std::string size2_;
-        bool is_rowmajor_;
-        bool is_transposed_;
-        mutable std::string expression_string_base_;
-    };
-
-    class vec_infos{
-    public:
-        vec_infos(std::string const & scalartype,
-                          std::string const & name,
-                          std::string const & size,
-                    std::string const & expression_string_base) : scalartype_(scalartype), name_(name), size_(size), expression_string_base_(expression_string_base) { }
-
-        std::string access_element(std::string const & offset) const{
-            std::string res(expression_string_base_);
-            replace_all_string(res,"__OFFSET__",offset);
-            return res;
-        }
-
-        std::string const & scalartype(){ return scalartype_; }
-        std::string const & name(){ return name_; }
-        std::string const & size(){ return size_; }
-
-    private:
-        std::string scalartype_;
-        std::string name_;
-        std::string size_;
-        mutable std::string expression_string_base_;
-    };
-
-    struct matvec_prod_infos{
-        matvec_prod_infos(mat_infos const & lhs, vec_infos const & rhs, std::string const & assignment_str): lhs_(lhs)
-                                                                                                            , rhs_(rhs)
-                                                                                                            ,assignment_str_(assignment_str){ }
-        std::string access_element(std::string const & prodval_name, std::string const & offset) const{
-            std::string res(assignment_str_);
-            replace_all_string(res,"__OFFSET__",offset);
-            replace_all_string(res,"__PRODVAL__",prodval_name);
-            return res;
-        }
-
-        mat_infos const & lhs() const { return lhs_; }
-        vec_infos const & rhs() const { return rhs_; }
-
-    private:
-        mat_infos lhs_;
-        vec_infos rhs_;
-        mutable std::string assignment_str_;
-    };
-
-    template<class T>
-    matvec_prod_infos wrap_matvec_prod(){
-        typedef typename tree_utils::remove_if<T,result_of::is_symbolic_vector,false >::Result Product;
-        typedef typename tree_utils::remove_if<T,result_of::is_product_leaf,false >::Result Vector;
-        typedef typename Product::LHS ProdLHS;
-        typedef typename Product::RHS ProdRHS;
-        typedef typename result_of::expression_type<T>::Result    IntermediateType;
-        static const unsigned int Alignment = IntermediateType::Alignment;
-        VIENNACL_STATIC_ASSERT(Alignment==1,AlignmentNotSupported);
-
-        mat_infos lhs_infos(print_type<typename ProdLHS::ScalarType,1>::value(),
-                            ProdLHS::name(),
-                            ProdLHS::internal_size1_name(),
-                            ProdLHS::internal_size2_name(),
-                            result_of::is_row_major<ProdLHS>::value,
-                            false,
-                            make_expression_code<ProdLHS>::value("__OFFSET__"));
-        vec_infos rhs_infos(print_type<typename ProdRHS::ScalarType,1>::value(),
-                            ProdRHS::name(),
-                            ProdRHS::internal_size2_name(),
-                            make_expression_code<ProdRHS>::value("__OFFSET__"));
-
-        return matvec_prod_infos(lhs_infos,rhs_infos,make_expression_code<T>::value("__OFFSET__"));
-    }
-
-    std::string generate_matvec_prod_backend(std::vector<matvec_prod_infos> const & infos){
-        std::string res;
-        if (infos.front().lhs().is_rowmajor()){
-          res += "   __local shared_memory_ptr[64];\n";
-          res += "   unsigned int row_gid = get_global_id(0)/get_local_size(0);\n";
-          res += "   unsigned int col_gid = get_global_id(0)%get_local_size(0);\n";
-          res += "   unsigned int lid = get_local_id(0);\n";
-          res += "   for(unsigned int row = row_gid ; row < " + infos.front().lhs().size1() + " ; row+=get_num_groups(0)){\n";
-          res += "       " + infos.front().lhs().scalartype() + " sum = 0;\n";
-          res += "       for(unsigned int col = col_gid ; col < " + infos.front().lhs().size2() + " ; col+=get_local_size(0)){\n";
-          res += "            sum +=  " + infos.front().lhs().access_element("row") + "*" +  infos.front().rhs().access_element("col") + ";\n";
-          res += "       }\n";
-          res += "       shared_memory_ptr[lid]=sum;\n";
-          res += "       for(unsigned int stride=get_local_size(0)/2 ; stride>0 ; stride>>=1){\n";
-          res += "           barrier(CLK_LOCAL_MEM_FENCE);\n";
-          res += "           if(lid < stride) shared_memory_ptr[lid]+=shared_memory_ptr[lid+stride];\n";
-          res += "       }\n";
-          res += "       if(lid==0) " + infos.front().access_element( " shared_memory_ptr[0] ", "row") + ";\n";
-          res+=";\n";
-          res += "   }\n";
-          res += "}\n";
-        }
-//        else
-//        {
-//          res += "   for(unsigned int row = get_global_id(0) ; row < " + FirstMatrix::internal_size1_name() + " ; row+=get_global_size(0)){\n";
-//          res += "       " + print_type<typename FirstMatrix::ScalarType,1>::value() + " sum = 0;\n";
-//          res += "       for(unsigned int col = 0 ; col < " + FirstMatrix::internal_size2_name() + " ; col++){\n";
-//          res += "            sum +=  " + make_expression_code<Products>::value("") + ";\n";
-//          res += "       }\n";
-//          res += "  }\n";
-//        }
-        return res;
-    }
 
 
 
@@ -486,7 +511,7 @@ namespace viennacl
       template<class U>
       struct fill_infos{
           static void execute(std::vector<matvec_prod_infos> & res){
-              res.push_back(wrap_matvec_prod<U>());
+              res.push_back(create_matvec_prod_wrapper<U>());
           }
       };
 
