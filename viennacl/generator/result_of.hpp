@@ -92,7 +92,6 @@ namespace viennacl
                        viennacl::ocl::handle<cl_mem> > & /*temporaries*/)
           { 
             SIZE_T * size_arg = viennacl::any_cast<SIZE_T * >(runtime_args[size_id_]);
-            viennacl::ocl::handle<cl_mem> handle = NULL;
             T * current_arg = viennacl::any_cast<T * >(runtime_args[arg_id_]);
             k.arg(arg_pos, *current_arg );
             k.arg(arg_pos+1,cl_uint(size(size_arg)));
