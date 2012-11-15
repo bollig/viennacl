@@ -137,7 +137,7 @@ namespace viennacl
       public:
         static std::string value(std::string const & )
         {
-            return "_PRODVAL__";
+            return "__PRODVAL__";
         }
     };
 
@@ -360,6 +360,13 @@ namespace viennacl
       }
     };
 
+    void replace_all_string(std::string & str, std::string const & from, std::string const & to){
+        size_t start_pos = 0;
+        while((start_pos = str.find(from, start_pos)) != std::string::npos) {
+                 str.replace(start_pos, from.length(), to);
+                 start_pos += to.length();
+        }
+    }
 
     class mat_infos{
     public:
@@ -374,7 +381,9 @@ namespace viennacl
                                                               , is_rowmajor_(is_rowmajor), is_transposed_(is_transposed)
                                                               , expression_string_base_(expression_string_base){ }
         std::string access_element(std::string const & offset) const{
-            return expression_string_base_;
+            std::string res(expression_string_base_);
+            replace_all_string(res,"__OFFSET__",offset);
+            return res;
         }
 
         std::string const & size1() const{ return size1_; }
@@ -402,7 +411,9 @@ namespace viennacl
                     std::string const & expression_string_base) : scalartype_(scalartype), name_(name), size_(size), expression_string_base_(expression_string_base) { }
 
         std::string access_element(std::string const & offset) const{
-            return expression_string_base_;
+            std::string res(expression_string_base_);
+            replace_all_string(res,"__OFFSET__",offset);
+            return res;
         }
 
         std::string const & scalartype(){ return scalartype_; }
@@ -421,7 +432,10 @@ namespace viennacl
                                                                                                             , rhs_(rhs)
                                                                                                             ,assignment_str_(assignment_str){ }
         std::string access_element(std::string const & prodval_name, std::string const & offset) const{
-            return assignment_str_;
+            std::string res(assignment_str_);
+            replace_all_string(res,"__OFFSET__",offset);
+            replace_all_string(res,"__PRODVAL__",prodval_name);
+            return res;
         }
 
         mat_infos const & lhs() const { return lhs_; }
@@ -453,7 +467,7 @@ namespace viennacl
         vec_infos rhs_infos(print_type<typename ProdRHS::ScalarType,1>::value(),
                             ProdRHS::name(),
                             ProdRHS::internal_size2_name(),
-                            make_expression_code<ProdRHS>::value("__OFFSET_"));
+                            make_expression_code<ProdRHS>::value("__OFFSET__"));
 
         return matvec_prod_infos(lhs_infos,rhs_infos,make_expression_code<T>::value("__OFFSET__"));
     }
@@ -468,7 +482,7 @@ namespace viennacl
           res += "   for(unsigned int row = row_gid ; row < " + infos.front().lhs().size1() + " ; row+=get_num_groups(0)){\n";
           res += "       " + infos.front().lhs().scalartype() + " sum = 0;\n";
           res += "       for(unsigned int col = col_gid ; col < " + infos.front().lhs().size2() + " ; col+=get_local_size(0)){\n";
-          res += "            sum +=  " + infos.front().lhs().access_element("row") + ";\n";
+          res += "            sum +=  " + infos.front().lhs().access_element("row") + "*" +  infos.front().rhs().access_element("col") + ";\n";
           res += "       }\n";
           res += "       shared_memory_ptr[lid]=sum;\n";
           res += "       for(unsigned int stride=get_local_size(0)/2 ; stride>0 ; stride>>=1){\n";
