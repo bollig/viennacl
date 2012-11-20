@@ -247,6 +247,59 @@ namespace viennacl
         mutable std::string expression_string_base_;
     };
 
+
+    /**
+     * @brief The scal_infos class
+     */
+    class scal_infos{
+    public:
+        scalar_infos(std::string const & scalartype,
+                          std::string const & name,
+                     bool is_passed_by_value) : scalartype_(scalartype), name_(name), is_passed_by_value_(is_passed_by_value)
+        {
+            if(is_passed_by_value) access_name_ = name_;
+        }
+        std::string const & scalartype() const{ return scalartype_; }
+        std::string const & name() const{ return name_; }
+        void access_name(std::string const & new_name) const{ access_name_ = new_name; }
+        std::string access_name() const { return access_name_; }
+
+    private:
+        mutable std::string access_name_;
+        std::string scalartype_;
+        std::string name_;
+        bool is_passed_by_value_;
+    };
+
+    /**
+     * @brief The scal_expr_infos class
+     */
+    class scal_expr_infos{
+    public:
+
+        scal_expr_infos(std::string const & expression_string_base) : expression_string_base_(expression_string_base){ }
+
+        void add_infos(scal_infos const & infos){
+            scals_.push_back(infos);
+        }
+
+        std::list<scal_infos> const & scalars() const{
+            return scals_;
+        }
+
+        std::string generate() const{
+            std::string res(expression_string_base_);
+            for(std::list<scal_infos>::const_iterator it = scals_.begin() ; it!= scals_.end() ; ++it){
+                replace_all_string(res,it->name(),it->access_name());
+            }
+            return res;
+        }
+
+    private:
+        std::list<scal_infos> scals_;
+        mutable std::string expression_string_base_;
+    };
+
     /**
      * @brief The matvec_prod_infos struct
      */
@@ -287,6 +340,44 @@ namespace viennacl
     };
 
 
+    /**
+     * @brief The inprod_infos struct
+     */
+    struct inprod_infos{
+        inprod_infos(std::string const & name
+                          ,scal_infos const & assigned
+                          ,std::string const & op_str
+                          ,vec_expr_infos const & lhs
+                          ,vec_expr_infos const & rhs
+                          ,scal_expr_infos const & additional_expression
+                          ,std::string const & expression_string_base): name_(name)
+                                                                        ,assigned_(assigned)
+                                                                        ,lhs_(lhs)
+                                                                         ,op_str_(op_str)
+                                                                        , rhs_(rhs)
+                                                                        , additional_expression_(additional_expression)
+                                                                        , expression_string_base_(expression_string_base){ }
+        vec_expr_infos const & lhs() const { return lhs_; }
+        vec_expr_infos const & rhs() const { return rhs_; }
+        scal_expr_infos const & additional_expression() const { return additional_expression_; }
+        scal_infos const & assigned() const { return assigned_; }
+        void access_name(std::string const & new_name) const{ access_name_ = new_name; }
+        std::string generate(){
+            std::string inprod(expression_string_base_);
+            replace_all_string(prod,name_,access_name_);
+            return assigned_.access_name() + op_str_ + inprod + "+" + additional_expression_.generate();
+        }
+
+    private:
+        std::string name_;
+        std::string op_str_;
+        scal_infos assigned_;
+        vec_expr_infos lhs_;
+        vec_expr_infos rhs_;
+        scal_expr_infos additional_expression_;
+        mutable std::string expression_string_base_;
+        mutable std::string access_name_;
+    };
 
     template<class U>
     static vec_infos wrap_vector(){
@@ -346,22 +437,26 @@ namespace viennacl
 
 
     template<class T>
-    matvec_prod_infos create_matvec_prod_wrapper(){
+    struct wrap_matvec_prod{
+
         typedef typename tree_utils::remove_if<T,result_of::is_symbolic_vector,false >::Result Product;
         typedef typename tree_utils::remove_if<T,result_of::is_product_leaf,false >::Result Vectors;
         typedef typename Product::LHS ProdLHS;
         typedef typename Product::RHS ProdRHS;
         typedef typename result_of::expression_type<T>::Result    IntermediateType;
         static const unsigned int Alignment = IntermediateType::Alignment;
-        VIENNACL_STATIC_ASSERT(Alignment==1,AlignmentNotSupported);
-        return matvec_prod_infos(Product::name()
-                                 ,wrap_vector<typename T::LHS>()
-                                 ,T::OP::expression_string()
-                                 ,wrap_mat_expr<ProdLHS>::create()
-                                 ,wrap_vec_expr<ProdRHS>::create()
-                                 ,wrap_vec_expr<Vectors>::create()
-                                 ,make_expression_code<Product>::value(""));
-    }
+
+        static matvec_prod_infos create(){
+            VIENNACL_STATIC_ASSERT(Alignment==1,AlignmentNotSupported);
+            return matvec_prod_infos(Product::name()
+                                     ,wrap_vector<typename T::LHS>()
+                                     ,T::OP::expression_string()
+                                     ,wrap_mat_expr<ProdLHS>::create()
+                                     ,wrap_vec_expr<ProdRHS>::create()
+                                     ,wrap_vec_expr<Vectors>::create()
+                                     ,make_expression_code<Product>::value(""));
+       }
+    };
 
 
     std::string generate_matvec_prod_backend(std::vector<matvec_prod_infos> const & infos){
@@ -376,7 +471,7 @@ namespace viennacl
           res += "   for(unsigned int row = row_gid ; row < " + mat.size1() + " ; row+=get_num_groups(0)){\n";
           res += "       " + mat.scalartype() + " sum = 0;\n";
           res += "       for(unsigned int col = col_gid ; col < " + mat.size2() + " ; col+=get_local_size(0)){\n";
-          mat.access_name("row");
+          mat.access_name(mat.name()+"row");
           vec.access_name("col");
           res += "            sum +=  " + infos.front().lhs().generate() + "*" +  infos.front().rhs().generate() + ";\n";
           res += "       }\n";
@@ -542,7 +637,7 @@ namespace viennacl
       template<class U>
       struct fill_infos{
           static void execute(std::vector<matvec_prod_infos> & res){
-              res.push_back(create_matvec_prod_wrapper<U>());
+              res.push_back(wrap_matvec_prod<U>::create());
           }
       };
 
