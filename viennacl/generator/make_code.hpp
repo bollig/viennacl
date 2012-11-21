@@ -306,17 +306,8 @@ namespace viennacl
     /**
      * @brief The inprod_infos struct
      */
-    class inprod_infos : public prod_infos_base<scal_infos,vec_expr_infos,vec_expr_infos, scal_expr_infos>{
-        typedef prod_infos_base<scal_infos,vec_expr_infos,vec_expr_infos, scal_expr_infos> BaseT;
-    public:
-        inprod_infos(std::string const & name
-                          ,scal_infos const & assigned
-                          ,std::string const & op_str
-                          ,vec_expr_infos const & lhs
-                          ,vec_expr_infos const & rhs
-                          ,scal_expr_infos const & additional_expression
-                     ,std::string const & expression_string_base): BaseT(name,assigned,op_str,lhs,rhs,additional_expression,expression_string_base){ }
-    };
+
+
 
 
     template<class U>
@@ -368,18 +359,48 @@ namespace viennacl
             return res;
     }
 
+    template<class U>
+    static scal_expr_infos wrap_scalexpr(){
+            typedef typename tree_utils::extract_if<U,result_of::is_symbolic_scalar>::Result List;
+            scal_expr_infos res(make_expression_code<U>::value(""));
+            typelist_utils::ForEach<List,foreach_functor>::execute(res);
+            return res;
+    }
+
+    template<unsigned int>
+    class inprod_infos;
+
+    template<>
+    class inprod_infos<1>: public prod_infos_base<scal_infos,vec_expr_infos,vec_expr_infos, scal_expr_infos>{
+        typedef prod_infos_base<scal_infos,vec_expr_infos,vec_expr_infos, scal_expr_infos> BaseT;
+    public:
+        inprod_infos(std::string const & name
+                          ,vec_expr_infos const & lhs
+                     ,vec_expr_infos const & rhs): BaseT(name,scal_infos("",""),"",lhs,rhs,wrap_scalexpr<NullType>(),""){ }
+    };
+
+
+    template<>
+    class inprod_infos<2>: public prod_infos_base<scal_infos,vec_expr_infos,vec_expr_infos, scal_expr_infos>{
+        typedef prod_infos_base<scal_infos,vec_expr_infos,vec_expr_infos, scal_expr_infos> BaseT;
+    public:
+        inprod_infos(std::string const & name
+                          ,scal_infos const & assigned
+                          ,std::string const & op_str
+                          ,vec_expr_infos const & lhs
+                          ,vec_expr_infos const & rhs
+                          ,scal_expr_infos const & additional_expression
+                     ,std::string const & expression_string_base): BaseT(name,assigned,op_str,lhs,rhs,additional_expression,expression_string_base){ }
+    };
 
     template<class T>
-    struct wrap_matvec_prod{
-
-        typedef typename tree_utils::remove_if<T,result_of::is_symbolic_vector,false >::Result Product;
+    static matvec_prod_infos wrap_matvec_prod(){
+        typedef typename tree_utils::extract_if<T,result_of::is_product_leaf>::Result::Head Product;
         typedef typename tree_utils::remove_if<T,result_of::is_product_leaf,false >::Result Vectors;
         typedef typename Product::LHS ProdLHS;
         typedef typename Product::RHS ProdRHS;
         typedef typename result_of::expression_type<T>::Result    IntermediateType;
         static const unsigned int Alignment = IntermediateType::Alignment;
-
-        static matvec_prod_infos create(){
             VIENNACL_STATIC_ASSERT(Alignment==1,AlignmentNotSupported);
             return matvec_prod_infos(Product::name()
                                      ,wrap_vec<typename T::LHS>()
@@ -388,130 +409,81 @@ namespace viennacl
                                      ,wrap_vecexpr<ProdRHS>()
                                      ,wrap_vecexpr<Vectors>()
                                      ,make_expression_code<Product>::value(""));
-       }
+    }
+
+    template<class T>
+    struct wrap_inprod{
+
+            template<class U>
+            struct functor_compute{
+                typedef typename U::Type InProd;
+                typedef typename InProd::LHS InProdLHS;
+                typedef typename InProd::RHS InProdRHS;
+
+                static void execute(std::vector<inprod_infos<1> > & arg){
+                    arg.push_back(inprod_infos<1>(InProd::name()
+                                                  ,wrap_vecexpr<InProdLHS>()
+                                                  ,wrap_vecexpr<InProdRHS>()));
+                }
+            };
+
+            template<class U>
+            struct functor_reduce{
+                typedef typename tree_utils::extract_if<T,result_of::is_inner_product_leaf >::Result::Head InProd;
+                typedef typename tree_utils::remove_if<T,result_of::is_inner_product_leaf,false >::Result Scalars;
+                typedef typename InProd::LHS InProdLHS;
+                typedef typename InProd::RHS InProdRHS;
+                typedef typename result_of::expression_type<T>::Result    IntermediateType;
+
+
+                static void execute(std::vector<inprod_infos<2> > & arg){
+                    arg.push_back(inprod_infos<2>(InProd::name()
+                                                  ,wrap_scal<typename T::LHS>()
+                                                  ,T::OP::expression_string()
+                                                  ,wrap_vecexpr<InProdLHS>()
+                                                  ,wrap_vecexpr<InProdRHS>()
+                                                  ,wrap_scalexpr<Scalars>()
+                                                  ,make_expression_code<InProd>::value("")));
+                }
+            };
+
+            static void execute(std::vector<inprod_infos<1> > & arg_compute, std::vector<inprod_infos<2> > & arg_reduce){
+                typelist_utils::ForEach< typename tree_utils::extract_if<T,result_of::is_inner_product_impl>::Result, functor_compute>::execute(arg_compute);
+                typelist_utils::ForEach< typename tree_utils::extract_if<T,result_of::is_inner_product_leaf>::Result, functor_reduce>::execute(arg_reduce);
+            }
     };
 
-
-    std::string generate_matvec_prod_backend(std::vector<matvec_prod_infos> const & infos){
+    static std::string generate_matvec_prod_backend(std::vector<matvec_prod_infos> const & infos){
         std::string res;
         mat_infos const & mat = infos.front().lhs().data().front();
         vec_infos const & vec = infos.front().rhs().data().front();
-        if (mat.is_rowmajor()){
-          res += "   __local shared_memory_ptr[64];\n";
-          res += "   unsigned int row_gid = get_global_id(0)/get_local_size(0);\n";
-          res += "   unsigned int col_gid = get_global_id(0)%get_local_size(0);\n";
-          res += "   unsigned int lid = get_local_id(0);\n";
-          res += "   for(unsigned int row = row_gid ; row < " + mat.size1() + " ; row+=get_num_groups(0)){\n";
-          res += "       " + mat.scalartype() + " sum = 0;\n";
-          res += "       for(unsigned int col = col_gid ; col < " + mat.size2() + " ; col+=get_local_size(0)){\n";
-          mat.access_name(mat.name()+"row");
-          vec.access_name("col");
-          res += "            sum +=  " + infos.front().lhs().generate() + "*" +  infos.front().rhs().generate() + ";\n";
-          res += "       }\n";
-          res += "       shared_memory_ptr[lid]=sum;\n";
-          res += "       for(unsigned int stride=get_local_size(0)/2 ; stride>0 ; stride>>=1){\n";
-          res += "           barrier(CLK_LOCAL_MEM_FENCE);\n";
-          res += "           if(lid < stride) shared_memory_ptr[lid]+=shared_memory_ptr[lid+stride];\n";
-          res += "       }\n";
-          res += "       if(lid==0) shared_memory_ptr[0] ;\n";
-          res+=";\n";
-          res += "   }\n";
-          res += "}\n";
-        }
-//        else
-//        {
-//          res += "   for(unsigned int row = get_global_id(0) ; row < " + FirstMatrix::internal_size1_name() + " ; row+=get_global_size(0)){\n";
-//          res += "       " + print_type<typename FirstMatrix::ScalarType,1>::value() + " sum = 0;\n";
-//          res += "       for(unsigned int col = 0 ; col < " + FirstMatrix::internal_size2_name() + " ; col++){\n";
-//          res += "            sum +=  " + make_expression_code<Products>::value("") + ";\n";
-//          res += "       }\n";
-//          res += "  }\n";
-//        }
+        res += "   __local shared_memory_ptr[64];\n";
+        res += "   unsigned int row_gid = get_global_id(0)/get_local_size(0);\n";
+        res += "   unsigned int col_gid = get_global_id(0)%get_local_size(0);\n";
+        res += "   unsigned int lid = get_local_id(0);\n";
+        res += "   for(unsigned int row = row_gid ; row < " + mat.size1() + " ; row+=get_num_groups(0)){\n";
+        res += "       " + mat.scalartype() + " sum = 0;\n";
+        res += "       for(unsigned int col = col_gid ; col < " + mat.size2() + " ; col+=get_local_size(0)){\n";
+        mat.access_name(mat.name()+"row");
+        vec.access_name("col");
+        res += "            sum +=  " + infos.front().lhs().generate() + "*" +  infos.front().rhs().generate() + ";\n";
+        res += "       }\n";
+        res += "       shared_memory_ptr[lid]=sum;\n";
+        res += "       for(unsigned int stride=get_local_size(0)/2 ; stride>0 ; stride>>=1){\n";
+        res += "           barrier(CLK_LOCAL_MEM_FENCE);\n";
+        res += "           if(lid < stride) shared_memory_ptr[lid]+=shared_memory_ptr[lid+stride];\n";
+        res += "       }\n";
+        res += "       if(lid==0) shared_memory_ptr[0] ;\n";
+        res+=";\n";
+        res += "   }\n";
+        res += "}\n";
         return res;
     }
 
-    /** @brief Functor to make code from a token
-        @tparam TOKEN The token to make the code for
-    */
-    template <class TOKEN>
-    struct make_code;
-
-    template<>
-    struct make_code<NullType>
-    {
-      static std::string value() { return ""; }
-
-      static std::string sum() { return ""; }
-
-      static std::string reduction() { return ""; }
-    };
-
-    template <class EXPR>
-    struct make_code<ArithmeticToken<EXPR> >
-    {
-      static std::string value()
-      {
-        std::string res;
-        res+="\n//Arithmetic Token\n";
-        res+=make_expression_code<EXPR>::value("gid") + ";\n";
-        return res;
-      }
-    };
-
-    template <class T>
-    struct make_code<InProdToken<T, 1>  >
-    {
-      template<class U>
-      struct generate_code_sum
-      {
-        private:
-          typedef typename U::Type ARG;
-          typedef typename ARG::LHS LHS;
-          typedef typename ARG::RHS RHS;
-        public:
-          static void execute(std::string & generated_code)
-          {
-//              generated_code+= U::private_value() + " += " + dot_product<LHS,RHS>::value("gid","gid") + ";\n";
-          }
-      };
-
-
-      template<class U>
-      struct generate_code_reduction
-      {
-        private:
-          typedef typename U::Type ARG;
-          typedef typename ARG::LHS LHS;
-          typedef typename ARG::RHS RHS;
-        public :
-
-          static void execute(std::string & generated_code)
-          {
-              generated_code+=
-                      "shared_memory_ptr[get_local_id(0)] = " + U::private_value() + ";\n"
-                      "for (unsigned int stride = get_local_size(0)/2; stride > 0; stride /= 2)\n"
-                      "{\n"
-                      "  barrier(CLK_LOCAL_MEM_FENCE);\n"
-                      "  if (get_local_id(0) < stride)\n"
-                      "  shared_memory_ptr[get_local_id(0)] += shared_memory_ptr[get_local_id(0)+stride];\n"
-                      "}\n"
-                      +ARG::name() + "[get_group_id(0)] = shared_memory_ptr[0];";
-          }
-      };
-
-      static std::string sum()
-      {
-          std::string res;
-          typelist_utils::ForEach<T,generate_code_sum>::execute(res);
-          return res;
-      }
-
-      static std::string reduction()
-      {
-          std::string res;
-          typelist_utils::ForEach<T,generate_code_reduction>::execute(res);
-          return res;
-      }
+    static std::string generate_blas1_backend(std::vector<inprod_infos<2> > & inprods_to_reduce,
+                        std::vector<vec_expr_infos> & vec_exprs,
+                        std::vector<inprod_infos<1> > & inprods_to_compute){
+        return "blabla";
 
     };
 
@@ -616,15 +588,159 @@ namespace viennacl
           }
       };
 
-      public:
-        static std::string value()
-        {
-          std::vector<matvec_prod_infos> infos;
-          typelist_utils::ForEach<T,fill_infos>::execute(infos);
-          return generate_matvec_prod_backend(infos);
-        }
+//    /** @brief Functor to make code from a token
+//        @tparam TOKEN The token to make the code for
+//    */
+//    template <class TOKEN>
+//    struct make_code;
 
-    };
+//    template<>
+//    struct make_code<NullType>
+//    {
+//      static std::string value() { return ""; }
+
+//      static std::string sum() { return ""; }
+
+//      static std::string reduction() { return ""; }
+//    };
+
+//    template <class EXPR>
+//    struct make_code<ArithmeticToken<EXPR> >
+//    {
+//      static std::string value()
+//      {
+//        std::string res;
+//        res+="\n//Arithmetic Token\n";
+//        res+=make_expression_code<EXPR>::value("gid") + ";\n";
+//        return res;
+//      }
+//    };
+
+//    template <class T>
+//    struct make_code<InProdToken<T, 1>  >
+//    {
+//      template<class U>
+//      struct generate_code_sum
+//      {
+//        private:
+//          typedef typename U::Type ARG;
+//          typedef typename ARG::LHS LHS;
+//          typedef typename ARG::RHS RHS;
+//        public:
+//          static void execute(std::string & generated_code)
+//          {
+////              generated_code+= U::private_value() + " += " + dot_product<LHS,RHS>::value("gid","gid") + ";\n";
+//          }
+//      };
+
+
+//      template<class U>
+//      struct generate_code_reduction
+//      {
+//        private:
+//          typedef typename U::Type ARG;
+//          typedef typename ARG::LHS LHS;
+//          typedef typename ARG::RHS RHS;
+//        public :
+
+//          static void execute(std::string & generated_code)
+//          {
+//              generated_code+=
+//                      "shared_memory_ptr[get_local_id(0)] = " + U::private_value() + ";\n"
+//                      "for (unsigned int stride = get_local_size(0)/2; stride > 0; stride /= 2)\n"
+//                      "{\n"
+//                      "  barrier(CLK_LOCAL_MEM_FENCE);\n"
+//                      "  if (get_local_id(0) < stride)\n"
+//                      "  shared_memory_ptr[get_local_id(0)] += shared_memory_ptr[get_local_id(0)+stride];\n"
+//                      "}\n"
+//                      +ARG::name() + "[get_group_id(0)] = shared_memory_ptr[0];";
+//          }
+//      };
+
+//      static std::string sum()
+//      {
+//          std::string res;
+//          typelist_utils::ForEach<T,generate_code_sum>::execute(res);
+//          return res;
+//      }
+
+//      static std::string reduction()
+//      {
+//          std::string res;
+//          typelist_utils::ForEach<T,generate_code_reduction>::execute(res);
+//          return res;
+//      }
+
+//    };
+
+//    template <class T>
+//    struct make_code<InProdToken<T, 0> >
+//    {
+//      template<class U>
+//      struct generate_code
+//      {
+//        private:
+//          typedef typename U::LHS LHS;
+//          typedef typename U::RHS RHS;
+
+//        public:
+
+//          static void execute(std::string & generated_code)
+//          {
+//              generated_code+=
+//                      "{\n"
+//                      "   __local shared_memory_ptr[64];\n"
+//                      "   float sum = 0;\n"
+//                      "   for (unsigned int i = get_local_id(0) ; i<get_num_groups(0) ; i+=get_local_size(0))\n"
+//                      "   {\n"
+//                      "      sum+= " +U::name() +"[i];\n"
+//                      "   };\n"
+//                      "   shared_memory_ptr[get_local_id(0)]=sum;\n"
+//                      "   for (unsigned int stride = get_local_size(0)/2; stride > 0; stride /= 2)\n"
+//                      "   {\n"
+//                      "      barrier(CLK_LOCAL_MEM_FENCE);\n"
+//                      "      if (get_local_id(0) < stride)\n"
+//                      "      shared_memory_ptr[get_local_id(0)] += shared_memory_ptr[get_local_id(0)+stride];\n"
+//                      "   }\n"
+//                      "   if(get_local_id(0)==0)\n"
+//                      "       "+U::local_value() + " = shared_memory_ptr[0];\n"
+//                      "   barrier(CLK_LOCAL_MEM_FENCE);\n"
+//                      "}\n";
+//          }
+//      };
+
+//      static std::string value()
+//      {
+//          std::string res;
+//          typelist_utils::ForEach<T,generate_code>::execute(res);
+//          return res;
+//      }
+//    };
+
+
+
+
+
+//    template<class T>
+//    struct make_code<MatVecToken<T> >
+//    {
+
+//      template<class U>
+//      struct fill_infos{
+//          static void execute(std::vector<matvec_prod_infos> & res){
+//              res.push_back(wrap_matvec_prod<U>());
+//          }
+//      };
+
+//      public:
+//        static std::string value()
+//        {
+//          std::vector<matvec_prod_infos> infos;
+//          typelist_utils::ForEach<T,fill_infos>::execute(infos);
+//          return generate_matvec_prod_backend(infos);
+//        }
+
+//    };
 
 
   }
