@@ -73,110 +73,128 @@ namespace viennacl
 
     };
 
+//    // Traits
 
-    // Traits
+//    namespace result_of
+//    {
 
-    namespace result_of
-    {
+//      template<class T>
+//      struct is_vector_assignment
+//      {
+//        enum { value = 0 };
+//      };
 
-      template<class T>
-      struct is_vector_assignment
-      {
-        enum { value = 0 };
-      };
+//      template<class LHS, class OP, class RHS>
+//      struct is_vector_assignment<compound_node<LHS,OP,RHS> >
+//      {
+//        enum { value = result_of::is_assignment<OP>::value && result_of::is_symbolic_vector<LHS>::value };
+//      };
 
-      template<class LHS, class OP, class RHS>
-      struct is_vector_assignment<compound_node<LHS,OP,RHS> >
-      {
-        enum { value = result_of::is_assignment<OP>::value && result_of::is_symbolic_vector<LHS>::value };
-      };
+//      template<class Bound, class Expr>
+//      struct is_vector_assignment<repeater_impl<Bound,Expr> >
+//      {
+//        enum { value = 1 };
+//      };
 
-      template<class Bound, class Expr>
-      struct is_vector_assignment<repeater_impl<Bound,Expr> >
-      {
-        enum { value = 1 };
-      };
+//      template<class T>
+//      struct is_scalar_assignment
+//      {
+//        enum { value = 0 };
+//      };
 
-      template<class T>
-      struct is_scalar_assignment
-      {
-        enum { value = 0 };
-      };
+//      template<class LHS, class OP, class RHS>
+//      struct is_scalar_assignment<compound_node<LHS,OP,RHS> >
+//      {
+//        enum { value = result_of::is_assignment<OP>::value && result_of::is_symbolic_gpu_scalar<LHS>::value };
+//      };
 
-      template<class LHS, class OP, class RHS>
-      struct is_scalar_assignment<compound_node<LHS,OP,RHS> >
-      {
-        enum { value = result_of::is_assignment<OP>::value && result_of::is_symbolic_gpu_scalar<LHS>::value };
-      };
+//    }
 
-    }
+//    template<class T, class Enable = void>
+//    struct get_operations_lhs
+//    {
+//        typedef NullType Result;
+//    };
 
-    template<class T, class Enable = void>
-    struct get_operations_lhs
-    {
-        typedef NullType Result;
-    };
+//    template<class T>
+//    struct get_operations_lhs<T,typename viennacl::enable_if<result_of::is_assignment_compound<T>::value>::type>
+//    {
+//        typedef typename T::LHS Result;
+//    };
+
+//    template<class Head, class Tail>
+//    struct get_operations_lhs<typelist<Head,Tail> >
+//    {
+//        typedef typelist<typename get_operations_lhs<Head>::Result,
+//                         typename get_operations_lhs<Tail>::Result> Result;
+//    };
+
+
+
 
     template<class T>
-    struct get_operations_lhs<T,typename viennacl::enable_if<result_of::is_assignment_compound<T>::value>::type>
-    {
-        typedef typename T::LHS Result;
+    class fill_blas1_infos{
+
+        template<class U>
+        static void exec_impl(std::vector<expr_infos *> & vec_exprs, std::vector<expr_infos *> & scal_exprs, typename viennacl::enable_if<result_of::is_vector_expression<U>::value>::type* dummy = 0){
+            vec_exprs.push_back(& vec_expr_infos<U>::get());
+        }
+
+        template<class U>
+        static void exec_impl(std::vector<expr_infos *> & vec_exprs, std::vector<expr_infos *> & scal_exprs, typename viennacl::enable_if<result_of::is_scalar_expression<U>::value>::type* dummy = 0){
+            scal_exprs.push_back(& scal_expr_infos<U>::get());
+        }
+
+    public:
+
+        static void execute(std::vector<expr_infos *> & vec_exprs, std::vector<expr_infos *> & scal_exprs){
+            exec_impl<T>(vec_exprs,scal_exprs);
+        }
     };
-
-    template<class Head, class Tail>
-    struct get_operations_lhs<typelist<Head,Tail> >
-    {
-        typedef typelist<typename get_operations_lhs<Head>::Result,
-                         typename get_operations_lhs<Tail>::Result> Result;
-    };
-
-
 
     template<class ExpressionsList>
     class body_code
     {
     private:
-        template<class U>
-        struct fill_matvec_prod_infos{
-            static void execute(std::vector<matvec_prod_infos> & res){
-                res.push_back(wrap_matvec_prod<U>());
-            }
-        };
+//        template<class U>
+//        struct fill_matvec_prod_infos{
+//            static void execute(std::vector<matvec_prod_infos> & res){
+//                res.push_back(wrap_matvec_prod<U>());
+//            }
+//        };
 
-        template<class U>
-        struct fill_blas1_infos{
+//        template<class U>
+//        struct fill_blas1_infos{
 
 
 
-            static void execute(std::vector<inprod_infos<1> > & inprods_compute,std::vector<inprod_infos<2> > & inprods_reduce){
-                wrap_inprod<U>::execute(inprods_compute,inprods_reduce);
-            }
+//            static void execute(std::vector<inprod_infos<1> > & inprods_compute,std::vector<inprod_infos<2> > & inprods_reduce){
+//                wrap_inprod<U>::execute(inprods_compute,inprods_reduce);
+//            }
 
-            static void execute(std::vector<vec_expr_infos> & vec_exprs){
-                bool has_ip1 = tree_utils::count_if<U,result_of::is_inner_product_leaf>::value;
-                bool has_ip2 = tree_utils::count_if<U,result_of::is_inner_product_impl>::value;
-                if(!has_ip1 && !has_ip2){
-                    vec_exprs.push_back(wrap_vecexpr<U>());
-                }
-            }
+//            static void execute(std::vector<vec_expr_infos> & vec_exprs){
+//                bool has_ip1 = tree_utils::count_if<U,result_of::is_inner_product_leaf>::value;
+//                bool has_ip2 = tree_utils::count_if<U,result_of::is_inner_product_impl>::value;
+//                if(!has_ip1 && !has_ip2){
+//                    vec_exprs.push_back(wrap_vecexpr<U>());
+//                }
+//            }
 
-        };
+//        };
 
-        template<class U>
-        static const std::string value_impl(typename viennacl::enable_if< tree_utils::count_if<U,result_of::is_product_leaf>::value >::type * dummy = 0){
-            std::vector<matvec_prod_infos> infos;
-            typelist_utils::ForEach<ExpressionsList,fill_matvec_prod_infos>::execute(infos);
-            return generate_matvec_prod_backend(infos);
-        }
+//        template<class U>
+//        static const std::string value_impl(typename viennacl::enable_if< tree_utils::count_if<U,result_of::is_product_leaf>::value >::type * dummy = 0){
+//            std::vector<matvec_prod_infos> infos;
+//            typelist_utils::ForEach<ExpressionsList,fill_matvec_prod_infos>::execute(infos);
+//            return generate_matvec_prod_backend(infos);
+//        }
 
         template<class U>
         static const std::string value_impl(typename viennacl::enable_if<! tree_utils::count_if<U,result_of::is_product_leaf>::value >::type * dummy = 0){
-            std::vector<inprod_infos<1> > inprods_compute;
-            std::vector<inprod_infos<2> > inprods_reduce;
-            std::vector<vec_expr_infos> vec_exprs;
-            typelist_utils::ForEach<ExpressionsList,fill_blas1_infos>::execute(inprods_compute,inprods_reduce);
-            typelist_utils::ForEach<ExpressionsList,fill_blas1_infos>::execute(vec_exprs);
-            return generate_blas1_backend(inprods_reduce,vec_exprs,inprods_compute);
+            std::vector<expr_infos *> vec_exprs;
+            std::vector<expr_infos *> scal_exprs;
+            typelist_utils::ForEach<ExpressionsList,fill_blas1_infos>::execute(vec_exprs,scal_exprs);
+            return blas1_generator()(vec_exprs,scal_exprs);
         }
 
     public:
