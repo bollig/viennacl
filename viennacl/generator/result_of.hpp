@@ -635,8 +635,21 @@ namespace viennacl
       };
 
       template<class T>
+      struct is_symbolic_constant
+      {
+        enum { value = 0};
+      };
+
+      template<long val>
+      struct is_symbolic_constant<symbolic_constant<val> >
+      {
+          enum { value = 1};
+      };
+
+
+      template<class T>
       struct is_symbolic_scalar{
-          enum { value = is_symbolic_cpu_scalar<T>::value || is_symbolic_gpu_scalar<T>::value };
+          enum { value = is_symbolic_cpu_scalar<T>::value || is_symbolic_gpu_scalar<T>::value || is_symbolic_constant<T>::value};
       };
 
       template <class T>
@@ -772,11 +785,6 @@ namespace viennacl
         enum { value = 1 };
       };
 
-      template<class T>
-      struct is_symbolic_constant
-      {
-        enum { value = 0};
-      };
 
       template<class T>
       struct is_symbolic_expression

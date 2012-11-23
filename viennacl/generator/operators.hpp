@@ -309,7 +309,9 @@ namespace viennacl
               are_same_type<OP,add_type>::value ||
               are_same_type<OP,sub_type>::value ||
               are_same_type<OP,scal_mul_type>::value ||
-              are_same_type<OP,scal_div_type>::value};
+              are_same_type<OP,scal_div_type>::value ||
+              are_same_type<OP,elementwise_prod_type>::value ||
+              are_same_type<OP,elementwise_div_type>::value};
     };
 
     template<class T>
