@@ -136,18 +136,18 @@ namespace viennacl
     class fill_blas1_infos{
 
         template<class U>
-        static void exec_impl(std::vector<expr_infos *> & vec_exprs, std::vector<expr_infos *> & scal_exprs, typename viennacl::enable_if<result_of::is_vector_expression<U>::value>::type* dummy = 0){
+        static void exec_impl(std::list<vec_expr_infos_base *> & vec_exprs, std::list<scal_expr_infos_base *> & scal_exprs, typename viennacl::enable_if<result_of::is_vector_expression<U>::value>::type* dummy = 0){
             vec_exprs.push_back(& vec_expr_infos<U>::get());
         }
 
         template<class U>
-        static void exec_impl(std::vector<expr_infos *> & vec_exprs, std::vector<expr_infos *> & scal_exprs, typename viennacl::enable_if<result_of::is_scalar_expression<U>::value>::type* dummy = 0){
+        static void exec_impl(std::list<vec_expr_infos_base *> & vec_exprs, std::list<scal_expr_infos_base *> & scal_exprs, typename viennacl::enable_if<result_of::is_scalar_expression<U>::value>::type* dummy = 0){
             scal_exprs.push_back(& scal_expr_infos<U>::get());
         }
 
     public:
 
-        static void execute(std::vector<expr_infos *> & vec_exprs, std::vector<expr_infos *> & scal_exprs){
+        static void execute(std::list<vec_expr_infos_base *> & vec_exprs, std::list<scal_expr_infos_base *> & scal_exprs){
             exec_impl<T>(vec_exprs,scal_exprs);
         }
     };
@@ -191,8 +191,8 @@ namespace viennacl
 
         template<class U>
         static const std::string value_impl(typename viennacl::enable_if<! tree_utils::count_if<U,result_of::is_product_leaf>::value >::type * dummy = 0){
-            std::vector<expr_infos *> vec_exprs;
-            std::vector<expr_infos *> scal_exprs;
+            std::list<vec_expr_infos_base *> vec_exprs;
+            std::list<scal_expr_infos_base *> scal_exprs;
             typelist_utils::ForEach<ExpressionsList,fill_blas1_infos>::execute(vec_exprs,scal_exprs);
             return blas1_generator()(vec_exprs,scal_exprs);
         }

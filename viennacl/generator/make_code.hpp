@@ -31,6 +31,7 @@
 #include "viennacl/generator/result_of.hpp"
 #include "viennacl/generator/tree_operations.hpp"
 #include <list>
+#include <set>
 
 namespace viennacl
 {
@@ -312,9 +313,9 @@ namespace viennacl
     class vec_expr_infos : public vec_expr_infos_base{
     public:
         vec_expr_infos() : vec_expr_infos_base(make_expression_code<T>::value(""),vec_infos<typename T::LHS>::get()){
-            wrap_expr<T>::execute(data_);
+            wrap_expr<typename T::RHS>::execute(data_);
         }
-        static expr_infos & get(){
+        static vec_expr_infos_base & get(){
             static vec_expr_infos<T> res;
             return res;
         }
@@ -334,9 +335,9 @@ namespace viennacl
     class scal_expr_infos : public scal_expr_infos_base{
     public:
         scal_expr_infos() : scal_expr_infos_base(make_expression_code<T>::value(""),scal_infos<typename T::LHS>::get()){
-            wrap_expr<T>::execute(data_);
+            wrap_expr<typename T::RHS>::execute(data_);
         }
-        static expr_infos & get(){
+        static scal_expr_infos_base & get(){
             static scal_expr_infos<T> res;
             return res;
         }
@@ -344,20 +345,32 @@ namespace viennacl
 
     struct blas1_generator{
     private:
-//        template<class T>
-//        void extract(expr_infos::data_t & data, std::list<T *> & arg ){
-//            for(expr_infos::data_t::iterator it = data.begin() ; it != data.end() ; ++it){
-//                if(T* p = dynamic_cast<T * >(*it)){
-//                    arg.push_back(p);
-//                }
-//            }
-//        }
+
+        void cache_vector_entries(std::ostringstream & oss, std::list<vec_expr_infos_base *> & vec_exprs){
+            std::set<vec_infos_base *> cached;
+            for(std::list<vec_expr_infos_base * >::iterator it = vec_exprs.begin() ; it != vec_exprs.end() ; ++it){
+                vec_infos_base & assigned = (*it)->assigned();
+                if(cached.insert(&assigned).second){
+                    assigned.access_name(assigned.name() + "_val");
+                    oss << assigned.scalartype() << " " << assigned.access_name() << " = " << assigned.name() << "[i];\n";
+                }
+                for(std::list<infos_base *>::iterator iit = (*it)->data().begin() ; iit != (*it)->data().end() ; ++iit){
+                    if(vec_infos_base * p = dynamic_cast<vec_infos_base *>(*iit)){
+                        if(cached.insert(p).second){
+                            p->access_name(p->name()+"_val");
+                            oss << p->scalartype() << " " << p->access_name() << " = " << p->name() << "[i];\n";
+                        }
+                    }
+                }
+            }
+        }
 
     public:
-        std::string operator()(std::vector<expr_infos * > & vec_exprs, std::vector<expr_infos * > & scal_exprs){
+        std::string operator()(std::list<vec_expr_infos_base * > & vec_exprs, std::list<scal_expr_infos_base * > & scal_exprs){
             std::ostringstream oss;
-            std::map<infos_base *, bool> cached;
-
+            oss << "for(unsigned int i = get_global_id(0) ; i <" << vec_exprs.front()->assigned().size() << " ; i += get_global_size(0){\n";
+            cache_vector_entries(oss,vec_exprs);
+            oss << "}\n";
 
             return oss.str();
         }
