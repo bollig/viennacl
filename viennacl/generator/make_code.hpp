@@ -115,42 +115,40 @@ namespace viennacl
      */
     class infos_base{
     public:
-        infos_base(std::string const & scalartype,
-                   std::string const & name): scalartype_(scalartype), name_(name){ }
-
         std::string const & name() const{ return name_; }
         std::string const & scalartype() const{ return scalartype_; }
-        void access_name(std::string const & new_name) const{ access_name_ = new_name; }
+        void access_name(std::string const & new_name) { access_name_ = new_name; }
         std::string access_name() const { return access_name_; }
+        virtual ~infos_base(){ }
+    protected:
+        infos_base(std::string const & scalartype,
+                   std::string const & name): scalartype_(scalartype), name_(name){ }
     private:
         std::string scalartype_;
         std::string name_;
-        mutable std::string access_name_;
+        std::string access_name_;
     };
 
 
 
-
-    /**
-     * @brief The mat_infos class
-     */
-    template<class T>
-    class mat_infos : public infos_base{
+    class mat_infos_base : public infos_base{
     public:
-        mat_infos() : infos_base(print_type<typename T::ScalarType,1>::value()  ,T::name())
-                                              ,  size1_(T::size1_name())
-                                              , size2_(T::size2_name())
-                                              , is_rowmajor_(result_of::is_row_major<T>::value)
-                                              , is_transposed_(false){ }
         std::string const & size1() const{ return size1_; }
         std::string const & size2() const{ return size2_; }
         bool const is_rowmajor() const { return is_rowmajor_; }
         bool const is_transposed() const { return is_transposed_; }
-        static infos_base & get(){
-            static mat_infos<T> res;
-            return res;
-        }
-
+        virtual ~mat_infos_base() { }
+    protected:
+        mat_infos_base(std::string const & scalartype
+                       ,std::string const & name
+                       ,std::string const & size1
+                       ,std::string const & size2
+                       ,bool is_rowmajor
+                       ,bool is_transposed) : infos_base(scalartype,name)
+                                              ,  size1_(size1)
+                                              , size2_(size2)
+                                              , is_rowmajor_(is_rowmajor)
+                                              , is_transposed_(is_transposed){ }
     private:
         std::string size1_;
         std::string size2_;
@@ -160,33 +158,65 @@ namespace viennacl
 
 
     /**
+     * @brief The mat_infos class
+     */
+    template<class T>
+    class mat_infos : public mat_infos_base{
+    public:
+        mat_infos() : mat_infos_base(print_type<typename T::ScalarType,1>::value()
+                                     ,T::name()
+                                     ,T::size1_name()
+                                     ,T::size2_name()
+                                     ,result_of::is_row_major<T>::value
+                                     ,false){ }
+        static infos_base & get(){
+            static mat_infos<T> res;
+            return res;
+        }
+    };
+
+
+    class vec_infos_base : public infos_base{
+    public:
+        std::string const & size() const{ return size_; }
+        virtual ~vec_infos_base(){ }
+    protected:
+        vec_infos_base(std::string const & scalartype, std::string const & name, std::string const & size) :
+                                                          infos_base(scalartype,name)
+                                                         ,size_(size){ }
+    private:
+        std::string size_;
+    };
+
+
+    /**
      * @brief The vec_infos class
      */
 
     template<class T>
-    class vec_infos : public infos_base{
-
+    class vec_infos : public vec_infos_base{
     public:
-        vec_infos() : infos_base(print_type<typename T::ScalarType,1>::value()
-                                                         ,T::name())
-                                                         ,size_(T::size2_name()){ }
-        std::string const & size() const{ return size_; }
+        vec_infos() : vec_infos_base(print_type<typename T::ScalarType,1>::value(),T::name(),T::size2_name()) { }
         static infos_base & get(){
             static vec_infos<T> res;
             return res;
         }
-    private:
-        std::string size_;
+        virtual ~vec_infos(){ }
+    };
+
+
+    class scal_infos_base : public infos_base{
+    protected:
+        scal_infos_base(std::string const & scalartype, std::string const & name) : infos_base(scalartype,name){ }
     };
 
     /**
      * @brief The scal_infos class
      */
-    template<class T, class Enable=void>
-    class scal_infos : public infos_base{
+    template<class T>
+    class scal_infos : public scal_infos_base{
     public:
-        scal_infos() : infos_base(print_type<typename T::ScalarType,1>::value()
-                                  ,T::name()) { }
+        scal_infos() : scal_infos_base(print_type<typename T::ScalarType,1>::value() ,T::name()) { }
         static infos_base & get(){
             static scal_infos<T> res;
             return res;
@@ -195,17 +225,17 @@ namespace viennacl
 
 
     template<class T>
-    static infos_base const &  get_infos(typename viennacl::enable_if<result_of::is_symbolic_scalar<T>::value >::type* dummy = 0){
+    static infos_base &  get_infos(typename viennacl::enable_if<result_of::is_symbolic_scalar<T>::value >::type* dummy = 0){
         return scal_infos<T>::get();
     }
 
     template<class T>
-    static infos_base const &  get_infos(typename viennacl::enable_if<result_of::is_symbolic_vector<T>::value >::type* dummy = 0){
+    static infos_base &  get_infos(typename viennacl::enable_if<result_of::is_symbolic_vector<T>::value >::type* dummy = 0){
         return vec_infos<T>::get();
     }
 
     template<class T>
-    static infos_base const &  get_infos(typename viennacl::enable_if<result_of::is_symbolic_matrix<T>::value >::type* dummy = 0){
+    static infos_base &  get_infos(typename viennacl::enable_if<result_of::is_symbolic_matrix<T>::value >::type* dummy = 0){
         return mat_infos<T>::get();
     }
 
@@ -213,7 +243,7 @@ namespace viennacl
     template <class T, class Enable=void>
     struct wrap_expr{
     public:
-        static void execute(std::list<infos_base const *> & expr){
+        static void execute(std::list<infos_base*> & expr){
             expr.push_back(& get_infos<T>());
         }
     };
@@ -221,7 +251,7 @@ namespace viennacl
     template<class T>
     struct wrap_expr<T, typename viennacl::enable_if<result_of::is_arithmetic_compound<T>::value>::type>
     {
-        static void execute(std::list<infos_base const *> & expr){
+        static void execute(std::list<infos_base *> & expr){
             wrap_expr<typename T::LHS>::execute(expr);
             wrap_expr<typename T::RHS>::execute(expr);
         }
@@ -233,20 +263,26 @@ namespace viennacl
     class expr_infos{
     public:
 
-        std::list<infos_base const *> const & data() const{ return data_; }
+        typedef std::list<infos_base *> data_t;
 
-        std::string generate() const{
+        data_t & data() { return data_; }
+
+        std::string generate() {
             std::string res(expression_string_base_);
-            for(typename std::list<infos_base const *>::const_iterator it = data_.begin() ; it!= data_.end() ; ++it){
+            for(typename data_t::iterator it = data_.begin() ; it!= data_.end() ; ++it){
                 replace_all_string(res,(*it)->name(),(*it)->access_name());
             }
+            replace_all_string(res, assigned_.name(), assigned_.access_name());
             return res;
         }
 
+        virtual ~expr_infos(){ }
+
     protected:
-        expr_infos(std::string const & expression_string_base) : expression_string_base_(expression_string_base){ }
-        std::list<infos_base const *> data_;
-        mutable std::string expression_string_base_;
+        expr_infos(std::string const & expression_string_base, infos_base & assigned) : expression_string_base_(expression_string_base), assigned_(assigned){ }
+        data_t data_;
+        std::string expression_string_base_;
+        infos_base & assigned_;
     };
 
 
@@ -259,14 +295,23 @@ namespace viennacl
 
     };
 
+    /**
+     * @brief The vec_expr_infos_base class
+     */
+    class vec_expr_infos_base : public expr_infos{
+    public:
+        vec_infos_base & assigned(){ return static_cast<vec_infos_base &>(assigned_) ; }
+    protected:
+        vec_expr_infos_base(std::string const & expression_string_base,infos_base & assigned) : expr_infos(expression_string_base,assigned){ }
+    };
 
     /**
      * @brief The vec_expr_infos class
      */
     template<class T>
-    class vec_expr_infos : public expr_infos{
+    class vec_expr_infos : public vec_expr_infos_base{
     public:
-        vec_expr_infos() : expr_infos(make_expression_code<T>::value("")){
+        vec_expr_infos() : vec_expr_infos_base(make_expression_code<T>::value(""),vec_infos<typename T::LHS>::get()){
             wrap_expr<T>::execute(data_);
         }
         static expr_infos & get(){
@@ -275,13 +320,20 @@ namespace viennacl
         }
     };
 
+    class scal_expr_infos_base : public expr_infos{
+    public:
+        scal_infos_base & assigned(){ return static_cast<scal_infos_base &>(assigned_) ; }
+    protected:
+        scal_expr_infos_base(std::string const & expression_string_base,infos_base & assigned) : expr_infos(expression_string_base,assigned){ }
+    };
+
     /**
      * @brief The scal_expr_infos class
      */
     template<class T>
-    class scal_expr_infos : public expr_infos{
+    class scal_expr_infos : public scal_expr_infos_base{
     public:
-        scal_expr_infos() : expr_infos(make_expression_code<T>::value("")){
+        scal_expr_infos() : scal_expr_infos_base(make_expression_code<T>::value(""),scal_infos<typename T::LHS>::get()){
             wrap_expr<T>::execute(data_);
         }
         static expr_infos & get(){
@@ -291,14 +343,24 @@ namespace viennacl
     };
 
     struct blas1_generator{
+    private:
+//        template<class T>
+//        void extract(expr_infos::data_t & data, std::list<T *> & arg ){
+//            for(expr_infos::data_t::iterator it = data.begin() ; it != data.end() ; ++it){
+//                if(T* p = dynamic_cast<T * >(*it)){
+//                    arg.push_back(p);
+//                }
+//            }
+//        }
 
-            std::string operator()(std::vector<expr_infos * > & vec_exprs, std::vector<expr_infos * > & scal_exprs){
-                std::ostringstream oss;
-                for(std::vector<expr_infos * >::iterator it = vec_exprs.begin() ; it != vec_exprs.end() ; ++it){
-                    oss << (*it)->generate();
-                }
-                return oss.str();
-            }
+    public:
+        std::string operator()(std::vector<expr_infos * > & vec_exprs, std::vector<expr_infos * > & scal_exprs){
+            std::ostringstream oss;
+            std::map<infos_base *, bool> cached;
+
+
+            return oss.str();
+        }
     };
 
 //    template<class T>
