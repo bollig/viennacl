@@ -120,13 +120,16 @@ namespace viennacl
         void access_name(std::string const & new_name) { access_name_ = new_name; }
         std::string access_name() const { return access_name_; }
         virtual ~infos_base(){ }
+        bool is_modified(){ return is_modified_;}
+        void is_modified(bool val){ is_modified_ = val; }
     protected:
         infos_base(std::string const & scalartype,
-                   std::string const & name): scalartype_(scalartype), name_(name){ }
+                   std::string const & name): scalartype_(scalartype), name_(name), is_modified_(false){ }
     private:
         std::string scalartype_;
         std::string name_;
         std::string access_name_;
+        bool is_modified_;
     };
 
 
@@ -225,7 +228,13 @@ namespace viennacl
 
 
     template<class T>
-    static infos_base &  get_infos(typename viennacl::enable_if<result_of::is_symbolic_scalar<T>::value >::type* dummy = 0){
+    static infos_base &  get_infos(typename viennacl::enable_if<result_of::is_inner_product_impl<T>::value >::type* dummy = 0){
+        return get_infos<typename T::Type>();
+    }
+
+    template<class T>
+    static infos_base &  get_infos(typename viennacl::enable_if<result_of::is_symbolic_scalar<T>::value
+                                                                || result_of::is_inner_product_leaf<T>::value >::type* dummy = 0){
         return scal_infos<T>::get();
     }
 
@@ -243,16 +252,26 @@ namespace viennacl
     template <class T, class Enable=void>
     struct wrap_expr{
     public:
-        static void execute(std::list<infos_base*> & expr){
+        static void execute(std::list<infos_base *> & expr){
             expr.push_back(& get_infos<T>());
         }
     };
 
     template<class T>
-    struct wrap_expr<T, typename viennacl::enable_if<result_of::is_arithmetic_compound<T>::value>::type>
+    struct wrap_expr<T, typename viennacl::enable_if<result_of::is_compound<T>::value && !result_of::is_assignment_compound<T>::value>::type>
     {
         static void execute(std::list<infos_base *> & expr){
             wrap_expr<typename T::LHS>::execute(expr);
+            wrap_expr<typename T::RHS>::execute(expr);
+        }
+    };
+
+    template<class T>
+    struct wrap_expr<T, typename viennacl::enable_if<result_of::is_assignment_compound<T>::value>::type>
+    {
+        static void execute(std::list<infos_base *> & expr){
+            expr.push_back(&get_infos<typename T::LHS>());
+            expr.back()->is_modified(true);
             wrap_expr<typename T::RHS>::execute(expr);
         }
     };
@@ -270,19 +289,27 @@ namespace viennacl
         std::string generate() {
             std::string res(expression_string_base_);
             for(typename data_t::iterator it = data_.begin() ; it!= data_.end() ; ++it){
-                replace_all_string(res,(*it)->name(),(*it)->access_name());
+                infos_base * p = *it;
+                replace_all_string(res,p->name(),p->access_name());
             }
-            replace_all_string(res, assigned_.name(), assigned_.access_name());
             return res;
+        }
+
+        template<class U>
+        void find_all(std::list<U* > & res) {
+            for(data_t::iterator it = data_.begin() ; it != data_.end() ; ++it ){
+                if(U* p = dynamic_cast<U*>(*it)){
+                    res.push_back(p);
+                }
+            }
         }
 
         virtual ~expr_infos(){ }
 
     protected:
-        expr_infos(std::string const & expression_string_base, infos_base & assigned) : expression_string_base_(expression_string_base), assigned_(assigned){ }
+        expr_infos(std::string const & expression_string_base) : expression_string_base_(expression_string_base){ }
         data_t data_;
         std::string expression_string_base_;
-        infos_base & assigned_;
     };
 
 
@@ -300,9 +327,9 @@ namespace viennacl
      */
     class vec_expr_infos_base : public expr_infos{
     public:
-        vec_infos_base & assigned(){ return static_cast<vec_infos_base &>(assigned_) ; }
+        typedef vec_infos_base infos_t;
     protected:
-        vec_expr_infos_base(std::string const & expression_string_base,infos_base & assigned) : expr_infos(expression_string_base,assigned){ }
+        vec_expr_infos_base(std::string const & expression_string_base) : expr_infos(expression_string_base){ }
     };
 
     /**
@@ -311,8 +338,8 @@ namespace viennacl
     template<class T>
     class vec_expr_infos : public vec_expr_infos_base{
     public:
-        vec_expr_infos() : vec_expr_infos_base(make_expression_code<T>::value(""),vec_infos<typename T::LHS>::get()){
-            wrap_expr<typename T::RHS>::execute(data_);
+        vec_expr_infos() : vec_expr_infos_base(make_expression_code<T>::value("")){
+            wrap_expr<T>::execute(data_);
         }
         static vec_expr_infos_base & get(){
             static vec_expr_infos<T> res;
@@ -322,19 +349,31 @@ namespace viennacl
 
     class scal_expr_infos_base : public expr_infos{
     public:
-        scal_infos_base & assigned(){ return static_cast<scal_infos_base &>(assigned_) ; }
+        typedef scal_infos_base infos_t;
     protected:
-        scal_expr_infos_base(std::string const & expression_string_base,infos_base & assigned) : expr_infos(expression_string_base,assigned){ }
+        scal_expr_infos_base(std::string const & expression_string_base) : expr_infos(expression_string_base){ }
+    };
+
+    class inprod_expr_infos_base : public scal_expr_infos_base{
+    public:
+        vec_expr_infos_base & lhs(){ return lhs_; }
+        vec_expr_infos_base & rhs(){ return rhs_; }
+    protected:
+        inprod_expr_infos_base(std::string const & expression_string_base
+                               , vec_expr_infos_base & lhs, vec_expr_infos_base & rhs) : scal_expr_infos_base(expression_string_base), lhs_(lhs), rhs_(rhs){  }
+    private:
+        vec_expr_infos_base & lhs_;
+        vec_expr_infos_base & rhs_;
     };
 
     /**
      * @brief The scal_expr_infos class
      */
-    template<class T>
+    template<class T, class Enable=void>
     class scal_expr_infos : public scal_expr_infos_base{
     public:
-        scal_expr_infos() : scal_expr_infos_base(make_expression_code<T>::value(""),scal_infos<typename T::LHS>::get()){
-            wrap_expr<typename T::RHS>::execute(data_);
+        scal_expr_infos() : scal_expr_infos_base(make_expression_code<T>::value("")){
+            wrap_expr<T>::execute(data_);
         }
         static scal_expr_infos_base & get(){
             static scal_expr_infos<T> res;
@@ -342,37 +381,94 @@ namespace viennacl
         }
     };
 
-    struct blas1_generator{
-    private:
 
-        void cache_vector_entries(std::ostringstream & oss, std::list<vec_expr_infos_base *> & vec_exprs){
-            std::set<vec_infos_base *> cached;
-            for(std::list<vec_expr_infos_base * >::iterator it = vec_exprs.begin() ; it != vec_exprs.end() ; ++it){
-                vec_infos_base & assigned = (*it)->assigned();
-                if(cached.insert(&assigned).second){
-                    assigned.access_name(assigned.name() + "_val");
-                    oss << assigned.scalartype() << " " << assigned.access_name() << " = " << assigned.name() << "[i];\n";
-                }
-                for(std::list<infos_base *>::iterator iit = (*it)->data().begin() ; iit != (*it)->data().end() ; ++iit){
-                    if(vec_infos_base * p = dynamic_cast<vec_infos_base *>(*iit)){
-                        if(cached.insert(p).second){
-                            p->access_name(p->name()+"_val");
-                            oss << p->scalartype() << " " << p->access_name() << " = " << p->name() << "[i];\n";
-                        }
-                    }
+    template<class T>
+    class scal_expr_infos<T, typename viennacl::enable_if<result_of::is_inner_product_impl<T>::value>::type> : public inprod_expr_infos_base{
+    typedef typename T::Type U;
+    public:
+        scal_expr_infos() : inprod_expr_infos_base(make_expression_code<T>::value(""),vec_expr_infos<typename U::LHS>::get(), vec_expr_infos<typename U::RHS>::get()){        }
+        static inprod_expr_infos_base & get(){
+            static scal_expr_infos<T> res;
+            return res;
+        }
+    };
+
+
+    template<class T>
+    class cache_manager{
+    public:
+        cache_manager(std::list<T * > const & expressions,  std::ostringstream & oss, std::set<T *>& cached_entries) : expressions_(expressions)
+                                                                                                                                   , oss_(oss)
+          ,cached_entries_(cached_entries){         }
+
+        void fetch_entries(std::string const & idx){
+            for(typename std::list<T * >::iterator it = expressions_.begin() ; it != expressions_.end() ; ++it){
+                T * p = *it;
+                if(cached_entries_.insert(p).second){
+                    p->access_name(p->name()+"_val");
+                    oss_ << p->scalartype() << " " << p->access_name() << " = " << p->name() << "[" << idx << "];\n";
                 }
             }
         }
 
+        void writeback_entries(std::string const & idx){
+            for(typename std::list<T * >::iterator it = expressions_.begin() ; it != expressions_.end() ; ++it){
+                T * p = *it;
+                if(p->is_modified())
+                    oss_<< p->name() << "[" << idx << "]"<< " = "  << p->access_name() << ";\n";
+            }
+        }
+
+    private:
+        std::list<T * > expressions_;
+        std::ostringstream & oss_;
+        std::set<T *> & cached_entries_;
+
+    };
+
+    struct blas1_generator{
     public:
-        std::string operator()(std::list<vec_expr_infos_base * > & vec_exprs, std::list<scal_expr_infos_base * > & scal_exprs){
+
+        blas1_generator(std::list<vec_expr_infos_base * > & vector_expressions, std::list<scal_expr_infos_base * > & scalar_expressions): vector_expressions_(vector_expressions),
+                                                                                                                                         scalar_expressions_(scalar_expressions){
+            for(std::list<scal_expr_infos_base * >::const_iterator it = scalar_expressions.begin() ; it != scalar_expressions.end() ; ++it){
+                if(inprod_expr_infos_base *p = dynamic_cast<inprod_expr_infos_base *>(*it)){
+                    inner_prods_compute_.push_back(p);
+                    p->lhs().find_all(vectors_);
+                    p->rhs().find_all(vectors_);
+                }
+            }
+            for(std::list<vec_expr_infos_base *>::const_iterator it = vector_expressions.begin(); it!=vector_expressions.end() ; ++it){
+                (*it)->find_all(vectors_);
+            }
+        }
+
+        std::string operator()(){
             std::ostringstream oss;
-            oss << "for(unsigned int i = get_global_id(0) ; i <" << vec_exprs.front()->assigned().size() << " ; i += get_global_size(0){\n";
-            cache_vector_entries(oss,vec_exprs);
+            std::set<vec_infos_base *> vector_cached_entries;
+            cache_manager<vec_infos_base> vector_cache(vectors_,oss,vector_cached_entries);
+            vec_infos_base * first_vector =  NULL;
+            if(vectors_.size())
+                first_vector = vectors_.front();
+            //Assumes same size...
+            oss << "{\n";
+
+            if(first_vector){
+                oss << "for(unsigned int i = get_global_id(0) ; i <" << first_vector->size() << " ; i += get_global_size(0){\n";
+                vector_cache.fetch_entries("i");
+                vector_cache.writeback_entries("i");
+                oss << "}\n";
+            }
             oss << "}\n";
 
             return oss.str();
         }
+
+    private:
+        std::list<vec_expr_infos_base * >  vector_expressions_;
+        std::list<scal_expr_infos_base * > scalar_expressions_;
+        std::list<inprod_expr_infos_base * > inner_prods_compute_;
+        std::list<vec_infos_base * > vectors_;
     };
 
 //    template<class T>
