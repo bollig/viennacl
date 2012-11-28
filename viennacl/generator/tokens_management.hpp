@@ -194,7 +194,7 @@ namespace viennacl
             std::list<vec_expr_infos_base *> vec_exprs;
             std::list<scal_expr_infos_base *> scal_exprs;
             typelist_utils::ForEach<ExpressionsList,fill_blas1_infos>::execute(vec_exprs,scal_exprs);
-            return blas1_generator()(vec_exprs,scal_exprs);
+            return blas1_generator(vec_exprs,scal_exprs)();
         }
 
     public:
