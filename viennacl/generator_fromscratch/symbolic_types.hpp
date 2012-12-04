@@ -5,7 +5,6 @@
    Copyright (c) 2010-2012, Institute for Microelectronics,
                             Institute for Analysis and Scientific Computing,
                             TU Wien.
-   Portions of this software are copyright by UChicago Argonne, LLC.
 
                             -----------------
                   ViennaCL - The Vienna Computing Library
@@ -20,15 +19,17 @@
 
 
 /** @file viennacl/generator/symbolic_types.hpp
- *  @brief Definition of the symbolic types. Experimental.
+ *  @brief Definition of the symbolic types.
  *
  *  Generator code contributed by Philippe Tillet
  */
 
-#include "viennacl/forwards.h"
-#include "viennacl/generator/result_of.hpp"
-#include "viennacl/generator/meta_tools/utils.hpp"
+//#include "viennacl/forwards.h"
+//#include "viennacl/generator/result_of.hpp"
+//#include "viennacl/generator/meta_tools/utils.hpp"
 
+#include "viennacl/generator_fromscratch/utils.hpp"
+#include "viennacl/forwards.h"
 
 namespace viennacl
 {
@@ -37,7 +38,8 @@ namespace viennacl
 
       template<class B,class T>
       class base_getter{
-          B & get(){
+      public:
+          static B & get(){
               static T res;
               return res;
           }
@@ -46,15 +48,13 @@ namespace viennacl
       class infos_base{
       public:
           virtual std::string generate() const = 0;
-
+          virtual std::string name() const = 0;
       };
 
-      /**
-       * @brief The infos_base class
-       */
+
       class leaf_infos_base : public virtual infos_base{
       public:
-          std::string const & name() const{ return name_; }
+          std::string name() const{ return name_; }
           std::string const & scalartype() const{ return scalartype_; }
           void access_name(std::string const & new_name) { access_name_ = new_name; }
           virtual ~leaf_infos_base(){ }
@@ -66,38 +66,65 @@ namespace viennacl
       protected:
           leaf_infos_base(std::string const & scalartype,
                      std::string const & name): scalartype_(scalartype), name_(name), is_modified_(false){ }
-      private:
           std::string scalartype_;
           std::string name_;
           std::string access_name_;
           bool is_modified_;
       };
 
-      class tree_infos_base : public virtual infos_base{
+      class binary_tree_infos_base : public virtual infos_base{
       public:
           infos_base & lhs(){ return lhs_; }
           infos_base & rhs(){ return rhs_; }
       protected:
-          tree_infos_base(infos_base & lhs, infos_base & rhs) : lhs_(lhs), rhs_(rhs){        }
-      private:
+          binary_tree_infos_base(infos_base & lhs, infos_base & rhs) : lhs_(lhs), rhs_(rhs){        }
           infos_base & lhs_;
           infos_base & rhs_;
       };
 
-      class arithmetic_tree_infos_base : public tree_infos_base{
+      class unary_tree_infos_base : public virtual infos_base{
+      public:
+          infos_base & sub(){ return sub_; }
+      protected:
+          unary_tree_infos_base(infos_base & sub) : sub_(sub){        }
+          infos_base & sub_;
+      };
+
+      class arithmetic_tree_infos_base : public binary_tree_infos_base{
       public:
           infos_base & op() { return op_; }
-          std::string generate() const { return lhs_.generate() + op_.generate() + rhs_.generate(); }
-      protected:
-          arithmetic_tree_infos_base(infos_base & lhs, infos_base& op, infos_base & rhs) : tree_infos_base(lhs,rhs), op_(op){        }
+          std::string generate() const { return "(" + lhs_.generate() + op_.generate() + rhs_.generate() + ")"; }
+          std::string name() const { return lhs_.name() + op_.name() + rhs_.name(); }
+          arithmetic_tree_infos_base(infos_base & lhs, infos_base& op, infos_base & rhs) : binary_tree_infos_base(lhs,rhs), op_(op){        }
       private:
           infos_base & op_;
       };
 
+      template<class LHS_, class OP_, class RHS_>
+      class compound_node : public arithmetic_tree_infos_base, public base_getter<infos_base, compound_node<LHS_,OP_,RHS_> >
+      {
+        public:
+          typedef LHS_  LHS;
+          typedef RHS_  RHS;
+          typedef OP_   OP;
+          compound_node() : arithmetic_tree_infos_base(LHS::get(), OP::get(), RHS::get()){ }
+      };
+
+      template<class SUB_>
+      class unary_minus : public unary_tree_infos_base, public base_getter<infos_base, unary_minus<SUB_> >{
+      public:
+          unary_minus() : unary_tree_infos_base(SUB_::get()){ }
+          std::string generate() const{
+              return "(-" + sub_.generate() +")";
+          }
+      };
+
       class op_infos_base : public infos_base{
-          op_infos_base(std::string const & expr, std::string const & name) : expr_(expr), name_(name){ }
+      public:
           std::string generate() const{ return expr_; }
           std::string name() const { return name_; }
+      protected:
+          op_infos_base(std::string const & expr, std::string const & name) : expr_(expr), name_(name){ }
       private:
           std::string expr_;
           std::string name_;
@@ -106,26 +133,32 @@ namespace viennacl
 
 
       class assign_type : public op_infos_base, public base_getter<infos_base,assign_type>{
+      public:
         assign_type() : op_infos_base(" = ", "eq"){ }
       };
 
       class add_type : public op_infos_base, public base_getter<infos_base,add_type>{
+      public:
         add_type() : op_infos_base(" + ", "p"){ }
       };
 
       class inplace_add_type : public op_infos_base, public base_getter<infos_base,inplace_add_type>{
+      public:
         inplace_add_type() : op_infos_base(" += ", "p_eq"){ }
       };
 
       class sub_type : public op_infos_base, public base_getter<infos_base,sub_type>{
+      public:
         sub_type() : op_infos_base(" - ", "m"){ }
       };
 
       class inplace_sub_type : public op_infos_base, public base_getter<infos_base,inplace_sub_type>{
+      public:
         inplace_sub_type() : op_infos_base(" -= ", "m_eq"){ }
       };
 
       class scal_mul_type : public op_infos_base, public base_getter<infos_base, scal_mul_type>{
+      public:
         scal_mul_type() : op_infos_base(" * ", "mu"){ }
       };
 
@@ -176,14 +209,14 @@ namespace viennacl
           }
       };
 
-      class inprod_infos_base : public scal_infos_base, public tree_infos_base{
+      class inprod_infos_base : public scal_infos_base, public binary_tree_infos_base{
       public:
           enum step_t{reduce, compute};
           step_t step(){ return step_; }
       protected:
           inprod_infos_base(std::string const & scalartype, std::string const & name
                                  , infos_base & lhs, infos_base & rhs
-                            ,step_t step) : scal_infos_base(scalartype,name), tree_infos_base(lhs,rhs), step_(step){        }
+                            ,step_t step) : scal_infos_base(scalartype,name), binary_tree_infos_base(lhs,rhs), step_(step){        }
       private:
           step_t step_;
       };
@@ -224,52 +257,26 @@ namespace viennacl
     * @tparam SCALARTYPE The Scalartype of the scalar in the generated code
     */
     template <unsigned int ID, typename SCALARTYPE>
-    class cpu_symbolic_scalar : public cpu_scal_infos_base
+    class cpu_symbolic_scalar : public cpu_scal_infos_base, public base_getter<infos_base, cpu_symbolic_scalar<ID,SCALARTYPE> >
     {
-      private:
-        typedef cpu_symbolic_scalar<ID,SCALARTYPE> self_type;
-
-        static std::string name()
-        {
-          return "c_s" + to_string(ID) ;
-        }
-        cpu_symbolic_scalar() : cpu_scal_infos_base(print_type<SCALARTYPE,1>::value(),name()){ }
-
-      public:
-
-        static const unsigned int Alignment = 1;
-        typedef SCALARTYPE ScalarType;
-        typedef ScalarType runtime_type;
-        enum { id = ID };
-
-        leaf_infos_base& get(){
-            static self_type res;
-            return res;
-        }
+        cpu_symbolic_scalar() : cpu_scal_infos_base(print_type<SCALARTYPE,1>::value(),"c_s" + to_string(ID)){ }
     };
 
     /**
     * @brief Symbolic scalar type. Will be passed by pointer.
     *
     * @tparam ID The argument ID of the scalar in the generated code
-    * @tparam SCALARTYPE The Scalartype of the scalar in the generated code
+    * @tparam SCALARTYPE The SCALARTYPE of the scalar in the generated code
     */
     template <unsigned int ID, typename SCALARTYPE>
-    class gpu_symbolic_scalar : public gpu_scal_infos_base
+    class gpu_symbolic_scalar : public gpu_scal_infos_base, public base_getter<infos_base, gpu_symbolic_scalar<ID,SCALARTYPE> >
     {
       private:
         typedef gpu_symbolic_scalar<ID,SCALARTYPE> self_type;
-        static std::string name()
-        {
-          return "g_s" + to_string(ID) ;
-        }
-        gpu_symbolic_scalar() : gpu_scal_infos_base(print_type<SCALARTYPE*,1>::value(), name()){ }
+        gpu_symbolic_scalar() : gpu_scal_infos_base(print_type<SCALARTYPE*,1>::value(), "g_s" + to_string(ID) ){ }
 
       public:
-        static const unsigned int Alignment = 1;
-        typedef SCALARTYPE ScalarType;
-        typedef viennacl::scalar<ScalarType> runtime_type;
-        enum { id = ID };
+        typedef viennacl::scalar<SCALARTYPE> runtime_type;
 
         leaf_infos_base& get(){
             static self_type res;
@@ -277,40 +284,35 @@ namespace viennacl
         }
 
         template<typename RHS_TYPE>
-        typename enable_if<result_of::is_same_expression_type<self_type,RHS_TYPE>,
-                          compound_node<self_type, assign_type, RHS_TYPE > >::type
+        compound_node<self_type, assign_type, RHS_TYPE >
         operator= ( RHS_TYPE const & ) const
         {
           return compound_node<self_type,assign_type,RHS_TYPE >();
         }
 
         template<typename RHS_TYPE>
-        typename enable_if<result_of::is_scalar_expression<RHS_TYPE>,
-                          compound_node<self_type, inplace_scal_mul_type, RHS_TYPE > >::type
+        compound_node<self_type, inplace_scal_mul_type, RHS_TYPE >
         operator*= ( RHS_TYPE const & ) const
         {
           return compound_node<self_type,inplace_scal_mul_type,RHS_TYPE >();
         }
 
         template<typename RHS_TYPE>
-        typename enable_if<result_of::is_scalar_expression<RHS_TYPE>,
-                          compound_node<self_type, inplace_scal_div_type, RHS_TYPE > >::type
+        compound_node<self_type, inplace_scal_div_type, RHS_TYPE >
         operator/= ( RHS_TYPE const & ) const
         {
           return compound_node<self_type,inplace_scal_div_type,RHS_TYPE >();
         }
 
         template<typename RHS_TYPE>
-        typename enable_if<result_of::is_same_expression_type<self_type,RHS_TYPE>,
-                          compound_node<self_type, inplace_add_type, RHS_TYPE > >::type
+        compound_node<self_type, inplace_add_type, RHS_TYPE >
         operator+= ( RHS_TYPE const & ) const
         {
           return compound_node<self_type,inplace_add_type,RHS_TYPE >();
         }
 
         template<typename RHS_TYPE>
-        typename enable_if<result_of::is_same_expression_type<self_type,RHS_TYPE>,
-                          compound_node<self_type, inplace_sub_type, RHS_TYPE > >::type
+        compound_node<self_type, inplace_sub_type, RHS_TYPE >
         operator-= ( RHS_TYPE const & ) const
         {
           return compound_node<self_type,inplace_sub_type,RHS_TYPE >();
@@ -353,71 +355,51 @@ namespace viennacl
 
       //TODO: Add start and inc...
       template <unsigned int ID, typename SCALARTYPE, unsigned int ALIGNMENT>
-      class symbolic_vector : public vec_infos_base
-      {
+      class symbolic_vector : public vec_infos_base, public base_getter<infos_base, symbolic_vector<ID,SCALARTYPE,ALIGNMENT> >{
         private:
           typedef symbolic_vector<ID,SCALARTYPE,ALIGNMENT> self_type;
 
-          static std::string name(){
-             return "v_a" + to_string(ALIGNMENT) + "_" + to_string(ID);
-          }
-          symbolic_vector() : vec_infos_base(print_type<SCALARTYPE,1>::value(), name()) { }
-
         public:
 
-          typedef SCALARTYPE ScalarType;
-          static const unsigned int Alignment = ALIGNMENT;
-          typedef viennacl::vector<ScalarType,ALIGNMENT> runtime_type;
+          typedef viennacl::vector<SCALARTYPE,ALIGNMENT> runtime_type;
 
-          static leaf_infos_base & get(){
-              static self_type res;
-              return res;
-          }
-          virtual ~symbolic_vector(){ }
+          symbolic_vector() : vec_infos_base(print_type<SCALARTYPE,1>::value()
+                                             , "v_a" + to_string(ALIGNMENT) + "_" + to_string(ID)) { }
+
 
           template<typename RHS_TYPE>
-          typename enable_if<result_of::is_same_expression_type<self_type,RHS_TYPE>,
-                            compound_node<self_type, assign_type, RHS_TYPE > >::type
+          compound_node<self_type, assign_type, RHS_TYPE >
           operator= ( RHS_TYPE const & ) const
           {
             return compound_node<self_type,assign_type,RHS_TYPE >();
           }
 
           template<typename RHS_TYPE>
-          typename enable_if<result_of::is_scalar_expression<RHS_TYPE>,
-                            compound_node<self_type, inplace_scal_mul_type, RHS_TYPE > >::type
+          compound_node<self_type, inplace_scal_mul_type, RHS_TYPE >
           operator*= ( RHS_TYPE const & ) const
           {
             return compound_node<self_type,inplace_scal_mul_type,RHS_TYPE >();
           }
 
           template<typename RHS_TYPE>
-          typename enable_if<result_of::is_scalar_expression<RHS_TYPE>,
-                            compound_node<self_type, inplace_scal_div_type, RHS_TYPE > >::type
+          compound_node<self_type, inplace_scal_div_type, RHS_TYPE >
           operator/= ( RHS_TYPE const & ) const
           {
             return compound_node<self_type,inplace_scal_div_type,RHS_TYPE >();
           }
 
           template<typename RHS_TYPE>
-          typename enable_if<result_of::is_same_expression_type<self_type,RHS_TYPE>,
-                            compound_node<self_type, inplace_add_type, RHS_TYPE > >::type
+          compound_node<self_type, inplace_add_type, RHS_TYPE >
           operator+= ( RHS_TYPE const & ) const
           {
             return compound_node<self_type,inplace_add_type,RHS_TYPE >();
           }
 
           template<typename RHS_TYPE>
-          typename enable_if<result_of::is_same_expression_type<self_type,RHS_TYPE>,
-                            compound_node<self_type, inplace_sub_type, RHS_TYPE > >::type
+          compound_node<self_type, inplace_sub_type, RHS_TYPE >
           operator-= ( RHS_TYPE const & ) const
           {
             return compound_node<self_type,inplace_sub_type,RHS_TYPE >();
-          }
-
-          operator compound_node<self_type,assign_type,self_type>()
-          {
-            return compound_node<self_type,assign_type,self_type>();
           }
       };
 
@@ -428,7 +410,7 @@ namespace viennacl
       public:
           std::string const & size1() const{ return size1_; }
           std::string const & size2() const{ return size2_; }
-          std::string const & internal_size1() const{ return interal_size1_; }
+          std::string const & internal_size1() const{ return internal_size1_; }
           std::string const & internal_size2() const{ return internal_size2_; }
           std::string const & row_inc() const{ return row_inc_; }
           std::string const & col_inc() const{ return col_inc_;}
@@ -487,7 +469,7 @@ namespace viennacl
       * @tparam ALIGNMENT The Alignment of the matrix in the generated code
       */
       template<unsigned int ID, typename SCALARTYPE, class F, unsigned int ALIGNMENT>
-      class symbolic_matrix : public mat_infos_base
+      class symbolic_matrix : public mat_infos_base, public base_getter<infos_base, symbolic_matrix<ID, SCALARTYPE, F, ALIGNMENT> >
       {
 
           typedef symbolic_matrix<ID, SCALARTYPE, F, ALIGNMENT> self_type;
@@ -495,191 +477,193 @@ namespace viennacl
           static std::string name()
           {
             return "m_a_" + viennacl::generator::to_string(F()) + "_"
-                          + viennacl::generator::to_string(Alignment) + "_"
-                          + viennacl::generator::to_string<long>(id);
+                          + viennacl::generator::to_string(ALIGNMENT) + "_"
+                          + viennacl::generator::to_string<long>(ID);
           }
 
-          symbolic_matrix() : mat_infos_base(print_type<ScalarType,1>::value()
+
+        public:
+          symbolic_matrix() : mat_infos_base(print_type<SCALARTYPE,1>::value()
                                         ,name()
                                         ,true
                                         ,false){ }
-        public:
 
-          typedef SCALARTYPE ScalarType;
-          typedef viennacl::matrix<ScalarType,F,Alignment> runtime_type;
-
-
-          static leaf_infos_base & get(){
-              static self_type res;
-              return res;
-          }
+          typedef viennacl::matrix<SCALARTYPE,F,ALIGNMENT> runtime_type;
 
           template<typename RHS_TYPE>
-          typename enable_if<generator::result_of::is_same_expression_type<self_type,RHS_TYPE>,
-                            compound_node<self_type, assign_type, RHS_TYPE > >::type
+          compound_node<self_type, assign_type, RHS_TYPE >
           operator= ( RHS_TYPE const & ) const
           {
             return compound_node<self_type,assign_type,RHS_TYPE >();
           }
 
           template<typename RHS_TYPE>
-          typename enable_if<generator::result_of::is_scalar_expression<RHS_TYPE>,
-                            compound_node<self_type, inplace_scal_mul_type, RHS_TYPE > >::type
+          compound_node<self_type, inplace_scal_mul_type, RHS_TYPE >
           operator*= ( RHS_TYPE const & ) const
           {
             return compound_node<self_type,inplace_scal_mul_type,RHS_TYPE >();
           }
 
           template<typename RHS_TYPE>
-          typename enable_if<generator::result_of::is_scalar_expression<RHS_TYPE>,
-                            compound_node<self_type, inplace_scal_div_type, RHS_TYPE > >::type
+          compound_node<self_type, inplace_scal_div_type, RHS_TYPE >
           operator/= ( RHS_TYPE const & ) const
           {
             return compound_node<self_type,inplace_scal_div_type,RHS_TYPE >();
           }
 
           template<typename RHS_TYPE>
-          typename enable_if<generator::result_of::is_same_expression_type<self_type,RHS_TYPE>,
-                            compound_node<self_type, inplace_add_type, RHS_TYPE > >::type
+          compound_node<self_type, inplace_add_type, RHS_TYPE >
           operator+= ( RHS_TYPE const & ) const
           {
             return compound_node<self_type,inplace_add_type,RHS_TYPE >();
           }
 
           template<typename RHS_TYPE>
-          typename enable_if<generator::result_of::is_same_expression_type<self_type,RHS_TYPE>,
-                            compound_node<self_type, inplace_sub_type, RHS_TYPE > >::type
+          compound_node<self_type, inplace_sub_type, RHS_TYPE >
           operator-= ( RHS_TYPE const & ) const
           {
             return compound_node<self_type,inplace_sub_type,RHS_TYPE >();
           }
-
-          operator compound_node<self_type,assign_type,self_type>() 
-          {
-            return compound_node<self_type,assign_type,self_type>();
-          }
       };
 
-      /**
-      * @brief Binary node class for storing expression trees
-      *
-      * @tparam LHS_ LHS of the expression
-      * @tparam OP_ Operator of the expression
-      * @tparam RHS_ RHS of the expression
-      */
-      template<class LHS_, class OP_, class RHS_>
-      class compound_node
+
+      /** @brief Unary minus operator */
+      template<class T>
+      unary_minus<T> operator -(T const &)
       {
-        public:
-          typedef LHS_  LHS;
-          typedef RHS_  RHS;
-          typedef OP_   OP;
+        return unary_minus<T>();
+      }
 
-          typedef typename result_of::expression_type<RHS>::Result IntermediateType;  //Note: Visual Studio does not allow to combine this line with the next one directly.
-          typedef typename IntermediateType::ScalarType ScalarType;
-
-          static std::string name()
-          {
-              return LHS::name() + "_" + OP::name() + "_" + RHS::name();
-          }
-      };
-
-      template <class T>
-      struct inner_prod_impl_t
+      /** @brief Scalar multiplication operator */
+      template<class LHS_TYPE, class RHS_TYPE>
+      compound_node<LHS_TYPE,scal_mul_type,RHS_TYPE>
+      operator* ( LHS_TYPE const &, RHS_TYPE const & )
       {
-        typedef T Type;
+        return compound_node<LHS_TYPE, scal_mul_type,RHS_TYPE> ();
+      }
 
-        static std::string name()
-        {
-          return T::name();
-        }
 
-        static std::string private_value()
-        {
-          return "private_"+name();
-        }
 
-        static std::string declarations()
-        {
-          return print_type<typename T::ScalarType,1>::value() + " " + private_value() + "=0;\n" ;
-        }
-
-        static std::string kernel_arguments()
-        {
-          return T::kernel_arguments();
-        }
-
-        enum { id = T::id };
-      };
-
-      template<class LHS_, class RHS_>
-      class compound_node<LHS_,inner_prod_type,RHS_>
+      /** @brief Scalar division operator */
+      template<class LHS_TYPE, class RHS_TYPE>
+      compound_node<LHS_TYPE,scal_div_type,RHS_TYPE>
+      operator/ ( LHS_TYPE const &, RHS_TYPE const & )
       {
-        public:
-          /**
-          * @brief Specialization for the inner product
-          */
-          typedef LHS_ LHS;
-          typedef RHS_ RHS;
-          typedef inner_prod_type OP;
-          typedef typename result_of::expression_type<LHS>::Result IntermediateType;  //Note: Visual Studio does not allow to combine this line with the next one directly.
-          typedef typename IntermediateType::ScalarType ScalarType;
-          static const unsigned int Alignment = IntermediateType::Alignment;
+        return compound_node<LHS_TYPE,scal_div_type,RHS_TYPE> ();
+      }
 
-          enum { id = -2 };
-
-          static std::string kernel_arguments()
-          {
-              return  "__global " + print_type<ScalarType*,1>::value() + " " + name() + '\n';
-          }
-
-          static std::string name()
-          {
-              return  LHS::name() + "_inprod_" + RHS::name();
-          }
-
-          static std::string local_value()
-          {
-              return "local_"+name();
-          }
-
-          static std::string declarations()
-          {
-              return "__local " + print_type<ScalarType,1>::value() + " " + local_value() + ";\n";
-          }
-
-          static std::string scalar_name()
-          {
-            return name() +"_s";
-          }
-
-      };
-
-      /**
-      * @brief Specialization for the matrix-vector product.
-      */
-      template<class LHS_, class RHS_>
-      class compound_node<LHS_,prod_type,RHS_>
+      /** @brief Addition operator on 2 elements of the same type */
+      template<class LHS_TYPE, class RHS_TYPE>
+      compound_node<LHS_TYPE, add_type, RHS_TYPE>
+      operator+ ( LHS_TYPE const &, RHS_TYPE const & )
       {
-        private:
-          typedef compound_node<LHS_,prod_type,RHS_> self_type;
+        return compound_node<LHS_TYPE, add_type, RHS_TYPE>();
+      }
 
-        public:
-          typedef LHS_ LHS;
-          typedef RHS_ RHS;
+      /** @brief Substraction operator on 2 elements of the same type */
+      template<class LHS_TYPE, class RHS_TYPE>
+      compound_node<LHS_TYPE, sub_type, RHS_TYPE>
+      operator- ( LHS_TYPE const &, RHS_TYPE const & )
+      {
+        return compound_node<LHS_TYPE, sub_type, RHS_TYPE>();
+      }
 
-          typedef prod_type OP;
-          enum { id = LHS::id };
+//      template <class T>
+//      struct inner_prod_impl_t
+//      {
+//        typedef T Type;
 
-          typedef typename result_of::expression_type<LHS>::Result IntermediateType;    //Note: Visual Studio does not allow to combine this line with the next one directly.
-          typedef typename IntermediateType::ScalarType ScalarType;
-          static const unsigned int Alignment = result_of::expression_type<LHS>::Result::Alignment;
+//        static std::string name()
+//        {
+//          return T::name();
+//        }
 
-          static std::string name()
-          {
-            return LHS::name() + "_prod_" + RHS::name();
-          }
-      };
+//        static std::string private_value()
+//        {
+//          return "private_"+name();
+//        }
+
+//        static std::string declarations()
+//        {
+//          return print_type<typename T::ScalarType,1>::value() + " " + private_value() + "=0;\n" ;
+//        }
+
+//        static std::string kernel_arguments()
+//        {
+//          return T::kernel_arguments();
+//        }
+
+//        enum { id = T::id };
+//      };
+
+//      template<class LHS_, class RHS_>
+//      class compound_node<LHS_,inner_prod_type,RHS_>
+//      {
+//        public:
+//          /**
+//          * @brief Specialization for the inner product
+//          */
+//          typedef LHS_ LHS;
+//          typedef RHS_ RHS;
+//          typedef inner_prod_type OP;
+//          typedef typename result_of::expression_type<LHS>::Result IntermediateType;  //Note: Visual Studio does not allow to combine this line with the next one directly.
+//          typedef typename IntermediateType::ScalarType ScalarType;
+//          static const unsigned int Alignment = IntermediateType::Alignment;
+
+//          enum { id = -2 };
+
+//          static std::string kernel_arguments()
+//          {
+//              return  "__global " + print_type<ScalarType*,1>::value() + " " + name() + '\n';
+//          }
+
+//          static std::string name()
+//          {
+//              return  LHS::name() + "_inprod_" + RHS::name();
+//          }
+
+//          static std::string local_value()
+//          {
+//              return "local_"+name();
+//          }
+
+//          static std::string declarations()
+//          {
+//              return "__local " + print_type<ScalarType,1>::value() + " " + local_value() + ";\n";
+//          }
+
+//          static std::string scalar_name()
+//          {
+//            return name() +"_s";
+//          }
+
+//      };
+
+//      /**
+//      * @brief Specialization for the matrix-vector product.
+//      */
+//      template<class LHS_, class RHS_>
+//      class compound_node<LHS_,prod_type,RHS_>
+//      {
+//        private:
+//          typedef compound_node<LHS_,prod_type,RHS_> self_type;
+
+//        public:
+//          typedef LHS_ LHS;
+//          typedef RHS_ RHS;
+
+//          typedef prod_type OP;
+//          enum { id = LHS::id };
+
+//          typedef typename result_of::expression_type<LHS>::Result IntermediateType;    //Note: Visual Studio does not allow to combine this line with the next one directly.
+//          typedef typename IntermediateType::ScalarType ScalarType;
+//          static const unsigned int Alignment = result_of::expression_type<LHS>::Result::Alignment;
+
+//          static std::string name()
+//          {
+//            return LHS::name() + "_prod_" + RHS::name();
+//          }
+//      };
 
 
   } // namespace generator
@@ -687,4 +671,3 @@ namespace viennacl
 
 
 #endif
-
