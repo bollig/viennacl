@@ -317,18 +317,18 @@ namespace viennacl
     template<typename T, unsigned int ALIGNMENT>
     struct print_type 
     {
-      static const std::string value() 
+      static const std::string value(std::string const & mem_accessor = "")
       {
-        return print_aligned_type<T,ALIGNMENT>::value();
+        return mem_accessor + " " + print_aligned_type<T,ALIGNMENT>::value();
       }
     };
 
     template<typename T, unsigned int ALIGNMENT>
     struct print_type<T*, ALIGNMENT> 
     {
-      static const std::string value() 
+      static const std::string value(std::string const & mem_accessor = "")
       {
-        return print_type<T,ALIGNMENT>::value() + "*" ;
+        return mem_accessor + " " +  print_type<T,ALIGNMENT>::value() + "*" ;
       }
     };
     
