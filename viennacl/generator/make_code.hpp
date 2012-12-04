@@ -38,446 +38,369 @@ namespace viennacl
   {
 
 
-    /** @brief Inline code for an expression from scalars
-        @tparam T Tree specifying the expression
-    */
-    template <class T>
-    struct make_expression_code
-    {
-      static std::string value(std::string const & loop_accessor)
-      {
-        return T::name();
-      }
-    };
-
-    template <long VAL>
-    struct make_expression_code<symbolic_constant<VAL> >
-    {
-      static std::string value(std::string const & )
-      {
-        return to_string(VAL);
-      }
-    };
-
-    template <class LHS, class RHS>
-    struct make_expression_code<compound_node<LHS,inner_prod_type,RHS > >
-    {
-      private:
-        typedef compound_node<LHS,inner_prod_type,RHS> T;
-
-      public:
-        static std::string value(std::string const & )
-        {
-            return T::name()+"_val";
-        }
-    };
-
-    template< >
-    struct make_expression_code< NullType >
-    {
-      static std::string value(std::string const & )
-      {
-        return "";
-      }
-    };
-
-    template<class T>
-    struct make_expression_code< elementwise_modifier<T> >
-    {
-      static std::string value ( std::string const & loop_accessor)
-      {
-        return elementwise_modifier<T>::modify(make_expression_code<typename T::PRIOR_TYPE>::value(loop_accessor));
-      }
-    };
-
-    template<class LHS, class OP, class RHS >
-    struct make_expression_code<compound_node<LHS, OP, RHS> >
-    {
-      static const std::string value(std::string const & loop_accessor)
-      {
-        return " ( " + make_expression_code<LHS>::value(loop_accessor)
-                + OP::expression_string()
-                + make_expression_code<RHS>::value(loop_accessor) + " ) ";
-      }
-    };
-
-
-    static void replace_all_string(std::string & str, std::string const & from, std::string const & to){
-        size_t start_pos = 0;
-        while((start_pos = str.find(from, start_pos)) != std::string::npos) {
-                 str.replace(start_pos, from.length(), to);
-                 start_pos += to.length();
-        }
-    }
-
-    /**
-     * @brief The infos_base class
-     */
-    class infos_base{
-    public:
-        std::string const & name() const{ return name_; }
-        std::string const & scalartype() const{ return scalartype_; }
-        void access_name(std::string const & new_name) { access_name_ = new_name; }
-        std::string access_name() const { return access_name_; }
-        virtual ~infos_base(){ }
-        bool is_modified(){ return is_modified_;}
-        void is_modified(bool val){ is_modified_ = val; }
-    protected:
-        infos_base(std::string const & scalartype,
-                   std::string const & name): scalartype_(scalartype), name_(name), is_modified_(false){ }
-    private:
-        std::string scalartype_;
-        std::string name_;
-        std::string access_name_;
-        bool is_modified_;
-    };
-
-
-
-    class mat_infos_base : public infos_base{
-    public:
-        std::string const & size1() const{ return size1_; }
-        std::string const & size2() const{ return size2_; }
-        bool const is_rowmajor() const { return is_rowmajor_; }
-        bool const is_transposed() const { return is_transposed_; }
-        virtual ~mat_infos_base() { }
-    protected:
-        mat_infos_base(std::string const & scalartype
-                       ,std::string const & name
-                       ,std::string const & size1
-                       ,std::string const & size2
-                       ,bool is_rowmajor
-                       ,bool is_transposed) : infos_base(scalartype,name)
-                                              ,  size1_(size1)
-                                              , size2_(size2)
-                                              , is_rowmajor_(is_rowmajor)
-                                              , is_transposed_(is_transposed){ }
-    private:
-        std::string size1_;
-        std::string size2_;
-        bool is_rowmajor_;
-        bool is_transposed_;
-    };
-
-
-    /**
-     * @brief The mat_infos class
-     */
-    template<class T>
-    class mat_infos : public mat_infos_base{
-    public:
-        mat_infos() : mat_infos_base(print_type<typename T::ScalarType,1>::value()
-                                     ,T::name()
-                                     ,T::size1_name()
-                                     ,T::size2_name()
-                                     ,result_of::is_row_major<T>::value
-                                     ,false){ }
-        static infos_base & get(){
-            static mat_infos<T> res;
-            return res;
-        }
-    };
-
-
-    class vec_infos_base : public infos_base{
-    public:
-        std::string const & size() const{ return size_; }
-        virtual ~vec_infos_base(){ }
-    protected:
-        vec_infos_base(std::string const & scalartype, std::string const & name, std::string const & size) :
-                                                          infos_base(scalartype,name)
-                                                         ,size_(size){ }
-    private:
-        std::string size_;
-    };
-
-
-
-    /**
-     * @brief The vec_infos class
-     */
-
-    template<class T>
-    class vec_infos : public vec_infos_base{
-    public:
-        vec_infos() : vec_infos_base(print_type<typename T::ScalarType,1>::value(),T::name(),T::size2_name()) { }
-        static infos_base & get(){
-            static vec_infos<T> res;
-            return res;
-        }
-        virtual ~vec_infos(){ }
-    };
-
-
-    class scal_infos_base : public infos_base{
-    protected:
-        scal_infos_base(std::string const & scalartype, std::string const & name) : infos_base(scalartype,name){ }
-    };
-
-    class cpu_scal_infos_base : public scal_infos_base{
-    protected:
-        cpu_scal_infos_base(std::string const & scalartype, std::string const & name) : scal_infos_base(scalartype,name){ }
-    };
-
-    class gpu_scal_infos_base : public scal_infos_base{
-    protected:
-        gpu_scal_infos_base(std::string const & scalartype, std::string const & name) : scal_infos_base(scalartype,name){ }
-    };
-
-    class constant_scal_infos_base : public scal_infos_base{
-    protected:
-        constant_scal_infos_base(std::string const & scalartype, std::string const & name) : scal_infos_base(scalartype,name){ }
-    };
-
-    /**
-     * @brief The scal_infos class
-     */
-    template<class T>
-    class cpu_scal_infos : public cpu_scal_infos_base{
-    public:
-        cpu_scal_infos() : cpu_scal_infos_base(print_type<typename T::ScalarType,1>::value() ,T::name()) { }
-
-        static infos_base & get(){
-            static cpu_scal_infos<T> res;
-            return res;
-        }
-    };
-
-    template<class T>
-    class gpu_scal_infos : public gpu_scal_infos_base{
-    public:
-        gpu_scal_infos() : gpu_scal_infos_base(print_type<typename T::ScalarType,1>::value() ,T::name()) { }
-
-        static infos_base & get(){
-            static gpu_scal_infos<T> res;
-            return res;
-        }
-    };
-
-    template<class T>
-    class constant_scal_infos : public constant_scal_infos_base{
-    public:
-        constant_scal_infos() : constant_scal_infos_base(print_type<typename T::ScalarType,1>::value() ,T::name()) { }
-
-        static infos_base & get(){
-            static constant_scal_infos<T> res;
-            return res;
-        }
-    };
-
-    template <unsigned int ID, typename SCALARTYPE>
-    static infos_base &  get_infos(cpu_symbolic_scalar<ID,SCALARTYPE> const &){
-        typedef cpu_symbolic_scalar<ID,SCALARTYPE>  U;
-        return cpu_scal_infos<U>::get();
-    }
-
-    template<class T, class Enable=void>
-    struct inprod_infos;
-
-    template <unsigned int ID, typename SCALARTYPE>
-    static infos_base &  get_infos(gpu_symbolic_scalar<ID,SCALARTYPE> const &){
-        typedef gpu_symbolic_scalar<ID,SCALARTYPE>  U;
-        return gpu_scal_infos<U>::get();
-    }
-
-    template<long T>
-    static infos_base & get_infos(symbolic_constant<T> const &){
-        typedef symbolic_constant<T> U;
-        return constant_scal_infos<U>::get();
-    }
-
-    template <class T>
-    static infos_base &  get_infos(inner_prod_impl_t<T> const &){
-        typedef inner_prod_impl_t<T> U;
-        return inprod_infos<U>::get();
-    }
-
-    template <class LHS, class RHS>
-    static infos_base &  get_infos(compound_node<LHS, inner_prod_type, RHS> const &){
-        typedef compound_node<LHS, inner_prod_type, RHS> U;
-        return inprod_infos<U>::get();
-    }
-
-
-    template <unsigned int ID, typename SCALARTYPE, unsigned int A>
-    static infos_base &  get_infos(symbolic_vector<ID,SCALARTYPE,A> const &){
-        typedef symbolic_vector<ID,SCALARTYPE,A> U;
-        return vec_infos<U>::get();
-    }
-
-    template <unsigned int ID, typename SCALARTYPE, class F, unsigned int A>
-    static infos_base &  get_infos(symbolic_matrix<ID,SCALARTYPE,F,A> const &){
-        typedef symbolic_matrix<ID,SCALARTYPE,F,A> U;
-        return mat_infos<U>::get();
-    }
-
-
-    template <class T, class Enable=void>
-    struct wrap_expr{
-    public:
-        static void execute(std::list<infos_base *> & expr){
-            expr.push_back(& get_infos(T()));
-        }
-    };
-
-    template<class T>
-    struct wrap_expr<T, typename viennacl::enable_if<result_of::is_arithmetic_compound<T>::value && !result_of::is_assignment_compound<T>::value>::type>
-    {
-        static void execute(std::list<infos_base *> & expr){
-            wrap_expr<typename T::LHS>::execute(expr);
-            wrap_expr<typename T::RHS>::execute(expr);
-        }
-    };
-
-    template<class T>
-    struct wrap_expr<T, typename viennacl::enable_if<result_of::is_assignment_compound<T>::value>::type>
-    {
-        static void execute(std::list<infos_base *> & expr){
-            expr.push_back(&get_infos(typename T::LHS()));
-            expr.back()->is_modified(true);
-            wrap_expr<typename T::RHS>::execute(expr);
-        }
-    };
-
-    /**
-     * The expr_infos_base class
-     */
-    class expr_infos{
-    public:
-
-        typedef std::list<infos_base *> data_t;
-
-        data_t & data() { return data_; }
-
-        std::string generate() {
-            std::string res(expression_string_base_);
-            for(typename data_t::iterator it = data_.begin() ; it!= data_.end() ; ++it){
-                infos_base * p = *it;
-                replace_all_string(res,p->name(),p->access_name());
-            }
-            return res;
-        }
-
-        template<class U>
-        void find_all(std::list<U* > & res) {
-            for(data_t::iterator it = data_.begin() ; it != data_.end() ; ++it ){
-                if(U* p = dynamic_cast<U*>(*it)){
-                    res.push_back(p);
-                }
-            }
-        }
-
-        virtual ~expr_infos(){ }
-
-    protected:
-        expr_infos(std::string const & expression_string_base) : expression_string_base_(expression_string_base){ }
-        data_t data_;
-        std::string expression_string_base_;
-    };
-
-
-
-
-    /**
-     * @brief The mat_expr_infos class
-     */
-    class mat_expr_infos : public expr_infos{
-
-    };
-
-    /**
-     * @brief The vec_expr_infos_base class
-     */
-    class vec_expr_infos_base : public expr_infos{
-    public:
-        typedef vec_infos_base infos_t;
-    protected:
-        vec_expr_infos_base(std::string const & expression_string_base) : expr_infos(expression_string_base){ }
-    };
-
-    /**
-     * @brief The vec_expr_infos class
-     */
-    template<class T>
-    class vec_expr_infos : public vec_expr_infos_base{
-    public:
-        vec_expr_infos() : vec_expr_infos_base(make_expression_code<T>::value("")){
-            wrap_expr<T>::execute(data_);
-        }
-        static vec_expr_infos_base & get(){
-            static vec_expr_infos<T> res;
-            return res;
-        }
-    };
-
-    class scal_expr_infos_base : public expr_infos{
-    public:
-        typedef scal_infos_base infos_t;
-    protected:
-        scal_expr_infos_base(std::string const & expression_string_base) : expr_infos(expression_string_base){ }
-    };
-
-
-
-    /**
-     * @brief The scal_expr_infos class
-     */
-    template<class T>
-    class scal_expr_infos : public scal_expr_infos_base{
-    public:
-        scal_expr_infos() : scal_expr_infos_base(make_expression_code<T>::value("")){
-            wrap_expr<T>::execute(data_);
-        }
-        static scal_expr_infos_base & get(){
-            static scal_expr_infos<T> res;
-            return res;
-        }
-    };
-
-    class inprod_infos_base : public scal_infos_base{
-    public:
-        enum step_t{reduce, compute};
-        vec_expr_infos_base & lhs(){ return lhs_; }
-        vec_expr_infos_base & rhs(){ return rhs_; }
-        step_t step(){ return step_; }
-    protected:
-        inprod_infos_base(std::string const & scalartype, std::string const & name
-                               , vec_expr_infos_base & lhs, vec_expr_infos_base & rhs
-                               ,step_t step) : scal_infos_base(scalartype,name), lhs_(lhs), rhs_(rhs), step_(step){        }
-    private:
-        vec_expr_infos_base & lhs_;
-        vec_expr_infos_base & rhs_;
-        step_t step_;
-    };
-
-
-
-    template<class T>
-    class inprod_infos<T, typename viennacl::enable_if<result_of::is_inner_product_impl<T>::value>::type> : public inprod_infos_base{
-    typedef typename T::Type U;
-    public:
-        inprod_infos() : inprod_infos_base(print_type<typename U::ScalarType,1>::value(), T::name()
-                                                   ,vec_expr_infos<typename U::LHS>::get()
-                                                   , vec_expr_infos<typename U::RHS>::get()
-                                                   ,inprod_infos_base::compute){        }
-        static inprod_infos_base & get(){
-            static inprod_infos<T> res;
-            return res;
-        }
-    };
-
-    template<class T>
-    class inprod_infos<T, typename viennacl::enable_if<result_of::is_inner_product_leaf<T>::value>::type> : public inprod_infos_base{
-    public:
-        inprod_infos() : inprod_infos_base(print_type<typename T::ScalarType,1>::value("__local"), T::name()
-                                                   ,vec_expr_infos<typename T::LHS>::get()
-                                                   , vec_expr_infos<typename T::RHS>::get()
-                                                   ,inprod_infos_base::reduce){        }
-        static inprod_infos_base & get(){
-            static inprod_infos<T> res;
-            return res;
-        }
-    };
+//    /** @brief Inline code for an expression from scalars
+//        @tparam T Tree specifying the expression
+//    */
+//    template <class T>
+//    struct make_expression_code
+//    {
+//      static std::string value(std::string const & loop_accessor)
+//      {
+//        return T::name();
+//      }
+//    };
+
+//    template <long VAL>
+//    struct make_expression_code<symbolic_constant<VAL> >
+//    {
+//      static std::string value(std::string const & )
+//      {
+//        return to_string(VAL);
+//      }
+//    };
+
+//    template <class LHS, class RHS>
+//    struct make_expression_code<compound_node<LHS,inner_prod_type,RHS > >
+//    {
+//      private:
+//        typedef compound_node<LHS,inner_prod_type,RHS> T;
+
+//      public:
+//        static std::string value(std::string const & )
+//        {
+//            return T::name()+"_val";
+//        }
+//    };
+
+//    template< >
+//    struct make_expression_code< NullType >
+//    {
+//      static std::string value(std::string const & )
+//      {
+//        return "";
+//      }
+//    };
+
+//    template<class T>
+//    struct make_expression_code< elementwise_modifier<T> >
+//    {
+//      static std::string value ( std::string const & loop_accessor)
+//      {
+//        return elementwise_modifier<T>::modify(make_expression_code<typename T::PRIOR_TYPE>::value(loop_accessor));
+//      }
+//    };
+
+//    template<class LHS, class OP, class RHS >
+//    struct make_expression_code<compound_node<LHS, OP, RHS> >
+//    {
+//      static const std::string value(std::string const & loop_accessor)
+//      {
+//        return " ( " + make_expression_code<LHS>::value(loop_accessor)
+//                + OP::expression_string()
+//                + make_expression_code<RHS>::value(loop_accessor) + " ) ";
+//      }
+//    };
+
+
+//    static void replace_all_string(std::string & str, std::string const & from, std::string const & to){
+//        size_t start_pos = 0;
+//        while((start_pos = str.find(from, start_pos)) != std::string::npos) {
+//                 str.replace(start_pos, from.length(), to);
+//                 start_pos += to.length();
+//        }
+//    }
+
+
+
+
+
+
+
+//    /**
+//     * @brief The mat_infos class
+//     */
+//    template<class T>
+//    class mat_infos : public mat_infos_base{
+//    public:
+//        mat_infos() : mat_infos_base(print_type<typename T::ScalarType,1>::value()
+//                                     ,T::name()
+//                                     ,T::size1_name()
+//                                     ,T::size2_name()
+//                                     ,result_of::is_row_major<T>::value
+//                                     ,false){ }
+//        static infos_base & get(){
+//            static mat_infos<T> res;
+//            return res;
+//        }
+//    };
+
+
+
+//    /**
+//     * @brief The vec_infos class
+//     */
+
+//    template<class T>
+//    class vec_infos : public vec_infos_base{
+//    public:
+//        vec_infos() : vec_infos_base(print_type<typename T::ScalarType,1>::value(),T::name(),T::size2_name()) { }
+//        static infos_base & get(){
+//            static vec_infos<T> res;
+//            return res;
+//        }
+//        virtual ~vec_infos(){ }
+//    };
+
+
+//    /**
+//     * @brief The scal_infos class
+//     */
+//    template<class T>
+//    class cpu_scal_infos : public cpu_scal_infos_base{
+//    public:
+//        cpu_scal_infos() : cpu_scal_infos_base(print_type<typename T::ScalarType,1>::value() ,T::name()) { }
+
+//        static infos_base & get(){
+//            static cpu_scal_infos<T> res;
+//            return res;
+//        }
+//    };
+
+//    template<class T>
+//    class gpu_scal_infos : public gpu_scal_infos_base{
+//    public:
+//        gpu_scal_infos() : gpu_scal_infos_base(print_type<typename T::ScalarType,1>::value() ,T::name()) { }
+
+//        static infos_base & get(){
+//            static gpu_scal_infos<T> res;
+//            return res;
+//        }
+//    };
+
+//    template<class T>
+//    class constant_scal_infos : public constant_scal_infos_base{
+//    public:
+//        constant_scal_infos() : constant_scal_infos_base(print_type<typename T::ScalarType,1>::value() ,T::name()) { }
+
+//        static infos_base & get(){
+//            static constant_scal_infos<T> res;
+//            return res;
+//        }
+//    };
+
+//    template <unsigned int ID, typename SCALARTYPE>
+//    static infos_base &  get_infos(cpu_symbolic_scalar<ID,SCALARTYPE> const &){
+//        typedef cpu_symbolic_scalar<ID,SCALARTYPE>  U;
+//        return cpu_scal_infos<U>::get();
+//    }
+
+//    template<class T, class Enable=void>
+//    struct inprod_infos;
+
+//    template <unsigned int ID, typename SCALARTYPE>
+//    static infos_base &  get_infos(gpu_symbolic_scalar<ID,SCALARTYPE> const &){
+//        typedef gpu_symbolic_scalar<ID,SCALARTYPE>  U;
+//        return gpu_scal_infos<U>::get();
+//    }
+
+//    template<long T>
+//    static infos_base & get_infos(symbolic_constant<T> const &){
+//        typedef symbolic_constant<T> U;
+//        return constant_scal_infos<U>::get();
+//    }
+
+//    template <class T>
+//    static infos_base &  get_infos(inner_prod_impl_t<T> const &){
+//        typedef inner_prod_impl_t<T> U;
+//        return inprod_infos<U>::get();
+//    }
+
+//    template <class LHS, class RHS>
+//    static infos_base &  get_infos(compound_node<LHS, inner_prod_type, RHS> const &){
+//        typedef compound_node<LHS, inner_prod_type, RHS> U;
+//        return inprod_infos<U>::get();
+//    }
+
+
+//    template <unsigned int ID, typename SCALARTYPE, unsigned int A>
+//    static infos_base &  get_infos(symbolic_vector<ID,SCALARTYPE,A> const &){
+//        typedef symbolic_vector<ID,SCALARTYPE,A> U;
+//        return vec_infos<U>::get();
+//    }
+
+//    template <unsigned int ID, typename SCALARTYPE, class F, unsigned int A>
+//    static infos_base &  get_infos(symbolic_matrix<ID,SCALARTYPE,F,A> const &){
+//        typedef symbolic_matrix<ID,SCALARTYPE,F,A> U;
+//        return mat_infos<U>::get();
+//    }
+
+
+//    template <class T, class Enable=void>
+//    struct wrap_expr{
+//    public:
+//        static void execute(std::list<leaf_infos_base *> & expr){
+//            expr.push_back(& get_infos(T()));
+//        }
+//    };
+
+//    template<class T>
+//    struct wrap_expr<T, typename viennacl::enable_if<result_of::is_arithmetic_compound<T>::value && !result_of::is_assignment_compound<T>::value>::type>
+//    {
+//        static void execute(std::list<leaf_infos_base *> & expr){
+//            wrap_expr<typename T::LHS>::execute(expr);
+//            wrap_expr<typename T::RHS>::execute(expr);
+//        }
+//    };
+
+//    template<class T>
+//    struct wrap_expr<T, typename viennacl::enable_if<result_of::is_assignment_compound<T>::value>::type>
+//    {
+//        static void execute(std::list<leaf_infos_base *> & expr){
+//            expr.push_back(&get_infos(typename T::LHS()));
+//            expr.back()->is_modified(true);
+//            wrap_expr<typename T::RHS>::execute(expr);
+//        }
+//    };
+
+//    /**
+//     * The expr_infos_base class
+//     */
+//    class expr_infos{
+//    public:
+
+//        typedef std::list<leaf_infos_base *> data_t;
+
+//        data_t & data() { return data_; }
+
+//        std::string generate() {
+//            std::string res(expression_string_base_);
+//            for(typename data_t::iterator it = data_.begin() ; it!= data_.end() ; ++it){
+//                leaf_infos_base * p = *it;
+//                replace_all_string(res,p->name(),p->access_name());
+//            }
+//            return res;
+//        }
+
+//        template<class U>
+//        void find_all(std::list<U* > & res) {
+//            for(data_t::iterator it = data_.begin() ; it != data_.end() ; ++it ){
+//                if(U* p = dynamic_cast<U*>(*it)){
+//                    res.push_back(p);
+//                }
+//            }
+//        }
+
+//        virtual ~expr_infos(){ }
+
+//    protected:
+//        expr_infos(std::string const & expression_string_base) : expression_string_base_(expression_string_base){ }
+//        data_t data_;
+//        std::string expression_string_base_;
+//    };
+
+
+
+
+//    /**
+//     * @brief The mat_expr_infos class
+//     */
+//    class mat_expr_infos : public expr_infos{
+
+//    };
+
+//    /**
+//     * @brief The vec_expr_infos_base class
+//     */
+//    class vec_expr_infos_base : public expr_infos{
+//    public:
+//        typedef vec_infos_base infos_t;
+//    protected:
+//        vec_expr_infos_base(std::string const & expression_string_base) : expr_infos(expression_string_base){ }
+//    };
+
+//    /**
+//     * @brief The vec_expr_infos class
+//     */
+//    template<class T>
+//    class vec_expr_infos : public vec_expr_infos_base{
+//    public:
+//        vec_expr_infos() : vec_expr_infos_base(make_expression_code<T>::value("")){
+//            wrap_expr<T>::execute(data_);
+//        }
+//        static vec_expr_infos_base & get(){
+//            static vec_expr_infos<T> res;
+//            return res;
+//        }
+//    };
+
+//    class scal_expr_infos_base : public expr_infos{
+//    public:
+//        typedef scal_infos_base infos_t;
+//    protected:
+//        scal_expr_infos_base(std::string const & expression_string_base) : expr_infos(expression_string_base){ }
+//    };
+
+
+
+//    /**
+//     * @brief The scal_expr_infos class
+//     */
+//    template<class T>
+//    class scal_expr_infos : public scal_expr_infos_base{
+//    public:
+//        scal_expr_infos() : scal_expr_infos_base(make_expression_code<T>::value("")){
+//            wrap_expr<T>::execute(data_);
+//        }
+//        static scal_expr_infos_base & get(){
+//            static scal_expr_infos<T> res;
+//            return res;
+//        }
+//    };
+
+//    class inprod_infos_base : public scal_infos_base{
+//    public:
+//        enum step_t{reduce, compute};
+//        vec_expr_infos_base & lhs(){ return lhs_; }
+//        vec_expr_infos_base & rhs(){ return rhs_; }
+//        step_t step(){ return step_; }
+//    protected:
+//        inprod_infos_base(std::string const & scalartype, std::string const & name
+//                               , vec_expr_infos_base & lhs, vec_expr_infos_base & rhs
+//                               ,step_t step) : scal_infos_base(scalartype,name), lhs_(lhs), rhs_(rhs), step_(step){        }
+//    private:
+//        vec_expr_infos_base & lhs_;
+//        vec_expr_infos_base & rhs_;
+//        step_t step_;
+//    };
+
+
+
+//    template<class T>
+//    class inprod_infos<T, typename viennacl::enable_if<result_of::is_inner_product_impl<T>::value>::type> : public inprod_infos_base{
+//    typedef typename T::Type U;
+//    public:
+//        inprod_infos() : inprod_infos_base(print_type<typename U::ScalarType,1>::value(), T::name()
+//                                                   ,vec_expr_infos<typename U::LHS>::get()
+//                                                   , vec_expr_infos<typename U::RHS>::get()
+//                                                   ,inprod_infos_base::compute){        }
+//        static inprod_infos_base & get(){
+//            static inprod_infos<T> res;
+//            return res;
+//        }
+//    };
+
+//    template<class T>
+//    class inprod_infos<T, typename viennacl::enable_if<result_of::is_inner_product_leaf<T>::value>::type> : public inprod_infos_base{
+//    public:
+//        inprod_infos() : inprod_infos_base(print_type<typename T::ScalarType,1>::value("__local"), T::name()
+//                                                   ,vec_expr_infos<typename T::LHS>::get()
+//                                                   , vec_expr_infos<typename T::RHS>::get()
+//                                                   ,inprod_infos_base::reduce){        }
+//        static inprod_infos_base & get(){
+//            static inprod_infos<T> res;
+//            return res;
+//        }
+//    };
 
 
 
