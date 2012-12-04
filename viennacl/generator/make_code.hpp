@@ -193,6 +193,7 @@ namespace viennacl
     };
 
 
+
     /**
      * @brief The vec_infos class
      */
@@ -214,39 +215,101 @@ namespace viennacl
         scal_infos_base(std::string const & scalartype, std::string const & name) : infos_base(scalartype,name){ }
     };
 
+    class cpu_scal_infos_base : public scal_infos_base{
+    protected:
+        cpu_scal_infos_base(std::string const & scalartype, std::string const & name) : scal_infos_base(scalartype,name){ }
+    };
+
+    class gpu_scal_infos_base : public scal_infos_base{
+    protected:
+        gpu_scal_infos_base(std::string const & scalartype, std::string const & name) : scal_infos_base(scalartype,name){ }
+    };
+
+    class constant_scal_infos_base : public scal_infos_base{
+    protected:
+        constant_scal_infos_base(std::string const & scalartype, std::string const & name) : scal_infos_base(scalartype,name){ }
+    };
+
     /**
      * @brief The scal_infos class
      */
     template<class T>
-    class scal_infos : public scal_infos_base{
+    class cpu_scal_infos : public cpu_scal_infos_base{
     public:
-        scal_infos() : scal_infos_base(print_type<typename T::ScalarType,1>::value() ,T::name()) { }
+        cpu_scal_infos() : cpu_scal_infos_base(print_type<typename T::ScalarType,1>::value() ,T::name()) { }
+
         static infos_base & get(){
-            static scal_infos<T> res;
+            static cpu_scal_infos<T> res;
             return res;
         }
     };
 
+    template<class T>
+    class gpu_scal_infos : public gpu_scal_infos_base{
+    public:
+        gpu_scal_infos() : gpu_scal_infos_base(print_type<typename T::ScalarType,1>::value() ,T::name()) { }
+
+        static infos_base & get(){
+            static gpu_scal_infos<T> res;
+            return res;
+        }
+    };
 
     template<class T>
-    static infos_base &  get_infos(typename viennacl::enable_if<result_of::is_inner_product_impl<T>::value >::type* dummy = 0){
-        return get_infos<typename T::Type>();
+    class constant_scal_infos : public constant_scal_infos_base{
+    public:
+        constant_scal_infos() : constant_scal_infos_base(print_type<typename T::ScalarType,1>::value() ,T::name()) { }
+
+        static infos_base & get(){
+            static constant_scal_infos<T> res;
+            return res;
+        }
+    };
+
+    template <unsigned int ID, typename SCALARTYPE>
+    static infos_base &  get_infos(cpu_symbolic_scalar<ID,SCALARTYPE> const &){
+        typedef cpu_symbolic_scalar<ID,SCALARTYPE>  U;
+        return cpu_scal_infos<U>::get();
     }
 
-    template<class T>
-    static infos_base &  get_infos(typename viennacl::enable_if<result_of::is_symbolic_scalar<T>::value
-                                                                || result_of::is_inner_product_leaf<T>::value >::type* dummy = 0){
-        return scal_infos<T>::get();
+    template<class T, class Enable=void>
+    struct inprod_infos;
+
+    template <unsigned int ID, typename SCALARTYPE>
+    static infos_base &  get_infos(gpu_symbolic_scalar<ID,SCALARTYPE> const &){
+        typedef gpu_symbolic_scalar<ID,SCALARTYPE>  U;
+        return gpu_scal_infos<U>::get();
     }
 
-    template<class T>
-    static infos_base &  get_infos(typename viennacl::enable_if<result_of::is_symbolic_vector<T>::value >::type* dummy = 0){
-        return vec_infos<T>::get();
+    template<long T>
+    static infos_base & get_infos(symbolic_constant<T> const &){
+        typedef symbolic_constant<T> U;
+        return constant_scal_infos<U>::get();
     }
 
-    template<class T>
-    static infos_base &  get_infos(typename viennacl::enable_if<result_of::is_symbolic_matrix<T>::value >::type* dummy = 0){
-        return mat_infos<T>::get();
+    template <class T>
+    static infos_base &  get_infos(inner_prod_impl_t<T> const &){
+        typedef inner_prod_impl_t<T> U;
+        return inprod_infos<U>::get();
+    }
+
+    template <class LHS, class RHS>
+    static infos_base &  get_infos(compound_node<LHS, inner_prod_type, RHS> const &){
+        typedef compound_node<LHS, inner_prod_type, RHS> U;
+        return inprod_infos<U>::get();
+    }
+
+
+    template <unsigned int ID, typename SCALARTYPE, unsigned int A>
+    static infos_base &  get_infos(symbolic_vector<ID,SCALARTYPE,A> const &){
+        typedef symbolic_vector<ID,SCALARTYPE,A> U;
+        return vec_infos<U>::get();
+    }
+
+    template <unsigned int ID, typename SCALARTYPE, class F, unsigned int A>
+    static infos_base &  get_infos(symbolic_matrix<ID,SCALARTYPE,F,A> const &){
+        typedef symbolic_matrix<ID,SCALARTYPE,F,A> U;
+        return mat_infos<U>::get();
     }
 
 
@@ -254,12 +317,12 @@ namespace viennacl
     struct wrap_expr{
     public:
         static void execute(std::list<infos_base *> & expr){
-            expr.push_back(& get_infos<T>());
+            expr.push_back(& get_infos(T()));
         }
     };
 
     template<class T>
-    struct wrap_expr<T, typename viennacl::enable_if<result_of::is_compound<T>::value && !result_of::is_assignment_compound<T>::value>::type>
+    struct wrap_expr<T, typename viennacl::enable_if<result_of::is_arithmetic_compound<T>::value && !result_of::is_assignment_compound<T>::value>::type>
     {
         static void execute(std::list<infos_base *> & expr){
             wrap_expr<typename T::LHS>::execute(expr);
@@ -271,7 +334,7 @@ namespace viennacl
     struct wrap_expr<T, typename viennacl::enable_if<result_of::is_assignment_compound<T>::value>::type>
     {
         static void execute(std::list<infos_base *> & expr){
-            expr.push_back(&get_infos<typename T::LHS>());
+            expr.push_back(&get_infos(typename T::LHS()));
             expr.back()->is_modified(true);
             wrap_expr<typename T::RHS>::execute(expr);
         }
@@ -355,22 +418,12 @@ namespace viennacl
         scal_expr_infos_base(std::string const & expression_string_base) : expr_infos(expression_string_base){ }
     };
 
-    class inprod_expr_infos_base : public scal_expr_infos_base{
-    public:
-        vec_expr_infos_base & lhs(){ return lhs_; }
-        vec_expr_infos_base & rhs(){ return rhs_; }
-    protected:
-        inprod_expr_infos_base(std::string const & expression_string_base
-                               , vec_expr_infos_base & lhs, vec_expr_infos_base & rhs) : scal_expr_infos_base(expression_string_base), lhs_(lhs), rhs_(rhs){  }
-    private:
-        vec_expr_infos_base & lhs_;
-        vec_expr_infos_base & rhs_;
-    };
+
 
     /**
      * @brief The scal_expr_infos class
      */
-    template<class T, class Enable=void>
+    template<class T>
     class scal_expr_infos : public scal_expr_infos_base{
     public:
         scal_expr_infos() : scal_expr_infos_base(make_expression_code<T>::value("")){
@@ -382,17 +435,51 @@ namespace viennacl
         }
     };
 
+    class inprod_infos_base : public scal_infos_base{
+    public:
+        enum step_t{reduce, compute};
+        vec_expr_infos_base & lhs(){ return lhs_; }
+        vec_expr_infos_base & rhs(){ return rhs_; }
+        step_t step(){ return step_; }
+    protected:
+        inprod_infos_base(std::string const & scalartype, std::string const & name
+                               , vec_expr_infos_base & lhs, vec_expr_infos_base & rhs
+                               ,step_t step) : scal_infos_base(scalartype,name), lhs_(lhs), rhs_(rhs), step_(step){        }
+    private:
+        vec_expr_infos_base & lhs_;
+        vec_expr_infos_base & rhs_;
+        step_t step_;
+    };
+
+
 
     template<class T>
-    class scal_expr_infos<T, typename viennacl::enable_if<result_of::is_inner_product_impl<T>::value>::type> : public inprod_expr_infos_base{
+    class inprod_infos<T, typename viennacl::enable_if<result_of::is_inner_product_impl<T>::value>::type> : public inprod_infos_base{
     typedef typename T::Type U;
     public:
-        scal_expr_infos() : inprod_expr_infos_base(make_expression_code<T>::value(""),vec_expr_infos<typename U::LHS>::get(), vec_expr_infos<typename U::RHS>::get()){        }
-        static inprod_expr_infos_base & get(){
-            static scal_expr_infos<T> res;
+        inprod_infos() : inprod_infos_base(print_type<typename U::ScalarType,1>::value(), T::name()
+                                                   ,vec_expr_infos<typename U::LHS>::get()
+                                                   , vec_expr_infos<typename U::RHS>::get()
+                                                   ,inprod_infos_base::compute){        }
+        static inprod_infos_base & get(){
+            static inprod_infos<T> res;
             return res;
         }
     };
+
+    template<class T>
+    class inprod_infos<T, typename viennacl::enable_if<result_of::is_inner_product_leaf<T>::value>::type> : public inprod_infos_base{
+    public:
+        inprod_infos() : inprod_infos_base(print_type<typename T::ScalarType,1>::value("__local"), T::name()
+                                                   ,vec_expr_infos<typename T::LHS>::get()
+                                                   , vec_expr_infos<typename T::RHS>::get()
+                                                   ,inprod_infos_base::reduce){        }
+        static inprod_infos_base & get(){
+            static inprod_infos<T> res;
+            return res;
+        }
+    };
+
 
 
     template<class T>
@@ -433,33 +520,68 @@ namespace viennacl
         blas1_generator(std::list<vec_expr_infos_base * > & vector_expressions, std::list<scal_expr_infos_base * > & scalar_expressions): vector_expressions_(vector_expressions),
                                                                                                                                          scalar_expressions_(scalar_expressions){
             for(std::list<scal_expr_infos_base * >::const_iterator it = scalar_expressions.begin() ; it != scalar_expressions.end() ; ++it){
-                if(inprod_expr_infos_base *p = dynamic_cast<inprod_expr_infos_base *>(*it)){
-                    inner_prods_compute_.push_back(p);
-                    p->lhs().find_all(vectors_);
-                    p->rhs().find_all(vectors_);
+                for(expr_infos::data_t::iterator iit = (*it)->data().begin() ; iit != (*it)->data().end() ; ++iit){
+                    if(inprod_infos_base *p = dynamic_cast<inprod_infos_base *>(*iit)){
+                        if(p->step() == inprod_infos_base::compute) inner_prods_compute_.push_back(p);
+                        else inner_prods_reduce_.push_back(p);
+                        p->lhs().find_all(vectors_);
+                        p->lhs().find_all(gpu_scalars_);
+                        p->rhs().find_all(vectors_);
+                        p->rhs().find_all(gpu_scalars_);
+                    }
                 }
+                (*it)->find_all(gpu_scalars_);
             }
             for(std::list<vec_expr_infos_base *>::const_iterator it = vector_expressions.begin(); it!=vector_expressions.end() ; ++it){
                 (*it)->find_all(vectors_);
+                (*it)->find_all(gpu_scalars_);
             }
+        }
+
+        void compute_reductions(std::ostringstream & oss, std::list<inprod_infos_base *> const & inprods){
+           for( std::list<inprod_infos_base *>::const_iterator it = inprods.begin(); it != inprods.end() ; ++it){
+               oss << " local_" << (*it)->name() << "[get_local_id(0)]  = " << "sum_" << (*it)->name() << ";\n";
+           }
+           oss << "   for (unsigned int stride = get_local_size(0)/2; stride > 0; stride /= 2)\n";
+           oss << "   {\n";
+           oss << "      barrier(CLK_LOCAL_MEM_FENCE);\n";
+           oss << "      if (get_local_id(0) < stride){\n";
+           for(std::list<inprod_infos_base *>::const_iterator it = inprods.begin(); it != inprods.end() ; ++it){
+           oss << "         " << (*it)->name() << "[get_local_id(0)]  += " << "local_" << (*it)->name() << "shared_memory_ptr[get_local_id(0)+stride];\n";
+           }
+           oss << "      }\n";
+           oss << "   }\n";
+           for(std::list<inprod_infos_base *>::const_iterator it = inprods.begin(); it != inprods.end() ; ++it){
+           oss << "    " << (*it)->access_name() << " = local_" << (*it)->name() << "[" << 0 << "];\n";
+           }
         }
 
         std::string operator()(){
             std::ostringstream oss;
             std::set<vec_infos_base *> vector_cached_entries;
+            std::set<gpu_scal_infos_base *> scalar_cached_entries;
+            std::set<inprod_infos_base *> inprod_cached_entries;
+
             cache_manager<vec_infos_base> vector_cache(vectors_,oss,vector_cached_entries);
+            cache_manager<gpu_scal_infos_base> scalar_cache(gpu_scalars_,oss,scalar_cached_entries);
+            cache_manager<inprod_infos_base> inprod_cache(inner_prods_reduce_,oss,inprod_cached_entries);
+
             vec_infos_base * first_vector =  NULL;
             if(vectors_.size())
                 first_vector = vectors_.front();
             //Assumes same size...
             oss << "{\n";
 
+            if(inner_prods_reduce_.size()>0)
+                compute_reductions(oss,inner_prods_reduce_);
+            scalar_cache.fetch_entries("0");
             if(first_vector){
                 oss << "for(unsigned int i = get_global_id(0) ; i <" << first_vector->size() << " ; i += get_global_size(0){\n";
                 vector_cache.fetch_entries("i");
                 vector_cache.writeback_entries("i");
                 oss << "}\n";
             }
+            scalar_cache.writeback_entries("0");
             oss << "}\n";
 
             return oss.str();
@@ -468,8 +590,10 @@ namespace viennacl
     private:
         std::list<vec_expr_infos_base * >  vector_expressions_;
         std::list<scal_expr_infos_base * > scalar_expressions_;
-        std::list<inprod_expr_infos_base * > inner_prods_compute_;
+        std::list<inprod_infos_base * > inner_prods_compute_;
+        std::list<inprod_infos_base * > inner_prods_reduce_;
         std::list<vec_infos_base * > vectors_;
+        std::list<gpu_scal_infos_base * > gpu_scalars_;
     };
 
 //    template<class T>
