@@ -95,6 +95,8 @@ namespace viennacl
 
       public:
 
+        typedef T* ptr_type;
+
         shared_ptr() :pa(), pt() {}
 
         template<class U, class Deleter>

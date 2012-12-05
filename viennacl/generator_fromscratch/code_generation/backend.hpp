@@ -17,7 +17,18 @@ namespace viennacl{
                     blas1_generator(std::list<infos_base * > const & vector_expressions, std::list<infos_base * > const & scalar_expressions):
                                                                                                         vector_expressions_(vector_expressions),
                                                                                                         scalar_expressions_(scalar_expressions)
-                    { }
+                    {
+                        vectors_ = code_generation::utils::extract_cast<vec_infos_base>(vector_expressions_);
+                        std::list<gpu_scal_infos_base * > tmp(code_generation::utils::extract_cast<gpu_scal_infos_base>(scalar_expressions_));
+                        gpu_scalars_ = code_generation::utils::extract_cast<gpu_scal_infos_base>(vector_expressions_);
+                        gpu_scalars_.merge(tmp);
+
+                        vectors_.sort(code_generation::utils::is_pointed_value_inf<vec_infos_base>);
+                        vectors_.unique(code_generation::utils::is_pointed_value_eq<vec_infos_base>);
+
+                        gpu_scalars_.sort(code_generation::utils::is_pointed_value_inf<gpu_scal_infos_base>);
+                        gpu_scalars_.unique(code_generation::utils::is_pointed_value_eq<gpu_scal_infos_base>);
+                    }
 
 //                    void compute_reductions(std::ostringstream & oss, std::list<inprod_infos_base *> const & inprods){
 //                       for( std::list<inprod_infos_base *>::const_iterator it = inprods.begin(); it != inprods.end() ; ++it){
@@ -42,18 +53,12 @@ namespace viennacl{
 
                         std::set<vec_infos_base *> vector_cached_entries;
                         std::set<gpu_scal_infos_base *> scalar_cached_entries;
-
-                        std::list<vec_infos_base * > vectors(code_generation::utils::extract_cast<vec_infos_base>(vector_expressions_));
-                        std::list<gpu_scal_infos_base * > tmp(code_generation::utils::extract_cast<gpu_scal_infos_base>(scalar_expressions_));
-                        std::list<gpu_scal_infos_base * > gpu_scalars(code_generation::utils::extract_cast<gpu_scal_infos_base>(vector_expressions_));
-                        gpu_scalars.merge(tmp);
-
-                        code_generation::utils::cache_manager<vec_infos_base> vector_cache(vectors,oss,vector_cached_entries);
-                        code_generation::utils::cache_manager<gpu_scal_infos_base> scalar_cache(gpu_scalars,oss,scalar_cached_entries);
+                        code_generation::utils::cache_manager<vec_infos_base> vector_cache(vectors_,oss,vector_cached_entries);
+                        code_generation::utils::cache_manager<gpu_scal_infos_base> scalar_cache(gpu_scalars_,oss,scalar_cached_entries);
 
                         vec_infos_base * first_vector =  NULL;
-                        if(vectors.size())
-                            first_vector = vectors.front();
+                        if(vectors_.size())
+                            first_vector = vectors_.front();
 //                        //Assumes same size...
                         oss << "{\n";
 
@@ -63,6 +68,9 @@ namespace viennacl{
                         if(first_vector){
                             oss << "for(unsigned int i = get_global_id(0) ; i <" << first_vector->size() << " ; i += get_global_size(0){\n";
                             vector_cache.fetch_entries("i");
+                            for(std::list<infos_base *>::iterator it=vector_expressions_.begin() ; it!=vector_expressions_.end();++it){
+                                oss << (*it)->generate() << std::endl;
+                            }
                             vector_cache.writeback_entries("i");
                             oss << "}\n";
                         }
@@ -75,6 +83,8 @@ namespace viennacl{
                 private:
                     std::list<infos_base * >  vector_expressions_;
                     std::list<infos_base* > scalar_expressions_;
+                    std::list<vec_infos_base * >  vectors_;
+                    std::list<gpu_scal_infos_base * > gpu_scalars_;
 //                    std::list<inprod_infos_base * > inner_prods_compute_;
 //                    std::list<inprod_infos_base * > inner_prods_reduce_;
 

@@ -20,19 +20,31 @@ namespace viennacl{
                     return dynamic_cast<T *>(p);
                 }
 
+                template<class T>
+                static bool is_pointed_value_eq(T* a, T* b){
+                    return (*a == *b);
+                }
+
+                template<class T>
+                static bool is_pointed_value_inf(T* a, T* b){
+                    return (*a) <= (*b);
+                }
 
                 template<class Pred>
-                static std::list<infos_base*> extract_if(infos_base* const node, Pred pred, bool inspect_binary_leaves=true){
+                static std::list<infos_base*> extract_if(infos_base* const node, Pred pred, bool inspect_nested_leaves=true){
                     std::list<infos_base*> res;
-                    if(arithmetic_tree_infos_base * p = dynamic_cast<arithmetic_tree_infos_base *>(node)){
-                            std::list<infos_base*> tmplhs(extract_if(&p->lhs(),pred));
-                            std::list<infos_base*> tmprhs(extract_if(&p->rhs(),pred));
-                            res.merge(tmplhs);
-                            res.merge(tmprhs);
-                    }
-                    else if(unary_tree_infos_base * p = dynamic_cast<unary_tree_infos_base *>(node)){
-                        std::list<infos_base*> tmp(extract_if(&p->sub(),pred));
-                        res.merge(tmp);
+
+                    if(inspect_nested_leaves){
+                        if(arithmetic_tree_infos_base * p = dynamic_cast<arithmetic_tree_infos_base *>(node)){
+                                std::list<infos_base*> tmplhs(extract_if(&p->lhs(),pred));
+                                std::list<infos_base*> tmprhs(extract_if(&p->rhs(),pred));
+                                res.merge(tmplhs);
+                                res.merge(tmprhs);
+                        }
+                        else if(unary_tree_infos_base * p = dynamic_cast<unary_tree_infos_base *>(node)){
+                            std::list<infos_base*> tmp(extract_if(&p->sub(),pred));
+                            res.merge(tmp);
+                        }
                     }
                     if(pred(node)){
                         res.push_back(node);
@@ -41,10 +53,10 @@ namespace viennacl{
                 }
 
                 template<class Pred>
-                static std::list<infos_base*> extract_if(std::list<infos_base*> const & trees, Pred pred, bool inspect_binary_leaves=true){
+                static std::list<infos_base*> extract_if(std::list<infos_base*> const & trees, Pred pred, bool inspect_nested_leaves=true){
                     std::list<infos_base*> res;
                     for(std::list<infos_base*>::const_iterator it = trees.begin() ; it != trees.end() ; ++it){
-                        std::list<infos_base*> tmp(extract_if(*it,pred));
+                        std::list<infos_base*> tmp(extract_if(*it,pred,inspect_nested_leaves));
                         res.merge(tmp);
                     }
                     return res;
