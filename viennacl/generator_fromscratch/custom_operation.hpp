@@ -25,7 +25,7 @@ namespace viennacl
               std::list<infos_base*> ops;
               ops.push_back(&tree);
               code_generation::frontend k(ops,operation_name);
-              std::cout << k.generate_headers() << std::endl;
+              std::cout << k.generate()<< std::endl;
           }
 
         private:

@@ -31,6 +31,12 @@ namespace viennacl{
               return ss.str();
             }
 
+            template<class T, class U>
+            static bool is_type(U* p){
+                return dynamic_cast<T *>(p);
+            }
+
+
             template<class Base,class Target>
             struct Base2Target { Target* operator ()( Base* value ) const { return dynamic_cast<Target*>(value); } };
 
