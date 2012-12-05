@@ -19,11 +19,10 @@ namespace viennacl
           * @param operation_name the code for this expression will be stored in the program provided by this name
           */
           template<class T0>
-          custom_operation ( T0 const & , std::string const & operation_name) : program_name_(operation_name)
+          custom_operation ( T0 t0, std::string const & operation_name) : program_name_(operation_name)
           {
-              infos_base & tree = T0::get();
               std::list<infos_base*> ops;
-              ops.push_back(&tree);
+              ops.push_back(static_cast<infos_base*>(&t0));
               code_generation::frontend k(ops,operation_name);
               std::cout << k.generate()<< std::endl;
           }
