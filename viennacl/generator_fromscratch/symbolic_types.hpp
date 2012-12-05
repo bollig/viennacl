@@ -39,6 +39,7 @@ namespace viennacl
       public:
           virtual std::string generate() const = 0;
           virtual std::string name() const = 0;
+          virtual ~infos_base(){ }
       };
 
       class binary_tree_infos_base{
@@ -80,6 +81,8 @@ namespace viennacl
       public:
           kernel_argument(int id, std::string const & scalartype, std::string const & name) : leaf_infos_base(scalartype,name), id_(id){ }
           int id() const{ return id_; }
+          bool operator==(kernel_argument const & other){ return (id_ == other.id_); }
+          bool operator<=(kernel_argument const & other){ return (id_ <= other.id_); }
           virtual std::string kernel_arguments() const = 0;
       private:
           int id_;

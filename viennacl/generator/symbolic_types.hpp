@@ -46,7 +46,7 @@ namespace viennacl
       class infos_base{
       public:
           virtual std::string generate() const = 0;
-
+          virtual infos_base(){ }
       };
 
       /**
@@ -63,6 +63,7 @@ namespace viennacl
 
           virtual std::string generate() const { return access_name_; }
           virtual std::string kernel_arguments() = 0;
+          virtual leaf_infos_base(){ }
       protected:
           leaf_infos_base(std::string const & scalartype,
                      std::string const & name): scalartype_(scalartype), name_(name), is_modified_(false){ }

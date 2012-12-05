@@ -36,10 +36,11 @@ namespace viennacl{
 
                 std::string generate_sources() const{
                     std::string res;
-                    std::list<infos_base *> vec_exprs(code_generation::utils::extract_if (trees_,code_generation::utils::is_type<vector_expression_infos_base>));
-                    std::list<infos_base *> scal_exprs(code_generation::utils::extract_if(trees_,code_generation::utils::is_type<scalar_expression_infos_base>));
-                    std::list<infos_base *> mat_exprs(code_generation::utils::extract_if (trees_,code_generation::utils::is_type<matrix_expression_infos_base>));
+                    std::list<infos_base *> vec_exprs(code_generation::utils::extract_if (trees_,code_generation::utils::is_type<vector_expression_infos_base>,false));
+                    std::list<infos_base *> scal_exprs(code_generation::utils::extract_if(trees_,code_generation::utils::is_type<scalar_expression_infos_base>,false));
+                    std::list<infos_base *> mat_exprs(code_generation::utils::extract_if (trees_,code_generation::utils::is_type<matrix_expression_infos_base>,false));
                     code_generation::blas1_generator gen(vec_exprs,scal_exprs);
+
                     return gen();
                 }
 

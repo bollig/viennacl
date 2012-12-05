@@ -18,6 +18,7 @@
 ============================================================================= */
 
 #include <sstream>
+#include "viennacl/tools/shared_ptr.hpp"
 
 namespace viennacl{
 	
@@ -39,6 +40,11 @@ namespace viennacl{
 
             template<class Base,class Target>
             struct Base2Target { Target* operator ()( Base* value ) const { return dynamic_cast<Target*>(value); } };
+
+            template<class T>
+            struct SharedPtr2Raw {
+                T* operator ()(viennacl::tools::shared_ptr<T> const & value ) const { return value.get(); }
+            };
 
 
             template<class Base,class Target>
