@@ -3,7 +3,7 @@
 
 
 #include "viennacl/generator_fromscratch/symbolic_types.hpp"
-#include "viennacl/generator_fromscratch/tree_utils.hpp"
+#include "viennacl/generator_fromscratch/code_generation/frontend.hpp"
 
 namespace viennacl
 {
@@ -12,11 +12,6 @@ namespace viennacl
   /** @brief A class for making a custom operation */
       class custom_operation
       {
-
-          static bool test_pred(infos_base* p){
-              return dynamic_cast<vec_infos_base *>(p);
-          }
-
         public :
 
           /** @brief CTor for 1 expression
@@ -27,7 +22,10 @@ namespace viennacl
           custom_operation ( T0 const & , std::string const & operation_name) : program_name_(operation_name)
           {
               infos_base & tree = T0::get();
-              std::tree_utils::extract_if(&tree,test_pred);
+              std::list<infos_base*> ops;
+              ops.push_back(&tree);
+              code_generation::frontend k(ops,operation_name);
+              std::cout << k.generate_headers() << std::endl;
           }
 
         private:
