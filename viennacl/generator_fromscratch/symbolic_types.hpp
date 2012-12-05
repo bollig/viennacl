@@ -51,28 +51,7 @@ namespace viennacl
           virtual std::string name() const = 0;
       };
 
-
-      class leaf_infos_base : public virtual infos_base{
-      public:
-          std::string name() const{ return name_; }
-          std::string const & scalartype() const{ return scalartype_; }
-          void access_name(std::string const & new_name) { access_name_ = new_name; }
-          virtual ~leaf_infos_base(){ }
-          bool is_modified(){ return is_modified_;}
-          void is_modified(bool val){ is_modified_ = val; }
-
-          virtual std::string generate() const { return access_name_; }
-          virtual std::string kernel_arguments() = 0;
-      protected:
-          leaf_infos_base(std::string const & scalartype,
-                     std::string const & name): scalartype_(scalartype), name_(name), is_modified_(false){ }
-          std::string scalartype_;
-          std::string name_;
-          std::string access_name_;
-          bool is_modified_;
-      };
-
-      class binary_tree_infos_base : public virtual infos_base{
+      class binary_tree_infos_base{
       public:
           infos_base & lhs(){ return lhs_; }
           infos_base & rhs(){ return rhs_; }
@@ -82,7 +61,7 @@ namespace viennacl
           infos_base & rhs_;
       };
 
-      class unary_tree_infos_base : public virtual infos_base{
+      class unary_tree_infos_base{
       public:
           infos_base & sub(){ return sub_; }
       protected:
@@ -90,7 +69,35 @@ namespace viennacl
           infos_base & sub_;
       };
 
-      class arithmetic_tree_infos_base : public binary_tree_infos_base{
+      class leaf_infos_base : public infos_base{
+      public:
+          void access_name(std::string const & new_name) { access_name_ = new_name; }
+          virtual ~leaf_infos_base(){ }
+          bool is_modified(){ return is_modified_;}
+          void is_modified(bool val){ is_modified_ = val; }
+          virtual std::string generate() const { return access_name_; }
+          virtual std::string name() const { return name_; }
+      protected:
+          leaf_infos_base(std::string const & scalartype,
+                          std::string const & name): infos_base(), scalartype_(scalartype), name_(name), is_modified_(false){ }
+          std::string scalartype_;
+          std::string access_name_;
+          std::string name_;
+          bool is_modified_;
+      };
+
+      class kernel_argument : public leaf_infos_base{
+      public:
+          kernel_argument(int id, std::string const & scalartype, std::string const & name) : leaf_infos_base(scalartype,name), id_(id){ }
+          int id() const{ return id_; }
+          virtual std::string kernel_arguments() const = 0;
+      private:
+          int id_;
+      };
+
+
+
+      class arithmetic_tree_infos_base :  public infos_base,public binary_tree_infos_base{
       public:
           infos_base & op() { return op_; }
           std::string generate() const { return "(" + lhs_.generate() + op_.generate() + rhs_.generate() + ")"; }
@@ -111,7 +118,7 @@ namespace viennacl
       };
 
       template<class SUB_>
-      class unary_minus : public unary_tree_infos_base, public base_getter<infos_base, unary_minus<SUB_> >{
+      class unary_minus : public unary_tree_infos_base, public virtual infos_base, public base_getter<infos_base, unary_minus<SUB_> >{
       public:
           unary_minus() : unary_tree_infos_base(SUB_::get()){ }
           std::string generate() const{
@@ -186,25 +193,25 @@ namespace viennacl
 
 
 
-      class scal_infos_base : public leaf_infos_base{
+      class scal_infos_base : public kernel_argument{
       protected:
-          scal_infos_base(std::string const & scalartype, std::string const & name) : leaf_infos_base(scalartype,name){ }
+          scal_infos_base(std::string const & scalartype, std::string const & name, int id) : kernel_argument(id,scalartype,name){ }
       };
 
       class cpu_scal_infos_base : public scal_infos_base{
       protected:
-          cpu_scal_infos_base(std::string const & scalartype, std::string const & name) : scal_infos_base(scalartype,name){ }
+          cpu_scal_infos_base(std::string const & scalartype, std::string const & name, int id) : scal_infos_base(scalartype,name,id){ }
       public:
-          std::string kernel_arguments(){
+          std::string kernel_arguments() const{
               return scalartype_ + " " + name_;
           }
       };
 
       class gpu_scal_infos_base : public scal_infos_base{
       protected:
-          gpu_scal_infos_base(std::string const & scalartype, std::string const & name) : scal_infos_base(scalartype,name){ }
+          gpu_scal_infos_base(std::string const & scalartype, std::string const & name, int id) : scal_infos_base(scalartype,name,id){ }
       public:
-          std::string kernel_arguments(){
+          std::string kernel_arguments() const{
               return "__global " + scalartype_ + " " + name_;
           }
       };
@@ -216,7 +223,7 @@ namespace viennacl
       protected:
           inprod_infos_base(std::string const & scalartype, std::string const & name
                                  , infos_base & lhs, infos_base & rhs
-                            ,step_t step) : scal_infos_base(scalartype,name), binary_tree_infos_base(lhs,rhs), step_(step){        }
+                            ,step_t step) : scal_infos_base(scalartype,name,-1), binary_tree_infos_base(lhs,rhs), step_(step){        }
       private:
           step_t step_;
       };
@@ -259,7 +266,7 @@ namespace viennacl
     template <unsigned int ID, typename SCALARTYPE>
     class cpu_symbolic_scalar : public cpu_scal_infos_base, public base_getter<infos_base, cpu_symbolic_scalar<ID,SCALARTYPE> >
     {
-        cpu_symbolic_scalar() : cpu_scal_infos_base(print_type<SCALARTYPE,1>::value(),"c_s" + to_string(ID)){ }
+        cpu_symbolic_scalar() : cpu_scal_infos_base(print_type<SCALARTYPE,1>::value(),"c_s" + to_string(ID),ID){ }
     };
 
     /**
@@ -273,7 +280,7 @@ namespace viennacl
     {
       private:
         typedef gpu_symbolic_scalar<ID,SCALARTYPE> self_type;
-        gpu_symbolic_scalar() : gpu_scal_infos_base(print_type<SCALARTYPE*,1>::value(), "g_s" + to_string(ID) ){ }
+        gpu_symbolic_scalar() : gpu_scal_infos_base(print_type<SCALARTYPE*,1>::value(), "g_s" + to_string(ID),ID ){ }
 
       public:
         typedef viennacl::scalar<SCALARTYPE> runtime_type;
@@ -321,13 +328,13 @@ namespace viennacl
     };
 
 
-      class vec_infos_base : public leaf_infos_base{
+      class vec_infos_base : public kernel_argument{
       public:
           std::string const & size() const{ return size_; }
           std::string const & internal_size() const{ return internal_size_;}
           std::string const & start() const{ return start_;}
           std::string const & inc() const{ return inc_;}
-          std::string kernel_arguments()
+          std::string kernel_arguments() const
           {
             return " __global " + scalartype_ + " " + name_
                 + ", unsigned int " + size_
@@ -335,8 +342,8 @@ namespace viennacl
           }
           virtual ~vec_infos_base(){ }
       protected:
-          vec_infos_base(std::string const & scalartype, std::string const & name) :
-                                                            leaf_infos_base(scalartype,name)
+          vec_infos_base(std::string const & scalartype, std::string const & name, unsigned int id) :
+                                                          kernel_argument(id,scalartype,name)
                                                           ,size_(name_+"_size"){ }
       private:
           std::string size_;
@@ -364,7 +371,8 @@ namespace viennacl
           typedef viennacl::vector<SCALARTYPE,ALIGNMENT> runtime_type;
 
           symbolic_vector() : vec_infos_base(print_type<SCALARTYPE,1>::value()
-                                             , "v_a" + to_string(ALIGNMENT) + "_" + to_string(ID)) { }
+                                             , "v_a" + to_string(ALIGNMENT) + "_" + to_string(ID)
+                                             , ID) { }
 
 
           template<typename RHS_TYPE>
@@ -406,7 +414,7 @@ namespace viennacl
 
 
 
-      class mat_infos_base : public leaf_infos_base{
+      class mat_infos_base : public kernel_argument{
       public:
           std::string const & size1() const{ return size1_; }
           std::string const & size2() const{ return size2_; }
@@ -435,7 +443,8 @@ namespace viennacl
           mat_infos_base(std::string const & scalartype
                          ,std::string const & name
                          ,bool is_rowmajor
-                         ,bool is_transposed) : leaf_infos_base(scalartype,name)
+                         ,bool is_transposed
+                         ,unsigned int id) : kernel_argument(id, scalartype, name)
                                                 ,size1_(name_ + "_size1")
                                                 ,size2_(name_ + "size2")
                                                 ,internal_size1_(size1_ + "_internal")
@@ -568,6 +577,13 @@ namespace viennacl
         return compound_node<LHS_TYPE, sub_type, RHS_TYPE>();
       }
 
+
+      template<class T>
+      static bool is_type(infos_base* p){
+          return dynamic_cast<T *>(p);
+      }
+
+
 //      template <class T>
 //      struct inner_prod_impl_t
 //      {
@@ -588,7 +604,7 @@ namespace viennacl
 //          return print_type<typename T::ScalarType,1>::value() + " " + private_value() + "=0;\n" ;
 //        }
 
-//        static std::string kernel_arguments()
+//        static std::string kernel_arguments() const
 //        {
 //          return T::kernel_arguments();
 //        }
@@ -612,7 +628,7 @@ namespace viennacl
 
 //          enum { id = -2 };
 
-//          static std::string kernel_arguments()
+//          static std::string kernel_arguments() const
 //          {
 //              return  "__global " + print_type<ScalarType*,1>::value() + " " + name() + '\n';
 //          }
