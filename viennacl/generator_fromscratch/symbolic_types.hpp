@@ -116,33 +116,38 @@ namespace viennacl
           matrix_expression_infos_base(infos_base & lhs, infos_base& op, infos_base & rhs) : arithmetic_tree_infos_base(lhs,op,rhs){ }
       };
 
-      template<class BASE, class LHS, class OP, class RHS>
-      class compound_node : public BASE{
-      public:
-          compound_node(LHS const & lhs, infos_base & op, RHS const & rhs) : BASE(static_cast<infos_base &>(lhs_),op,static_cast<infos_base &>(rhs_)), lhs_(lhs), rhs_(rhs){ }
-       private:
-          LHS lhs_;
-          RHS rhs_;
-      };
-
 
       template<class LHS, class OP, class RHS>
-      class vector_expression : public compound_node<vector_expression_infos_base, LHS, OP, RHS>{
+      class vector_expression : public vector_expression_infos_base{
       public:
-          vector_expression(LHS const & lhs, RHS const & rhs) : compound_node<vector_expression_infos_base, LHS, OP, RHS>(lhs,OP::get(),rhs){ }
+          vector_expression(LHS const & lhs, RHS const & rhs) :vector_expression_infos_base(static_cast<infos_base &>(lhs_value_),OP::get(),static_cast<infos_base &>(rhs_value_))
+            , lhs_value_(lhs)
+            , rhs_value_(rhs){ }
+      private:
+         LHS lhs_value_;
+         RHS rhs_value_;
       };
 
       template<class LHS, class OP, class RHS>
-      class scalar_expression : public compound_node<scalar_expression_infos_base, LHS, OP, RHS>{
+      class scalar_expression : public scalar_expression_infos_base{
       public:
-          scalar_expression(LHS const & lhs, RHS const & rhs) : compound_node<scalar_expression_infos_base, LHS, OP, RHS>(lhs,OP::get(),rhs){ }
+          scalar_expression(LHS const & lhs, RHS const & rhs) :scalar_expression_infos_base(static_cast<infos_base &>(lhs_value_),OP::get(),static_cast<infos_base &>(rhs_value_))
+            , lhs_value_(lhs), rhs_value_(rhs){ }
+      private:
+         LHS lhs_value_;
+         RHS rhs_value_;
       };
 
       template<class LHS, class OP, class RHS>
-      class matrix_expression : public compound_node<matrix_expression_infos_base, LHS, OP, RHS>{
+      class matrix_expression : public matrix_expression_infos_base{
       public:
-          matrix_expression(LHS const & lhs, RHS const & rhs) : compound_node<matrix_expression_infos_base, LHS, OP, RHS>(lhs,OP::get(),rhs){ }
+          matrix_expression(LHS const & lhs, RHS const & rhs) :matrix_expression_infos_base(static_cast<infos_base &>(lhs_value_),OP::get(),static_cast<infos_base &>(rhs_value_))
+            , lhs_value_(lhs), rhs_value_(rhs){ }
+      private:
+         LHS lhs_value_;
+         RHS rhs_value_;
       };
+
 
 
       template<class SUB_>
@@ -244,18 +249,33 @@ namespace viennacl
           }
       };
 
-      class inprod_infos_base : public scal_infos_base, public binary_tree_infos_base{
+      template<class LHS, class RHS>
+      class inprod_infos : public scal_infos_base, public binary_tree_infos_base{
       public:
-          enum step_t{reduce, compute};
+          enum step_t{compute,reduce};
           step_t step(){ return step_; }
-      protected:
-          inprod_infos_base(std::string & access_name, std::string const & scalartype, std::string const & name
-                                 , infos_base & lhs, infos_base & rhs
-                            ,step_t step) : scal_infos_base(access_name,scalartype,name,-1), binary_tree_infos_base(lhs,rhs), step_(step){        }
+          void step(step_t s){ step_ = s; }
+          inprod_infos(LHS const & lhs, RHS const & rhs) :
+              scal_infos_base(access_name_,lhs.scalartype(),lhs.name()+"_inprod_"+rhs.name(),-1)
+                                                                      , binary_tree_infos_base(lhs_value_,rhs_value_)
+                                                                      , lhs_value_(lhs), rhs_value_(rhs)
+                                                                      {        }
+          std::string kernel_arguments() const{
+              return "__global " + scalartype_ + " " + name_;
+          }
       private:
-          step_t step_;
+          static step_t step_;
+          static std::string access_name_;
+          LHS lhs_value_;
+          RHS rhs_value_;
       };
 
+
+      template <class LHS, class RHS>
+      std::string inprod_infos<LHS,RHS>::access_name_;
+
+      template <class LHS, class RHS>
+      typename inprod_infos<LHS,RHS>::step_t inprod_infos<LHS,RHS>::step_ = inprod_infos<LHS,RHS>::compute;
 
 
 //      template<class T>
@@ -302,7 +322,6 @@ namespace viennacl
 
     template <unsigned int ID, typename SCALARTYPE>
     std::string cpu_symbolic_scalar<ID,SCALARTYPE>::access_name_;
-
 
     /**
     * @brief Symbolic scalar type. Will be passed by pointer.
@@ -628,6 +647,9 @@ namespace viennacl
       template<class LHS, class OP, class RHS>
       struct is_scalar_expression<scalar_expression<LHS,OP,RHS> >{ enum { value = 1 }; };
 
+      template<class LHS, class RHS>
+      struct is_scalar_expression<inprod_infos<LHS,RHS> >{ enum { value = 1 }; };
+
 
 
 
@@ -788,6 +810,16 @@ namespace viennacl
       operator- ( LHS_TYPE const &, RHS_TYPE const & ){
           return scalar_expression<LHS_TYPE,sub_type,RHS_TYPE>();
       }
+
+
+
+      template<class LHS_TYPE, class RHS_TYPE>
+      typename viennacl::enable_if<is_vector_expression<LHS_TYPE>::value && is_vector_expression<RHS_TYPE>::value
+                                  ,inprod_infos<LHS_TYPE,RHS_TYPE> >::type
+      inner_prod ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
+          return inprod_infos<LHS_TYPE,RHS_TYPE>(lhs,rhs);
+      }
+
 
 //      template <class T>
 //      struct inner_prod_impl_t
