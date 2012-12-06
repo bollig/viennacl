@@ -302,6 +302,7 @@ namespace viennacl
     private:
         static std::string access_name_;
     public:
+        typedef SCALARTYPE ScalarType;
         cpu_symbolic_scalar() : cpu_scal_infos_base(access_name_,print_type<SCALARTYPE,1>::value(),"c_s" + to_string(ID),ID){ }
     };
 
@@ -323,6 +324,7 @@ namespace viennacl
 
       public:
         typedef viennacl::scalar<SCALARTYPE> runtime_type;
+        typedef SCALARTYPE ScalarType;
         gpu_symbolic_scalar() : gpu_scal_infos_base(access_name_,print_type<SCALARTYPE*,1>::value(), "g_s" + to_string(ID),ID ){ }
 
         leaf_infos_base& get(){
@@ -417,7 +419,7 @@ namespace viennacl
         public:
 
           typedef viennacl::vector<SCALARTYPE,ALIGNMENT> runtime_type;
-
+          typedef SCALARTYPE ScalarType;
           symbolic_vector() : vec_infos_base(access_name_,
                                              print_type<SCALARTYPE,1>::value()
                                              , "v_a" + to_string(ALIGNMENT) + "_" + to_string(ID)
@@ -556,7 +558,7 @@ namespace viennacl
                                         ,false){ }
 
           typedef viennacl::matrix<SCALARTYPE,F,ALIGNMENT> runtime_type;
-
+          typedef SCALARTYPE ScalarType;
           template<typename RHS_TYPE>
           matrix_expression<self_type, assign_type, RHS_TYPE >
           operator= ( RHS_TYPE const & rhs )
