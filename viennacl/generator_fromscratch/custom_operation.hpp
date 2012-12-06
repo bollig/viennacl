@@ -15,33 +15,27 @@ namespace viennacl
       {
         public :
 
-          /** @brief CTor for 1 expression
-          *
-          * @param operation_name the code for this expression will be stored in the program provided by this name
-          */
-          template<class T0>
-          custom_operation ( T0 const & t0, std::string const & operation_name) : program_name_(operation_name), raw_ptrs_(1)
-          {
-              ops_.push_back(viennacl::tools::shared_ptr<infos_base>(static_cast<infos_base*>(new T0(t0))));
-              std::transform(ops_.begin(),ops_.end(),raw_ptrs_.begin(),SharedPtr2Raw<infos_base>());
-              code_generation::frontend k(raw_ptrs_,operation_name);
-              std::cout << k.generate()<< std::endl;
+          custom_operation(std::string const & operation_name) : operation_name_(operation_name){ }
+
+          template<class T>
+          void add(T const & op){
+              operations_manager_.add(op);
           }
 
-          template<class T0, class T1>
-          custom_operation ( T0 const & t0, T1 const & t1,std::string const & operation_name) : program_name_(operation_name), raw_ptrs_(2)
-          {
-              ops_.push_back(viennacl::tools::shared_ptr<infos_base>(static_cast<infos_base*>(new T0(t0))));
-              ops_.push_back(viennacl::tools::shared_ptr<infos_base>(static_cast<infos_base*>(new T1(t1))));
-              std::transform(ops_.begin(),ops_.end(),raw_ptrs_.begin(),SharedPtr2Raw<infos_base>());
-              code_generation::frontend k(raw_ptrs_,operation_name);
-              std::cout << k.generate()<< std::endl;
+          std::string generate() const{
+            std::ostringstream oss;
+            typedef std::vector<std::list<infos_base*> >  kernels_t;
+            kernels_t kernels(operations_manager_.get_kernels_list());
+            for(kernels_t::const_iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
+                code_generation::kernel_generator kg(*it,operation_name_+to_string(it-kernels.begin()));
+                kg.generate(oss);
+            }
+            return oss.str();
           }
 
         private:
-          std::string program_name_;
-          std::list<viennacl::tools::shared_ptr<infos_base> > ops_;
-          std::list<infos_base*> raw_ptrs_;
+          std::string operation_name_;
+          code_generation::operations_manager operations_manager_;
      };
   }
 }

@@ -3,7 +3,7 @@
 
 #include <list>
 #include <set>
-
+#include <typeinfo>
 namespace viennacl{
 
     namespace generator{
@@ -20,15 +20,47 @@ namespace viennacl{
                     return dynamic_cast<T *>(p);
                 }
 
-                template<class T>
-                static bool is_pointed_value_eq(T* a, T* b){
-                    return (*a == *b);
-                }
+                struct less {
+                  template<class T>
+                  bool operator()(T &a, T &b) {
+                    return std::less<T>()(a, b);
+                  }
+                };
+
+                struct deref_less {
+                  template<class T>
+                  bool operator()(T a, T b) {
+                    return less()(*a, *b);
+                  }
+                };
+
+                struct double_deref_less {
+                  template<class T>
+                  bool operator()(T a, T b) {
+                    return less()(**a, **b);
+                  }
+                };
 
                 template<class T>
-                static bool is_pointed_value_inf(T* a, T* b){
-                    return (*a) <= (*b);
+                struct deref_t{ typedef deref_less type; };
+
+                template<class T>
+                struct deref_t<T*>{ typedef double_deref_less type; };
+
+                template<class T>
+                void remove_unsorted_duplicates(std::list<T> &the_list) {
+                  std::set<typename std::list<T>::iterator, typename deref_t<T>::type> found;
+                  std::cout << typeid(T).name() << std::endl;
+                  for (typename std::list<T>::iterator x = the_list.begin(); x != the_list.end();) {
+                    if (!found.insert(x).second) {
+                      x = the_list.erase(x);
+                    }
+                    else {
+                      ++x;
+                    }
+                  }
                 }
+
 
                 template<class Pred>
                 static std::list<infos_base*> extract_if(infos_base* const node, Pred pred, bool inspect_nested_leaves=true){

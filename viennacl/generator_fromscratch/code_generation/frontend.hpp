@@ -8,6 +8,8 @@
 
 #include <algorithm>
 
+#include <typeinfo>
+
 namespace viennacl{
 
     namespace generator{
@@ -15,17 +17,15 @@ namespace viennacl{
 
         namespace code_generation{
 
-            class frontend{
+            class kernel_generator{
             private:
-                static bool sort_pred(kernel_argument* const & lhs, kernel_argument* const & rhs){
-                    return lhs->id() < rhs->id();
-                }
 
                 std::string generate_headers() const{
                     std::string res;
-                    res+="__kernel void " + op_name_ + "(";
+                    res+="__kernel void " + kernel_name_ + "(";
                     std::list<kernel_argument*> args(utils::cast<kernel_argument>(utils::extract_if(trees_,code_generation::utils::is_type<kernel_argument>)));
-                    args.sort(sort_pred);
+                    code_generation::utils::remove_unsorted_duplicates(args);
+                    args.sort(code_generation::utils::deref_less());
                     for(std::list<kernel_argument*>::iterator it = args.begin() ; it!= args.end() ; ++it){
                         if(it!=args.begin()) res+=",";
                         res+=(*it)->kernel_arguments();
@@ -45,16 +45,45 @@ namespace viennacl{
                 }
 
             public:
-                frontend(std::list<infos_base*> const & trees, std::string const & op_name) : trees_(trees), op_name_(op_name){ }
+                kernel_generator(std::list<infos_base*> const & trees, std::string const & kernel_name) : trees_(trees), kernel_name_(kernel_name){ }
 
-                std::string generate() const{
-                    return generate_headers() + generate_sources();
+                void generate(std::ostringstream & oss) const{
+                    oss << generate_headers();
+                    oss << generate_sources();
                 }
 
 
             private:
                 std::list<infos_base*> trees_;
-                std::string op_name_;
+                std::string kernel_name_;
+            };
+
+            class operations_manager{
+            private:
+                typedef std::list<viennacl::tools::shared_ptr<infos_base> > operations_t;
+            public:
+                template<class T>
+                void add(T const & op){
+                    operations_.push_back(viennacl::tools::shared_ptr<infos_base>(new T(op)));
+                }
+
+                void flush(){
+                    operations_.clear();
+                }
+
+                std::vector<std::list<infos_base*> > get_kernels_list() const{
+                    arithmetic_tree_infos_base * p = static_cast<arithmetic_tree_infos_base*>(operations_.front().get());
+                    std::cout << p->name()<< std::endl;
+                    typedef std::vector<std::list<infos_base*> > res_t;
+                    res_t res(1);
+                    for(typename operations_t::const_iterator it = operations_.begin() ; it!=operations_.end() ; ++it){
+                        res.back().push_back(it->get());
+                    }
+                    return res;
+                }
+
+            private:
+                operations_t operations_;
             };
 
         }
