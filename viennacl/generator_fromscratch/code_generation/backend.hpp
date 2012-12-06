@@ -2,8 +2,8 @@
 #define VIENNACL_GENERATOR_CODE_GENERATION_BACKEND_HPP
 
 #include "viennacl/generator_fromscratch/symbolic_types.hpp"
-#include "viennacl/generator_fromscratch/tree_utils.hpp"
 #include "viennacl/generator_fromscratch/code_generation/utils.hpp"
+#include <algorithm>
 
 namespace viennacl{
 
@@ -79,6 +79,9 @@ namespace viennacl{
                             vector_cache.fetch_entries("i");
                             for(std::list<infos_base *>::iterator it=vector_expressions_.begin() ; it!=vector_expressions_.end();++it){
                                 oss << (*it)->generate() << std::endl;
+                            }
+                            for(std::list<inprod_infos_base *>::iterator it=inner_prods_compute_.begin() ; it!=inner_prods_compute_.end();++it){
+                                oss << "(" << (*it)->lhs().generate() << ")" << " * " << (*it)->rhs().generate() << std::endl;
                             }
                             vector_cache.writeback_entries("i");
                             oss << "}\n";
