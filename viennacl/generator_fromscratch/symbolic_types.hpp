@@ -44,12 +44,12 @@ namespace viennacl
 
       class binary_tree_infos_base{
       public:
-          infos_base & lhs(){ return lhs_; }
-          infos_base & rhs(){ return rhs_; }
+          infos_base & lhs(){ return *lhs_; }
+          infos_base & rhs(){ return *rhs_; }
       protected:
-          binary_tree_infos_base(infos_base & lhs, infos_base & rhs) : lhs_(lhs), rhs_(rhs){        }
-          infos_base & lhs_;
-          infos_base & rhs_;
+          binary_tree_infos_base(infos_base * lhs, infos_base * rhs) : lhs_(lhs), rhs_(rhs){        }
+          viennacl::tools::shared_ptr<infos_base> lhs_;
+          viennacl::tools::shared_ptr<infos_base> rhs_;
       };
 
       class unary_tree_infos_base{
@@ -68,6 +68,8 @@ namespace viennacl
           virtual std::string generate() const { return access_name_; }
           virtual std::string name() const { return name_; }
           std::string const & scalartype() const { return scalartype_; }
+          bool operator<(leaf_infos_base const & other) const { return (&access_name_ < &other.access_name_); }
+
       protected:
           leaf_infos_base(std::string & access_name,
                           std::string const & scalartype,
@@ -82,8 +84,6 @@ namespace viennacl
       public:
           kernel_argument(std::string & access_name, std::string const & scalartype, std::string const & name,int id) : leaf_infos_base(access_name,scalartype,name), id_(id){ }
           int id() const{ return id_; }
-          bool operator==(kernel_argument const & other){ return (id_ == other.id_); }
-          bool operator<=(kernel_argument const & other){ return (id_ <= other.id_); }
           virtual std::string kernel_arguments() const = 0;
       private:
           int id_;
@@ -94,38 +94,33 @@ namespace viennacl
       class arithmetic_tree_infos_base :  public infos_base,public binary_tree_infos_base{
       public:
           infos_base & op() { return op_; }
-          std::string generate() const { return "(" + lhs_.generate() + op_.generate() + rhs_.generate() + ")"; }
-          std::string name() const { return lhs_.name() + op_.name() + rhs_.name(); }
-          arithmetic_tree_infos_base(infos_base & lhs, infos_base& op, infos_base & rhs) : binary_tree_infos_base(lhs,rhs), op_(op){        }
+          std::string generate() const { return "(" + (*lhs_).generate() + op_.generate() + (*rhs_).generate() + ")"; }
+          std::string name() const { return (*lhs_).name() + op_.name() + (*rhs_).name(); }
+          arithmetic_tree_infos_base(infos_base * lhs, infos_base& op, infos_base * rhs) : binary_tree_infos_base(lhs,rhs), op_(op){        }
       private:
           infos_base & op_;
       };
 
       class vector_expression_infos_base : public arithmetic_tree_infos_base{
       public:
-          vector_expression_infos_base(infos_base & lhs, infos_base& op, infos_base & rhs) : arithmetic_tree_infos_base(lhs,op,rhs){ }
+          vector_expression_infos_base(infos_base * lhs, infos_base& op, infos_base * rhs) : arithmetic_tree_infos_base(lhs,op,rhs){ }
       };
 
       class scalar_expression_infos_base : public arithmetic_tree_infos_base{
       public:
-          scalar_expression_infos_base(infos_base & lhs, infos_base& op, infos_base & rhs) : arithmetic_tree_infos_base(lhs,op,rhs){ }
+          scalar_expression_infos_base(infos_base * lhs, infos_base& op, infos_base * rhs) : arithmetic_tree_infos_base(lhs,op,rhs){ }
       };
 
       class matrix_expression_infos_base : public arithmetic_tree_infos_base{
       public:
-          matrix_expression_infos_base(infos_base & lhs, infos_base& op, infos_base & rhs) : arithmetic_tree_infos_base(lhs,op,rhs){ }
+          matrix_expression_infos_base(infos_base * lhs, infos_base& op, infos_base * rhs) : arithmetic_tree_infos_base(lhs,op,rhs){ }
       };
 
 
       template<class LHS, class OP, class RHS>
       class vector_expression : public vector_expression_infos_base{
       public:
-          vector_expression(LHS const & lhs, RHS const & rhs) :vector_expression_infos_base(static_cast<infos_base &>(lhs_value_),OP::get(),static_cast<infos_base &>(rhs_value_))
-            , lhs_value_(lhs)
-            , rhs_value_(rhs){ }
-      private:
-         LHS lhs_value_;
-         RHS rhs_value_;
+          vector_expression(LHS const & lhs, RHS const & rhs) :vector_expression_infos_base(new LHS(lhs),OP::get(),new RHS(rhs)){ }
       };
 
       template<class LHS, class OP, class RHS>
@@ -249,17 +244,35 @@ namespace viennacl
           }
       };
 
-      template<class LHS, class RHS>
-      class inprod_infos : public scal_infos_base, public binary_tree_infos_base{
+      class inprod_infos_base : public binary_tree_infos_base, public scal_infos_base{
       public:
           enum step_t{compute,reduce};
           step_t step(){ return step_; }
           void step(step_t s){ step_ = s; }
+
+      protected:
+          inprod_infos_base(infos_base * lhs, infos_base * rhs
+                            ,std::string const & scalartype
+                            ,std::string & access_name
+                            ,step_t & step): binary_tree_infos_base(lhs,rhs)
+                                             ,scal_infos_base(access_name
+                                                              ,scalartype
+                                                              ,lhs_->name() + "_inprod_" + rhs_->name()
+                                                              ,-1)
+                                            ,step_(step){ }
+      private:
+          step_t & step_;
+      };
+
+      template<class LHS, class RHS>
+      class inprod_infos : public inprod_infos_base{
+      public:
+
           inprod_infos(LHS const & lhs, RHS const & rhs) :
-              scal_infos_base(access_name_,lhs.scalartype(),lhs.name()+"_inprod_"+rhs.name(),-1)
-                                                                      , binary_tree_infos_base(lhs_value_,rhs_value_)
-                                                                      , lhs_value_(lhs), rhs_value_(rhs)
-                                                                      {        }
+              inprod_infos_base(new LHS(lhs), new RHS(rhs),
+                                print_type<typename LHS::ScalarType,1>::value(),
+                                access_name_, step_){ }
+
           std::string kernel_arguments() const{
               return "__global " + scalartype_ + " " + name_;
           }
@@ -276,34 +289,6 @@ namespace viennacl
 
       template <class LHS, class RHS>
       typename inprod_infos<LHS,RHS>::step_t inprod_infos<LHS,RHS>::step_ = inprod_infos<LHS,RHS>::compute;
-
-
-//      template<class T>
-//      class inprod_infos<T, typename viennacl::enable_if<result_of::is_inner_product_impl<T>::value>::type> : public inprod_infos_base{
-//      typedef typename T::Type U;
-//      public:
-//          inprod_infos() : inprod_infos_base(print_type<typename U::ScalarType,1>::value(), T::name()
-//                                                     ,vector_expression_infos<typename U::LHS>::get()
-//                                                     , vector_expression_infos<typename U::RHS>::get()
-//                                                     ,inprod_infos_base::compute){        }
-//          static inprod_infos_base & get(){
-//              static inprod_infos<T> res;
-//              return res;
-//          }
-//      };
-
-//      template<class T>
-//      class inprod_infos<T, typename viennacl::enable_if<result_of::is_inner_product_leaf<T>::value>::type> : public inprod_infos_base{
-//      public:
-//          inprod_infos() : inprod_infos_base(print_type<typename T::ScalarType,1>::value("__local"), T::name()
-//                                                     ,vector_expression_infos<typename T::LHS>::get()
-//                                                     , vector_expression_infos<typename T::RHS>::get()
-//                                                     ,inprod_infos_base::reduce){        }
-//          static inprod_infos_base & get(){
-//              static inprod_infos<T> res;
-//              return res;
-//          }
-//      };
 
     /**
     * @brief Symbolic scalar type. Will be passed by value.
