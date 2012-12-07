@@ -52,79 +52,51 @@ namespace viennacl{
 
 
 		    template<class T>
-			struct print_align1_type;
+            struct print_type;
+
+            template<class T>
+            struct print_type<T*>
+            {
+                static const std::string value() { return print_type<T>::value() + "*"; }
+            };
 
 			template<>
-			struct print_align1_type<int> 
+            struct print_type<int>
 			{
 			  static const std::string value() { return "int"; }
 			};
 
 			template<>
-			struct print_align1_type<unsigned int>
+            struct print_type<unsigned int>
 			{
 			  static const std::string value() { return "unsigned int"; }
 			};
 
 			template<>
-			struct print_align1_type<long> 
+            struct print_type<long>
 			{
 			  static const std::string value() { return "long"; }
 			};
 
 			template<>
-			struct print_align1_type<unsigned long> 
+            struct print_type<unsigned long>
 			{
 			  static const std::string value() { return "long"; }
 			};
 
 			template<>
-			struct print_align1_type<float> 
+            struct print_type<float>
 			{
 			  static const std::string value() { return "float"; }
 			};
 
 			template<>
-			struct print_align1_type<double> 
+            struct print_type<double>
 			{
 			  static const std::string value() { return "double"; }
 			};
 
-			template<typename T, unsigned int ALIGNMENT>
-			struct print_aligned_type 
-			{
-				static const std::string value() 
-				{
-				return print_align1_type<T>::value() + to_string ( ALIGNMENT );
-			  }
-			};
 
-			template<typename T>
-			struct print_aligned_type<T, 1>
-			{
-				static const std::string value() 
-				{
-				return print_align1_type<T>::value();
-			  }
-			};
-
-			template<typename T, unsigned int ALIGNMENT>
-			struct print_type 
-			{
-			  static const std::string value(std::string const & mem_accessor = "")
-			  {
-				return mem_accessor + " " + print_aligned_type<T,ALIGNMENT>::value();
-			  }
-			};
-
-			template<typename T, unsigned int ALIGNMENT>
-			struct print_type<T*, ALIGNMENT> 
-			{
-			  static const std::string value(std::string const & mem_accessor = "")
-			  {
-				return mem_accessor + " " +  print_type<T,ALIGNMENT>::value() + "*" ;
-			  }
-			};
     }
 }
 #endif

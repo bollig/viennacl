@@ -240,7 +240,7 @@ namespace viennacl
           gpu_scal_infos_base(std::string & access_name,std::string const & scalartype, std::string const & name, int id) : scal_infos_base(access_name,scalartype,name,id){ }
       public:
           std::string kernel_arguments() const{
-              return "__global " + scalartype_ + " " + name_;
+              return "__global " + scalartype_ + "*"  + " " + name_;
           }
       };
 
@@ -270,11 +270,11 @@ namespace viennacl
 
           inprod_infos(LHS const & lhs, RHS const & rhs) :
               inprod_infos_base(new LHS(lhs), new RHS(rhs),
-                                print_type<typename LHS::ScalarType,1>::value(),
+                                print_type<typename LHS::ScalarType>::value(),
                                 access_name_, step_){ }
 
           std::string kernel_arguments() const{
-              return "__global " + scalartype_ + " " + name_;
+              return "__global " + scalartype_ + "*" + " " + name_;
           }
       private:
           static step_t step_;
@@ -303,7 +303,7 @@ namespace viennacl
         static std::string access_name_;
     public:
         typedef SCALARTYPE ScalarType;
-        cpu_symbolic_scalar() : cpu_scal_infos_base(access_name_,print_type<SCALARTYPE,1>::value(),"c_s" + to_string(ID),ID){ }
+        cpu_symbolic_scalar() : cpu_scal_infos_base(access_name_,print_type<SCALARTYPE>::value(),"c_s" + to_string(ID),ID){ }
     };
 
     template <unsigned int ID, typename SCALARTYPE>
@@ -325,7 +325,7 @@ namespace viennacl
       public:
         typedef viennacl::scalar<SCALARTYPE> runtime_type;
         typedef SCALARTYPE ScalarType;
-        gpu_symbolic_scalar() : gpu_scal_infos_base(access_name_,print_type<SCALARTYPE*,1>::value(), "g_s" + to_string(ID),ID ){ }
+        gpu_symbolic_scalar() : gpu_scal_infos_base(access_name_,print_type<SCALARTYPE*>::value(), "g_s" + to_string(ID),ID ){ }
 
         leaf_infos_base& get(){
             static self_type res;
@@ -386,7 +386,7 @@ namespace viennacl
           std::string const & inc() const{ return inc_;}
           std::string kernel_arguments() const
           {
-            return " __global " + scalartype_ + " " + name_
+            return " __global " + scalartype_ + "*"  + " " + name_
                 + ", unsigned int " + size_
                 + ", unsigned int " + internal_size_+ "\n" ;
           }
@@ -422,7 +422,7 @@ namespace viennacl
           typedef viennacl::vector<SCALARTYPE,ALIGNMENT> runtime_type;
           typedef SCALARTYPE ScalarType;
           symbolic_vector() : vec_infos_base(access_name_,
-                                             print_type<SCALARTYPE,1>::value()
+                                             print_type<SCALARTYPE>::value()
                                              , "v_a" + to_string(ALIGNMENT) + "_" + to_string(ID)
                                              , ID) { }
 
@@ -483,7 +483,7 @@ namespace viennacl
           std::string const & row_start() const{ return row_start_;}
           std::string const & col_start() const{ return col_start_;}
           std::string kernel_arguments() const{
-              return " __global " + scalartype_  + " " + name()
+              return " __global " + scalartype_ + "*"  + " " + name()
                     + ", unsigned int " + row_start_
                     + ", unsigned int " + col_start_
                     + ", unsigned int " + row_inc_
@@ -553,7 +553,7 @@ namespace viennacl
           static std::string access_name_;
         public:
           symbolic_matrix() : mat_infos_base(access_name_,
-                                             print_type<SCALARTYPE,1>::value()
+                                             print_type<SCALARTYPE>::value()
                                         ,name()
                                         ,true
                                         ,false){ }
