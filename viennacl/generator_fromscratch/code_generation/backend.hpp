@@ -44,7 +44,7 @@ namespace viennacl{
 
                     void compute_reductions(utils::kernel_generation_stream& kss, std::list<inprod_infos_base *> const & inprods){
                        for( std::list<inprod_infos_base *>::const_iterator it = inprods.begin(); it != inprods.end() ; ++it){
-                           kss << "local_" << (*it)->name() << "[get_local_id(0)]  = " << "sum_" << (*it)->name() << ";" << std::endl;
+                           kss << "local_" << (*it)->name() << "[get_local_id(0)]  = " << (*it)->name() << ";" << std::endl;
                        }
                        kss << "for(unsigned int stride = get_local_size(0)/2; stride > 0; stride /= 2){" << std::endl;
                        kss.inc_tab();
@@ -52,7 +52,7 @@ namespace viennacl{
                        kss << "if(get_local_id(0) < stride){" << std::endl;
                        kss.inc_tab();
                        for(std::list<inprod_infos_base *>::const_iterator it = inprods.begin(); it != inprods.end() ; ++it){
-                       kss <<  (*it)->name() << "[get_local_id(0)]  += " << "local_" << (*it)->name() << "shared_memory_ptr[get_local_id(0)+stride];" << std::endl;
+                       kss <<  (*it)->name() << "[get_local_id(0)]  += " << "local_" << (*it)->name() << "[get_local_id(0)+stride];" << std::endl;
                        }
                        kss.dec_tab();
                        kss << "}" << std::endl;
@@ -70,13 +70,13 @@ namespace viennacl{
                         std::set<gpu_scal_infos_base *> scalar_cached_entries;
                         code_generation::utils::cache_manager<vec_infos_base> vector_cache(vectors_,kss,vector_cached_entries);
                         code_generation::utils::cache_manager<gpu_scal_infos_base> scalar_cache(gpu_scalars_,kss,scalar_cached_entries);
-
                         vec_infos_base * first_vector =  NULL;
                         if(vectors_.size())
                             first_vector = vectors_.front();
 //                        //Assumes same size...
-                        if(inner_prods_reduce_.size()>0)
+                        if(inner_prods_reduce_.size())
                             compute_reductions(kss,inner_prods_reduce_);
+
                         scalar_cache.fetch_entries("0");
                         if(first_vector){
                             for(std::list<inprod_infos_base *>::iterator it=inner_prods_compute_.begin() ; it!=inner_prods_compute_.end();++it){
@@ -89,13 +89,15 @@ namespace viennacl{
                                 kss << (*it)->generate() << std::endl;
                             }
                             for(std::list<inprod_infos_base *>::iterator it=inner_prods_compute_.begin() ; it!=inner_prods_compute_.end();++it){
-                                kss << (*it)->name()+"_sum" << " = " << "(" << (*it)->lhs().generate() << ")" << " * " << "(" << (*it)->rhs().generate() << ")" << std::endl;
+                                kss << (*it)->name()+"_sum" << " += " << "(" << (*it)->lhs().generate() << ")" << " * " << "(" << (*it)->rhs().generate() << ")" << std::endl;
                             }
                             vector_cache.writeback_entries("i");
                             kss.dec_tab();
                             kss << "}" << std::endl;
                         }
                         scalar_cache.writeback_entries("0");
+                        if(inner_prods_compute_.size())
+//                            reduce_to_temporary();
                         for(std::list<inprod_infos_base *>::iterator it=inner_prods_compute_.begin() ; it!=inner_prods_compute_.end();++it){
                             (*it)->step(inprod_infos_base::reduce);
                         }
