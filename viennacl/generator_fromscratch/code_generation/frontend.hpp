@@ -53,19 +53,22 @@ namespace viennacl{
                 }
 
             public:
-                kernel_generator(std::list<infos_base*> const & trees, std::string const & kernel_name) : trees_(trees), kernel_name_(kernel_name){ }
+                kernel_generator(std::list<infos_base*> const & trees
+                                 , std::string const & kernel_name
+                                 , code_generation::utils::kernel_generation_stream & kss) : trees_(trees)
+                                                                                            , kernel_name_(kernel_name)
+                                                                                            , kss_(kss){ }
 
-                std::string generate(){
+                void generate(){
                     generate_headers();
                     generate_sources();
-                    return kss_.str();
                 }
 
 
             private:
                 std::list<infos_base*> trees_;
-                utils::kernel_generation_stream kss_;
                 std::string kernel_name_;
+                utils::kernel_generation_stream & kss_;
             };
 
             class operations_manager{

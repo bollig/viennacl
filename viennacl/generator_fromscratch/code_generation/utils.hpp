@@ -62,48 +62,39 @@ namespace viennacl{
                   }
                 }
 
-                class tab_modifier_t{
-                public:
-                    tab_modifier_t() : tab_count_(0){ }
-                    void inc(){ ++tab_count_; }
-                    void dec(){ --tab_count_; }
-                    friend std::ostream & operator<<(std::ostream& oss, tab_modifier_t const & tm){
-                        for(unsigned int i=0; i<tm.tab_count_;++i)
-                            oss << '\t';
-                        return oss;
-                    }
-
-                private:
-                    unsigned int tab_count_;
-                };
-
                 class kernel_generation_stream : public std::ostream{
                 private:
                     class kgenstream : public std::stringbuf{
                     public:
-                        kgenstream(tab_modifier_t const & tab_modifier) : tab_modifier_(tab_modifier){ }
+                        kgenstream(std::ostream& final_destination
+                                   ,unsigned int const & tab_count) : final_destination_(final_destination)
+                                                                      ,tab_count_(tab_count){ }
                         ~kgenstream() {  pubsync(); }
                         int sync() {
-                            std::cout << tab_modifier_ << str();
+                            for(unsigned int i=0 ; i<tab_count_;++i)
+                                final_destination_ << '\t';
+                            final_destination_ << str();
                             str("");
-                            return !std::cout;
+                            return !final_destination_;
                         }
                     private:
-                        tab_modifier_t const & tab_modifier_;
+                        std::ostream& final_destination_;
+                        unsigned int const & tab_count_;
                     };
 
                 public:
-                    kernel_generation_stream() : std::ostream(new kgenstream(tab_modifier_)){ }
+                    kernel_generation_stream(std::ostream& final_destination) : std::ostream(new kgenstream(final_destination,tab_count_))
+                                                                                , tab_count_(0){ }
                     ~kernel_generation_stream(){ delete rdbuf(); }
                     std::string str(){
                         return static_cast<std::stringbuf*>(rdbuf())->str();
                     }
 
-                    void inc_tab(){ tab_modifier_.inc(); }
-                    void dec_tab(){ tab_modifier_.dec(); }
+                    void inc_tab(){ ++tab_count_; }
+                    void dec_tab(){ --tab_count_; }
 
                 private:
-                    tab_modifier_t tab_modifier_;
+                    unsigned int tab_count_;
                 };
 
                 struct EXTRACT_IF{
