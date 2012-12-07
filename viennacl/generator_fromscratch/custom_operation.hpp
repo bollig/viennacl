@@ -28,7 +28,7 @@ namespace viennacl
             kernels_t kernels(operations_manager_.get_kernels_list());
             for(kernels_t::const_iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
                 code_generation::kernel_generator kg(*it,operation_name_+to_string(it-kernels.begin()));
-                kg.generate(oss);
+                oss << kg.generate();
             }
             return oss.str();
           }

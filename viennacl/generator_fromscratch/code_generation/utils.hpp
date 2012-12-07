@@ -4,6 +4,7 @@
 #include <list>
 #include <set>
 #include <algorithm>
+#include <ostream>
 
 namespace viennacl{
 
@@ -60,6 +61,50 @@ namespace viennacl{
                     }
                   }
                 }
+
+                class tab_modifier_t{
+                public:
+                    tab_modifier_t() : tab_count_(0){ }
+                    void inc(){ ++tab_count_; }
+                    void dec(){ --tab_count_; }
+                    friend std::ostream & operator<<(std::ostream& oss, tab_modifier_t const & tm){
+                        for(unsigned int i=0; i<tm.tab_count_;++i)
+                            oss << '\t';
+                        return oss;
+                    }
+
+                private:
+                    unsigned int tab_count_;
+                };
+
+                class kernel_generation_stream : public std::ostream{
+                private:
+                    class kgenstream : public std::stringbuf{
+                    public:
+                        kgenstream(tab_modifier_t const & tab_modifier) : tab_modifier_(tab_modifier){ }
+                        ~kgenstream() {  pubsync(); }
+                        int sync() {
+                            std::cout << tab_modifier_ << str();
+                            str("");
+                            return !std::cout;
+                        }
+                    private:
+                        tab_modifier_t const & tab_modifier_;
+                    };
+
+                public:
+                    kernel_generation_stream() : std::ostream(new kgenstream(tab_modifier_)){ }
+                    ~kernel_generation_stream(){ delete rdbuf(); }
+                    std::string str(){
+                        return static_cast<std::stringbuf*>(rdbuf())->str();
+                    }
+
+                    void inc_tab(){ tab_modifier_.inc(); }
+                    void dec_tab(){ tab_modifier_.dec(); }
+
+                private:
+                    tab_modifier_t tab_modifier_;
+                };
 
                 struct EXTRACT_IF{
                     typedef std::list<infos_base*> result_type_single;
@@ -121,14 +166,14 @@ namespace viennacl{
 
                 template<class T>
                 static std::list<T *> extract_cast(std::list<infos_base*> const & trees){
-                    return cast<T>(filter<EXTRACT_IF>(trees,is_type<T>));
+                    return cast<T,infos_base>(filter<EXTRACT_IF>(trees,is_type<T>));
                 }
 
                 template<class T>
                 class cache_manager{
                 public:
-                    cache_manager(std::list<T * > const & expressions,  std::ostringstream & oss, std::set<T *>& cached_entries) : expressions_(expressions)
-                                                                                                                                               , oss_(oss)
+                    cache_manager(std::list<T * > const & expressions,  utils::kernel_generation_stream & kss, std::set<T *>& cached_entries) : expressions_(expressions)
+                                                                                                                                               , kss_(kss)
                       ,cached_entries_(cached_entries){         }
 
                     void fetch_entries(std::string const & idx){
@@ -136,7 +181,7 @@ namespace viennacl{
                             T * p = *it;
                             if(cached_entries_.insert(p).second){
                                 p->access_name(p->name()+"_val");
-                                oss_ << p->scalartype() << " " << p->generate() << " = " << p->name() << "[" << idx << "];\n";
+                                kss_ << p->scalartype() << " " << p->generate() << " = " << p->name() << "[" << idx << "];" << std::endl;
                             }
                         }
                     }
@@ -145,13 +190,13 @@ namespace viennacl{
                         for(typename std::list<T * >::iterator it = expressions_.begin() ; it != expressions_.end() ; ++it){
                             T * p = *it;
                             if(p->is_modified())
-                                oss_<< p->name() << "[" << idx << "]"<< " = "  << p->generate() << ";\n";
+                                kss_<< p->name() << "[" << idx << "]"<< " = "  << p->generate() << ";" << std::endl;
                         }
                     }
 
                 private:
                     std::list<T * > expressions_;
-                    std::ostringstream & oss_;
+                    utils::kernel_generation_stream & kss_;
                     std::set<T *> & cached_entries_;
 
                 };
