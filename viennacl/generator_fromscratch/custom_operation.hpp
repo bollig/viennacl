@@ -24,11 +24,13 @@ namespace viennacl
 
           std::string generate() const{
             std::ostringstream oss;
+            code_generation::utils::kernel_generation_stream kss(oss);
             typedef std::vector<std::list<infos_base*> >  kernels_t;
             kernels_t kernels(operations_manager_.get_kernels_list());
             for(kernels_t::const_iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
-                code_generation::kernel_generator kg(*it,operation_name_+to_string(it-kernels.begin()));
-                oss << kg.generate();
+                std::string name = operation_name_+to_string(it-kernels.begin());
+                code_generation::kernel_generator kg(*it,name,kss);
+                kg.generate() ;
             }
             return oss.str();
           }
