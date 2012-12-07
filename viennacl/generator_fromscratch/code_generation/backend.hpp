@@ -57,10 +57,11 @@ namespace viennacl{
                        kss.dec_tab();
                        kss << "}" << std::endl;
                        kss.dec_tab();
-                       kss << "}\n" << std::endl;
+                       kss << "}" << std::endl;
                        for(std::list<inprod_infos_base *>::const_iterator it = inprods.begin(); it != inprods.end() ; ++it){
-                       kss << (*it)->generate() << " = local_" << (*it)->name() << "[" << 0 << "];" << std::endl;
+                            (*it)->access_name((*it)->name() + "[0]");
                        }
+                       kss << "barrier(CLK_LOCAL_MEM_FENCE)" << std::endl;
                     }
 
                     void operator()(utils::kernel_generation_stream& kss){
