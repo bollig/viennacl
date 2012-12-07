@@ -26,6 +26,7 @@ namespace viennacl
   namespace generator
   {
 
+
       template<class B,class T>
       class base_getter{
       public:
@@ -33,6 +34,28 @@ namespace viennacl
               static T res;
               return res;
           }
+      };
+
+
+      class local_memory{
+      public:
+
+          local_memory(std::string const & name, unsigned int size, std::string const & scalartype): name_(name), size_(size), scalartype_(scalartype){ }
+
+          std::string declare() const{
+              return "__local " + scalartype_ + " " + name_ + '[' + to_string(size_) + ']';
+          }
+
+          unsigned int size() const{ return size_; }
+
+          std::string access(std::string const & index) const{
+              return name_ + '[' + index + ']';
+          }
+
+      private:
+          std::string name_;
+          unsigned int size_;
+          std::string const & scalartype_;
       };
 
       class infos_base{
@@ -137,7 +160,8 @@ namespace viennacl
       class matrix_expression : public matrix_expression_infos_base{
       public:
           matrix_expression(LHS const & lhs, RHS const & rhs) :matrix_expression_infos_base(static_cast<infos_base &>(lhs_value_),OP::get(),static_cast<infos_base &>(rhs_value_))
-            , lhs_value_(lhs), rhs_value_(rhs){ }
+                                                              , lhs_value_(lhs)
+                                                              , rhs_value_(rhs){ }
       private:
          LHS lhs_value_;
          RHS rhs_value_;
@@ -249,6 +273,9 @@ namespace viennacl
           enum step_t{compute,reduce};
           step_t step(){ return step_; }
           void step(step_t s){ step_ = s; }
+          local_memory make_local_memory(unsigned int size){
+              return local_memory(name_,size,scalartype_);
+          }
 
       protected:
           inprod_infos_base(infos_base * lhs, infos_base * rhs
@@ -260,6 +287,8 @@ namespace viennacl
                                                               ,lhs_->name() + "_inprod_" + rhs_->name()
                                                               ,-1)
                                             ,step_(step){ }
+
+
       private:
           step_t & step_;
       };

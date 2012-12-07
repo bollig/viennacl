@@ -192,6 +192,8 @@ namespace viennacl{
 
                 };
 
+
+
             }
 
         }
