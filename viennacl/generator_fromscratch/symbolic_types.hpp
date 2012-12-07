@@ -394,7 +394,8 @@ namespace viennacl
       protected:
           vec_infos_base(std::string & access_name, std::string const & scalartype, std::string const & name, unsigned int id) :
                                                           kernel_argument(access_name,scalartype,name,id)
-                                                          ,size_(name_+"_size"){ }
+                                                          ,size_(name_+"_size")
+                                                        ,internal_size_(""){ }
       private:
           std::string size_;
           std::string internal_size_;
