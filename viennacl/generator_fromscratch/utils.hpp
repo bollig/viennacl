@@ -50,15 +50,18 @@ namespace viennacl{
             template<class Base,class Target>
             struct UnsafeBase2Target { Target* operator ()( Base* value ) const { return static_cast<Target*>(value); } };
 
+            void replace_all_occurences(std::string& str, const std::string& oldstr, const std::string& newstr)
+            {
+              size_t pos = 0;
+              while((pos = str.find(oldstr, pos)) != std::string::npos)
+              {
+                 str.replace(pos, oldstr.length(), newstr);
+                 pos += newstr.length();
+              }
+            }
 
 		    template<class T>
             struct print_type;
-
-            template<class T>
-            struct print_type<T*>
-            {
-                static const std::string value() { return print_type<T>::value() + "*"; }
-            };
 
 			template<>
             struct print_type<int>

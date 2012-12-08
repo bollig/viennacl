@@ -31,7 +31,6 @@ namespace viennacl{
                    kss << "}" << std::endl;
                    kss.dec_tab();
                    kss << "}" << std::endl;
-                   kss << "barrier(CLK_LOCAL_MEM_FENCE)" << std::endl;
                 }
 
                 class blas1_generator{
@@ -65,38 +64,6 @@ namespace viennacl{
                         std::remove_copy_if(inner_prods.begin(),inner_prods.end(),std::back_inserter(inner_prods_compute_),std::not1(is_compute()));
                     }
 
-//                    void compute_reductions(utils::kernel_generation_stream& kss, std::list<inprod_infos_base *> const & inprods){
-//                       for( std::list<inprod_infos_base *>::const_iterator it = inprods.begin(); it != inprods.end() ; ++it){
-//                           kss << "local_" << (*it)->name() << "[get_local_id(0)]  = " << (*it)->name() << ";" << std::endl;
-//                       }
-//                       kss << "for(unsigned int stride = get_local_size(0)/2; stride > 0; stride /= 2){" << std::endl;
-//                       kss.inc_tab();
-//                       kss << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
-//                       kss << "if(get_local_id(0) < stride){" << std::endl;
-//                       kss.inc_tab();
-//                       for(std::list<inprod_infos_base *>::const_iterator it = inprods.begin(); it != inprods.end() ; ++it){
-//                       kss <<  (*it)->name() << "[get_local_id(0)]  += " << "local_" << (*it)->name() << "[get_local_id(0)+stride];" << std::endl;
-//                       }
-//                       kss.dec_tab();
-//                       kss << "}" << std::endl;
-//                       kss.dec_tab();
-//                       kss << "}" << std::endl;
-//                       for(std::list<inprod_infos_base *>::const_iterator it = inprods.begin(); it != inprods.end() ; ++it){
-//                            (*it)->access_name((*it)->name() + "[0]");
-//                       }
-//                       kss << "barrier(CLK_LOCAL_MEM_FENCE)" << std::endl;
-//                    }
-
-//                    void reduce_to_temporary(utils::kernel_generation_stream& kss, std::list<inprod_infos_base *> const & inprods){
-//                        shared_memory_ptr[get_local_id(0)] = private_v_a1_1_inprod_v_a1_2;
-//                        for (unsigned int stride = get_local_size(0)/2; stride > 0; stride /= 2)
-//                        {
-//                          barrier(CLK_LOCAL_MEM_FENCE);
-//                          if (get_local_id(0) < stride)
-//                          shared_memory_ptr[get_local_id(0)] += shared_memory_ptr[get_local_id(0)+stride];
-//                        }
-//                        v_a1_1_inprod_v_a1_2[get_group_id(0)] = shared_memory_ptr[0];
-//                    }
 
                     void operator()(utils::kernel_generation_stream& kss){
 
@@ -126,6 +93,10 @@ namespace viennacl{
                                 kss << local_mems.back().access("get_local_id(0)") << " = " << "sum_" << (*it)->name()<< ";" << std::endl;
                             }
                             compute_reductions_samesize(kss,local_mems);
+                            for( std::list<inprod_infos_base *>::const_iterator it = inner_prods_reduce_.begin(); it != inner_prods_reduce_.end() ; ++it){
+                                (*it)->access_name((*it)->make_local_memory(64).access("0"));
+                            }
+                            kss << "barrier(CLK_LOCAL_MEM_FENCE)" << std::endl;
                         }
 
                         scalar_cache.fetch_entries("0");
@@ -147,8 +118,15 @@ namespace viennacl{
                             kss << "}" << std::endl;
                         }
                         scalar_cache.writeback_entries("0");
-                        if(inner_prods_compute_.size())
-//                            reduce_to_temporary();
+                        if(inner_prods_compute_.size()){
+                            std::list<local_memory> local_mems;
+                            for( std::list<inprod_infos_base *>::const_iterator it = inner_prods_compute_.begin(); it != inner_prods_compute_.end() ; ++it){
+                                local_mems.push_back((*it)->make_local_memory(64));
+                                kss << local_mems.back().declare() << ";" << std::endl;
+                                kss << local_mems.back().access("get_local_id(0)") << " = " <<  (*it)->name() + "_sum" << ";" << std::endl;
+                            }
+                            compute_reductions_samesize(kss,local_mems);
+                        }
                         for(std::list<inprod_infos_base *>::iterator it=inner_prods_compute_.begin() ; it!=inner_prods_compute_.end();++it){
                             (*it)->step(inprod_infos_base::reduce);
                         }

@@ -354,7 +354,7 @@ namespace viennacl
       public:
         typedef viennacl::scalar<SCALARTYPE> runtime_type;
         typedef SCALARTYPE ScalarType;
-        gpu_symbolic_scalar() : gpu_scal_infos_base(access_name_,print_type<SCALARTYPE*>::value(), "g_s" + to_string(ID),ID ){ }
+        gpu_symbolic_scalar() : gpu_scal_infos_base(access_name_,print_type<SCALARTYPE>::value(), "g_s" + to_string(ID),ID ){ }
 
         leaf_infos_base& get(){
             static self_type res;
