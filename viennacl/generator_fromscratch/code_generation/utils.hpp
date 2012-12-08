@@ -100,12 +100,8 @@ namespace viennacl{
                 struct EXTRACT_IF{
                     typedef std::list<infos_base*> result_type_single;
                     typedef std::list<infos_base*> result_type_all;
-                    static void do_on_binary_trees(result_type_single & reslhs, result_type_single & resrhs,result_type_single & res){
-                        res.merge(reslhs);
-                        res.merge(resrhs);
-                    }
-                    static void do_on_unary_trees(result_type_single & ressub, result_type_single & res){
-                        res.merge(ressub);
+                    static void do_on_new_res(result_type_single & new_res, result_type_single & res){
+                        res.merge(new_res);
                     }
                     static void do_on_pred_true(infos_base* tree,result_type_single & res){
                         res.push_back(tree);
@@ -123,11 +119,19 @@ namespace viennacl{
                     if(binary_tree_infos_base * p = dynamic_cast<binary_tree_infos_base *>(tree)){
                         res_t  reslhs(filter<FILTER_T,Pred>(&p->lhs(),pred));
                         res_t resrhs(filter<FILTER_T,Pred>(&p->rhs(),pred));
-                        FILTER_T::do_on_binary_trees(reslhs,resrhs,res);
+                        FILTER_T::do_on_new_res(reslhs,res);
+                        FILTER_T::do_on_new_res(resrhs,res);
                     }
                     else if(unary_tree_infos_base * p = dynamic_cast<unary_tree_infos_base *>(tree)){
                         res_t ressub(filter<FILTER_T,Pred>(&p->sub(),pred));
-                        FILTER_T::do_on_unary_trees(ressub,res);
+                        FILTER_T::do_on_new_res(ressub,res);
+                    }
+                    else if(function_base * p = dynamic_cast<function_base*>(tree)){
+                        std::list<infos_base*> args = p->args();
+                        for(std::list<infos_base*>::iterator it = args.begin() ; it!= args.end() ; ++it){
+                            res_t newres(filter<FILTER_T,Pred>(*it,pred));
+                            FILTER_T::do_on_new_res(newres,res);
+                        }
                     }
                     if(pred(tree)){
                         FILTER_T::do_on_pred_true(tree,res);
