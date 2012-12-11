@@ -60,8 +60,35 @@ namespace viennacl{
               }
             }
 
+            template<class T>
+            struct is_primitive_type{ enum { value = 0 }; };
+
+            template<> struct is_primitive_type<char>{ enum { value = 1}; };
+            template<> struct is_primitive_type<unsigned char>{ enum { value = 1}; };
+            template<> struct is_primitive_type<int>{ enum { value = 1}; };
+            template<> struct is_primitive_type<unsigned int>{ enum { value = 1}; };
+            template<> struct is_primitive_type<short>{ enum { value = 1}; };
+            template<> struct is_primitive_type<unsigned short>{ enum { value = 1}; };
+            template<> struct is_primitive_type<long>{ enum { value = 1}; };
+            template<> struct is_primitive_type<unsigned long>{ enum { value = 1}; };
+            template<> struct is_primitive_type<float>{ enum { value = 1}; };
+            template<> struct is_primitive_type<double>{ enum { value = 1}; };
+
 		    template<class T>
             struct print_type;
+
+            template<>
+            struct print_type<char>
+            {
+              static const std::string value() { return "char"; }
+            };
+
+            template<>
+            struct print_type<unsigned char>
+            {
+              static const std::string value() { return "unsigned char"; }
+            };
+
 
 			template<>
             struct print_type<int>
@@ -75,6 +102,18 @@ namespace viennacl{
 			  static const std::string value() { return "unsigned int"; }
 			};
 
+            template<>
+            struct print_type<short>
+            {
+              static const std::string value() { return "short"; }
+            };
+
+            template<>
+            struct print_type<unsigned short>
+            {
+              static const std::string value() { return "unsigned short"; }
+            };
+
 			template<>
             struct print_type<long>
 			{
@@ -84,7 +123,7 @@ namespace viennacl{
 			template<>
             struct print_type<unsigned long>
 			{
-			  static const std::string value() { return "long"; }
+              static const std::string value() { return "unsigned long"; }
 			};
 
 			template<>

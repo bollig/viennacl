@@ -20,22 +20,12 @@
 
 #include "viennacl/generator_fromscratch/utils.hpp"
 #include "viennacl/forwards.h"
+#include "viennacl/generator_fromscratch/dummy_types.hpp"
 
 namespace viennacl
 {
   namespace generator
   {
-
-
-      template<class B,class T>
-      class base_getter{
-      public:
-          static B & get(){
-              static T res;
-              return res;
-          }
-      };
-
 
       class local_memory{
       public:
@@ -65,10 +55,77 @@ namespace viennacl
           virtual ~infos_base(){ }
       };
 
+      class op_infos_base : public infos_base{
+      public:
+          std::string generate() const{ return expr_; }
+          std::string name() const { return name_; }
+      protected:
+          op_infos_base(std::string const & expr, std::string const & name) : expr_(expr), name_(name){ }
+      private:
+          std::string expr_;
+          std::string name_;
+      };
+
+
+
+      class assign_type : public op_infos_base{
+      public:
+        assign_type() : op_infos_base(" = ", "eq"){ }
+      };
+
+      class add_type : public op_infos_base{
+      public:
+        add_type() : op_infos_base(" + ", "p"){ }
+      };
+
+      class inplace_add_type : public op_infos_base{
+      public:
+        inplace_add_type() : op_infos_base(" += ", "p_eq"){ }
+      };
+
+      class sub_type : public op_infos_base{
+      public:
+        sub_type() : op_infos_base(" - ", "m"){ }
+      };
+
+      class inplace_sub_type : public op_infos_base{
+      public:
+        inplace_sub_type() : op_infos_base(" -= ", "m_eq"){ }
+      };
+
+      class scal_mul_type : public op_infos_base{
+      public:
+        scal_mul_type() : op_infos_base(" * ", "mu"){ }
+      };
+
+      class inplace_scal_mul_type : public op_infos_base{
+          inplace_scal_mul_type() : op_infos_base(" *= ", "mu_eq"){ }
+      };
+
+
+      class scal_div_type : public op_infos_base{
+        scal_div_type() : op_infos_base(" / ", "div"){ }
+      };
+
+      class inplace_scal_div_type :  public op_infos_base{
+          inplace_scal_div_type() : op_infos_base(" /= ", "div_eq"){ }
+      };
+
+
+      class elementwise_prod_type :  public op_infos_base{
+          elementwise_prod_type() : op_infos_base(" * ", "ewp"){ }
+      };
+
+      class elementwise_div_type :  public op_infos_base{
+          elementwise_div_type() : op_infos_base(" / ", "ewd"){ }
+      };
+
+
       class binary_tree_infos_base{
       public:
           infos_base & lhs(){ return *lhs_; }
           infos_base & rhs(){ return *rhs_; }
+
       protected:
           binary_tree_infos_base(infos_base * lhs, infos_base * rhs) : lhs_(lhs), rhs_(rhs){        }
           viennacl::tools::shared_ptr<infos_base> lhs_;
@@ -116,55 +173,46 @@ namespace viennacl
 
       class arithmetic_tree_infos_base :  public infos_base,public binary_tree_infos_base{
       public:
-          infos_base & op() { return op_; }
-          std::string generate() const { return "(" + (*lhs_).generate() + op_.generate() + (*rhs_).generate() + ")"; }
-          std::string name() const { return (*lhs_).name() + op_.name() + (*rhs_).name(); }
-          arithmetic_tree_infos_base(infos_base * lhs, infos_base& op, infos_base * rhs) : binary_tree_infos_base(lhs,rhs), op_(op){        }
+          infos_base & op() { return *op_; }
+          std::string generate() const { return "(" + lhs_->generate() + op_->generate() + rhs_->generate() + ")"; }
+          std::string name() const { return lhs_->name() + op_->name() + rhs_->name(); }
+          arithmetic_tree_infos_base(infos_base * lhs, infos_base* op, infos_base * rhs) : binary_tree_infos_base(lhs,rhs), op_(op){        }
       private:
-          infos_base & op_;
+          viennacl::tools::shared_ptr<infos_base> op_;
       };
 
       class vector_expression_infos_base : public arithmetic_tree_infos_base{
       public:
-          vector_expression_infos_base(infos_base * lhs, infos_base& op, infos_base * rhs) : arithmetic_tree_infos_base(lhs,op,rhs){ }
+          vector_expression_infos_base(infos_base * lhs, infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base(lhs,op,rhs){ }
       };
 
       class scalar_expression_infos_base : public arithmetic_tree_infos_base{
       public:
-          scalar_expression_infos_base(infos_base * lhs, infos_base& op, infos_base * rhs) : arithmetic_tree_infos_base(lhs,op,rhs){ }
+          scalar_expression_infos_base(infos_base * lhs, infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base(lhs,op,rhs){ }
       };
 
       class matrix_expression_infos_base : public arithmetic_tree_infos_base{
       public:
-          matrix_expression_infos_base(infos_base * lhs, infos_base& op, infos_base * rhs) : arithmetic_tree_infos_base(lhs,op,rhs){ }
+          matrix_expression_infos_base(infos_base * lhs, infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base(lhs,op,rhs){ }
       };
 
 
       template<class LHS, class OP, class RHS>
       class vector_expression : public vector_expression_infos_base{
       public:
-          vector_expression(LHS const & lhs, RHS const & rhs) :vector_expression_infos_base(new LHS(lhs),OP::get(),new RHS(rhs)){ }
+          vector_expression(LHS const & lhs, RHS const & rhs) :vector_expression_infos_base(new LHS(lhs),new OP(),new RHS(rhs)){ }
       };
 
       template<class LHS, class OP, class RHS>
       class scalar_expression : public scalar_expression_infos_base{
       public:
-          scalar_expression(LHS const & lhs, RHS const & rhs) :scalar_expression_infos_base(static_cast<infos_base &>(lhs_value_),OP::get(),static_cast<infos_base &>(rhs_value_))
-            , lhs_value_(lhs), rhs_value_(rhs){ }
-      private:
-         LHS lhs_value_;
-         RHS rhs_value_;
+          scalar_expression(LHS const & lhs, RHS const & rhs) :scalar_expression_infos_base(new LHS(lhs),new OP(),new RHS(rhs)){ }
       };
 
       template<class LHS, class OP, class RHS>
       class matrix_expression : public matrix_expression_infos_base{
       public:
-          matrix_expression(LHS const & lhs, RHS const & rhs) :matrix_expression_infos_base(static_cast<infos_base &>(lhs_value_),OP::get(),static_cast<infos_base &>(rhs_value_))
-                                                              , lhs_value_(lhs)
-                                                              , rhs_value_(rhs){ }
-      private:
-         LHS lhs_value_;
-         RHS rhs_value_;
+          matrix_expression(LHS const & lhs, RHS const & rhs) :matrix_expression_infos_base(new LHS(lhs),new OP(),new RHS(rhs)){ }
       };
 
 
@@ -178,72 +226,6 @@ namespace viennacl
           }
       };
 
-      class op_infos_base : public infos_base{
-      public:
-          std::string generate() const{ return expr_; }
-          std::string name() const { return name_; }
-      protected:
-          op_infos_base(std::string const & expr, std::string const & name) : expr_(expr), name_(name){ }
-      private:
-          std::string expr_;
-          std::string name_;
-      };
-
-
-
-      class assign_type : public op_infos_base, public base_getter<infos_base,assign_type>{
-      public:
-        assign_type() : op_infos_base(" = ", "eq"){ }
-      };
-
-      class add_type : public op_infos_base, public base_getter<infos_base,add_type>{
-      public:
-        add_type() : op_infos_base(" + ", "p"){ }
-      };
-
-      class inplace_add_type : public op_infos_base, public base_getter<infos_base,inplace_add_type>{
-      public:
-        inplace_add_type() : op_infos_base(" += ", "p_eq"){ }
-      };
-
-      class sub_type : public op_infos_base, public base_getter<infos_base,sub_type>{
-      public:
-        sub_type() : op_infos_base(" - ", "m"){ }
-      };
-
-      class inplace_sub_type : public op_infos_base, public base_getter<infos_base,inplace_sub_type>{
-      public:
-        inplace_sub_type() : op_infos_base(" -= ", "m_eq"){ }
-      };
-
-      class scal_mul_type : public op_infos_base, public base_getter<infos_base, scal_mul_type>{
-      public:
-        scal_mul_type() : op_infos_base(" * ", "mu"){ }
-      };
-
-      class inplace_scal_mul_type : public op_infos_base, public base_getter<infos_base, inplace_scal_mul_type>{
-          inplace_scal_mul_type() : op_infos_base(" *= ", "mu_eq"){ }
-      };
-
-
-      class scal_div_type : public op_infos_base, public base_getter<infos_base,scal_div_type>{
-        scal_div_type() : op_infos_base(" / ", "div"){ }
-      };
-
-      class inplace_scal_div_type :  public op_infos_base, public base_getter<infos_base,inplace_scal_div_type>{
-          inplace_scal_div_type() : op_infos_base(" /= ", "div_eq"){ }
-      };
-
-
-      class elementwise_prod_type :  public op_infos_base, public base_getter<infos_base,elementwise_prod_type>{
-          elementwise_prod_type() : op_infos_base(" * ", "ewp"){ }
-      };
-
-      class elementwise_div_type :  public op_infos_base, public base_getter<infos_base,elementwise_div_type>{
-          elementwise_div_type() : op_infos_base(" / ", "ewd"){ }
-      };
-
-
 
       class scal_infos_base : public kernel_argument{
       protected:
@@ -252,7 +234,10 @@ namespace viennacl
 
       class cpu_scal_infos_base : public scal_infos_base{
       protected:
-          cpu_scal_infos_base(std::string & access_name,std::string const & scalartype, std::string const & name, int id) : scal_infos_base(access_name,scalartype,name,id){ }
+          cpu_scal_infos_base(std::string & access_name
+                              ,std::string const & scalartype
+                              , std::string const & name
+                              , int id) : scal_infos_base(access_name,scalartype,name,id){ }
       public:
           std::string kernel_arguments() const{
               return scalartype_ + " " + name_;
@@ -308,8 +293,6 @@ namespace viennacl
       private:
           static step_t step_;
           static std::string access_name_;
-          LHS lhs_value_;
-          RHS rhs_value_;
       };
 
 
@@ -332,7 +315,10 @@ namespace viennacl
         static std::string access_name_;
     public:
         typedef SCALARTYPE ScalarType;
-        cpu_symbolic_scalar() : cpu_scal_infos_base(access_name_,print_type<SCALARTYPE>::value(),"c_s" + to_string(ID),ID){ }
+        cpu_symbolic_scalar() : cpu_scal_infos_base(access_name_
+                                                    ,print_type<SCALARTYPE>::value()
+                                                    ,"c_s" + to_string(ID)
+                                                    ,ID){ }
     };
 
     template <unsigned int ID, typename SCALARTYPE>
@@ -652,7 +638,7 @@ namespace viennacl
       template<class LHS, class OP, class RHS>
       struct is_matrix_expression<matrix_expression<LHS,OP,RHS> >{ enum { value = 1 }; };
 
-      template<class T>
+      template<class T, class Enable=void>
       struct is_scalar_expression{ enum { value = 0 }; };
 
       template <unsigned int ID, typename SCALARTYPE>
@@ -667,7 +653,14 @@ namespace viennacl
       template<class LHS, class RHS>
       struct is_scalar_expression<inprod_infos<LHS,RHS> >{ enum { value = 1 }; };
 
+      template<class T>
+      struct is_scalar_expression<T, typename viennacl::enable_if<is_primitive_type<T>::value>::type>{ enum { value = 1}; };
 
+      template<class T, class Enable=void>
+      struct wrap_scalar{ typedef T type; };
+
+//      template<class T>
+//      struct wrap_scalar<T, typename enable_if<is_primitive_type<T>::value>::type>{ typedef primitive_type_infos<T> type ; };
 
 
       /** @brief Unary minus operator */
@@ -703,7 +696,7 @@ namespace viennacl
                                  ||(is_scalar_expression<RHS_TYPE>::value && is_vector_expression<LHS_TYPE>::value)
                                   ,vector_expression<LHS_TYPE,scal_mul_type,RHS_TYPE> >::type
       operator* ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return vector_expression<LHS_TYPE,scal_mul_type,RHS_TYPE>(lhs,rhs);
+          return vector_expression<typename wrap_scalar<LHS_TYPE>::type,scal_mul_type,typename wrap_scalar<RHS_TYPE>::type>(lhs,rhs);
       }
 
       /**
@@ -714,7 +707,7 @@ namespace viennacl
                                  ||(is_scalar_expression<RHS_TYPE>::value && is_matrix_expression<LHS_TYPE>::value)
                                   ,matrix_expression<LHS_TYPE,scal_mul_type,RHS_TYPE> >::type
       operator* ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return matrix_expression<LHS_TYPE,scal_mul_type,RHS_TYPE>(lhs,rhs);
+          return matrix_expression<typename wrap_scalar<LHS_TYPE>::type,scal_mul_type,typename wrap_scalar<RHS_TYPE>::type>(lhs,rhs);
       }
 
       /**
@@ -724,7 +717,7 @@ namespace viennacl
       typename viennacl::enable_if<(is_scalar_expression<LHS_TYPE>::value && is_scalar_expression<RHS_TYPE>::value)
                                   ,scalar_expression<LHS_TYPE,scal_mul_type,RHS_TYPE> >::type
       operator* ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return scalar_expression<LHS_TYPE,scal_mul_type,RHS_TYPE>(lhs,rhs);
+          return scalar_expression<typename wrap_scalar<LHS_TYPE>::type,scal_mul_type,typename wrap_scalar<RHS_TYPE>::type>(lhs,rhs);
       }
 
 
@@ -734,9 +727,9 @@ namespace viennacl
       template<class LHS_TYPE, class RHS_TYPE>
       typename viennacl::enable_if<(is_scalar_expression<LHS_TYPE>::value && is_vector_expression<RHS_TYPE>::value)
                                  ||(is_scalar_expression<RHS_TYPE>::value && is_vector_expression<LHS_TYPE>::value)
-                                  ,vector_expression<LHS_TYPE,scal_mul_type,RHS_TYPE> >::type
+                                  ,vector_expression<LHS_TYPE,scal_div_type,RHS_TYPE> >::type
       operator/ ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return vector_expression<LHS_TYPE,scal_mul_type,RHS_TYPE>(lhs,rhs);
+          return vector_expression<typename wrap_scalar<LHS_TYPE>::type,scal_div_type,typename wrap_scalar<RHS_TYPE>::type>(lhs,rhs);
       }
 
       /**
@@ -745,9 +738,9 @@ namespace viennacl
       template<class LHS_TYPE, class RHS_TYPE>
       typename viennacl::enable_if<(is_scalar_expression<LHS_TYPE>::value && is_matrix_expression<RHS_TYPE>::value)
                                  ||(is_scalar_expression<RHS_TYPE>::value && is_matrix_expression<LHS_TYPE>::value)
-                                  ,matrix_expression<LHS_TYPE,scal_mul_type,RHS_TYPE> >::type
+                                  ,matrix_expression<LHS_TYPE,scal_div_type,RHS_TYPE> >::type
       operator/ ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return matrix_expression<LHS_TYPE,scal_mul_type,RHS_TYPE>(lhs,rhs);
+          return matrix_expression<typename wrap_scalar<LHS_TYPE>::type,scal_div_type,typename wrap_scalar<RHS_TYPE>::type>(lhs,rhs);
       }
 
       /**
@@ -755,9 +748,9 @@ namespace viennacl
        */
       template<class LHS_TYPE, class RHS_TYPE>
       typename viennacl::enable_if<(is_scalar_expression<LHS_TYPE>::value && is_scalar_expression<RHS_TYPE>::value)
-                                  ,scalar_expression<LHS_TYPE,scal_mul_type,RHS_TYPE> >::type
+                                  ,scalar_expression<LHS_TYPE,scal_div_type,RHS_TYPE> >::type
       operator/ ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return scalar_expression<LHS_TYPE,scal_mul_type,RHS_TYPE>(lhs,rhs);
+          return scalar_expression<typename wrap_scalar<LHS_TYPE>::type,scal_div_type,typename wrap_scalar<RHS_TYPE>::type>(lhs,rhs);
       }
 
 
@@ -790,7 +783,7 @@ namespace viennacl
       typename viennacl::enable_if<is_scalar_expression<LHS_TYPE>::value && is_scalar_expression<RHS_TYPE>::value
                                   ,scalar_expression<LHS_TYPE,add_type,RHS_TYPE> >::type
       operator+ ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return scalar_expression<LHS_TYPE,add_type,RHS_TYPE>(lhs,rhs);
+          return scalar_expression<typename wrap_scalar<LHS_TYPE>::type,add_type,typename wrap_scalar<RHS_TYPE>::type>(lhs,rhs);
       }
 
 
@@ -827,7 +820,6 @@ namespace viennacl
       operator- ( LHS_TYPE const &, RHS_TYPE const & ){
           return scalar_expression<LHS_TYPE,sub_type,RHS_TYPE>();
       }
-
 
 
       template<class LHS_TYPE, class RHS_TYPE>
