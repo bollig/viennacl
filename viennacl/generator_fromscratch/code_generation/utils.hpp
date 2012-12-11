@@ -165,6 +165,7 @@ namespace viennacl{
                     return cast<T,infos_base>(filter<EXTRACT_IF>(trees,is_type<T>));
                 }
 
+
                 template<class T>
                 class cache_manager{
                 public:
