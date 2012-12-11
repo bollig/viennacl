@@ -15,6 +15,7 @@ namespace viennacl{
                     bool operator()(local_memory const & lhs, local_memory const & rhs) const{ return lhs.size() == rhs.size(); }
                 };
 
+
                 void compute_reductions_samesize(utils::kernel_generation_stream& kss, std::list<local_memory> const & lmems){
                    //Same size assumption
                    assert(std::adjacent_find(lmems.begin(), lmems.end(), std::not2(lid_has_same_size()))==lmems.end() && " Calling the wrong function for reducing inner products of different sizes! ");
@@ -47,18 +48,16 @@ namespace viennacl{
                         std::list<vec_infos_base * > tmp0(code_generation::utils::extract_cast<vec_infos_base>(scalar_expressions_));
                         vectors_ = code_generation::utils::extract_cast<vec_infos_base>(vector_expressions_);
                         vectors_.merge(tmp0);
+                        code_generation::utils::remove_unsorted_duplicates(vectors_);
 
                         std::list<gpu_scal_infos_base * > tmp1(code_generation::utils::extract_cast<gpu_scal_infos_base>(scalar_expressions_));
                         gpu_scalars_ = code_generation::utils::extract_cast<gpu_scal_infos_base>(vector_expressions_);
                         gpu_scalars_.merge(tmp1);
-
+                        code_generation::utils::remove_unsorted_duplicates(gpu_scalars_);
 
                         std::list<inprod_infos_base * > tmp2(code_generation::utils::extract_cast<inprod_infos_base>(scalar_expressions_));
                         std::list<inprod_infos_base * >inner_prods(code_generation::utils::extract_cast<inprod_infos_base>(vector_expressions_));
                         inner_prods.merge(tmp2);
-
-                        code_generation::utils::remove_unsorted_duplicates(vectors_);
-                        code_generation::utils::remove_unsorted_duplicates(gpu_scalars_);
                         code_generation::utils::remove_unsorted_duplicates(inner_prods);
                         std::remove_copy_if(inner_prods.begin(),inner_prods.end(),std::back_inserter(inner_prods_reduce_),std::not1(is_reduce()));
                         std::remove_copy_if(inner_prods.begin(),inner_prods.end(),std::back_inserter(inner_prods_compute_),std::not1(is_compute()));

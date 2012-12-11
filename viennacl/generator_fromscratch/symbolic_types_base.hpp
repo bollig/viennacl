@@ -40,11 +40,13 @@ namespace viennacl{
         public:
             std::string generate() const{ return expr_; }
             std::string name() const { return name_; }
+            bool is_assignment() const { return is_assignment_; }
         protected:
-            op_infos_base( std::string const & expr, std::string const & name) :  expr_(expr), name_(name){ }
+            op_infos_base( std::string const & expr, std::string const & name, bool is_assignment) :  expr_(expr), name_(name), is_assignment_(is_assignment){ }
         private:
             std::string expr_;
             std::string name_;
+            bool is_assignment_;
         };
 
         class binary_tree_infos_base{
@@ -75,24 +77,25 @@ namespace viennacl{
         public:
             void access_name(std::string const & new_name) { *access_name_ = new_name; }
             virtual ~leaf_infos_base(){ }
-            bool is_modified(){ return is_assigned_;}
             virtual std::string generate() const { return *access_name_; }
             virtual std::string name() const { return name_; }
             std::string const & scalartype() const { return scalartype_; }
             bool operator<(leaf_infos_base const & other) const { return (access_name_ < other.access_name_); }
 
         protected:
-            leaf_infos_base(std::string const & scalartype):  scalartype_(scalartype), is_assigned_(false){ }
+            leaf_infos_base(std::string const & scalartype):  scalartype_(scalartype){ }
             std::string * access_name_;
             std::string scalartype_;
             std::string name_;
-            bool is_assigned_;
         };
 
         class kernel_argument : public leaf_infos_base{
         public:
+            bool is_modified(){ return *is_assigned_;}
             kernel_argument( std::string const & scalartype) : leaf_infos_base(scalartype){ }
             virtual std::string kernel_arguments() const = 0;
+        protected:
+            bool* is_assigned_;
         };
 
         class arithmetic_tree_infos_base :  public infos_base,public binary_tree_infos_base{

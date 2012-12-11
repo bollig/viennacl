@@ -17,11 +17,13 @@ public:
     typedef RHS Rhs;
     LHS const & lhs() const{return lhs_;}
     RHS const & rhs() const{return rhs_;}
+    OP const & op() const{ return op_; }
 protected:
     compile_time_beast(LHS const & lhs, RHS const & rhs) : lhs_(lhs), rhs_(rhs){ }
 private:
     LHS const & lhs_;
     RHS const & rhs_;
+    OP  op_;
 };
 
 template<class LHS, class OP, class RHS>

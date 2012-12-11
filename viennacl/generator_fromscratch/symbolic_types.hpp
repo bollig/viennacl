@@ -34,54 +34,54 @@ namespace viennacl
 
       class assign_type : public op_infos_base{
       public:
-          assign_type() : op_infos_base(" = ", "eq"){ }
+          assign_type() : op_infos_base(" = ", "eq",true){ }
       };
 
       class add_type : public op_infos_base{
       public:
-        add_type() : op_infos_base(" + ", "p"){ }
+        add_type() : op_infos_base(" + ", "p",false){ }
       };
 
       class inplace_add_type : public op_infos_base{
       public:
-        inplace_add_type() : op_infos_base(" += ", "p_eq"){ }
+        inplace_add_type() : op_infos_base(" += ", "p_eq",true){ }
       };
 
       class sub_type : public op_infos_base{
       public:
-        sub_type() : op_infos_base(" - ", "m"){ }
+        sub_type() : op_infos_base(" - ", "m",false){ }
       };
 
       class inplace_sub_type : public op_infos_base{
       public:
-        inplace_sub_type() : op_infos_base(" -= ", "m_eq"){ }
+        inplace_sub_type() : op_infos_base(" -= ", "m_eq",true){ }
       };
 
       class scal_mul_type : public op_infos_base{
       public:
-        scal_mul_type() : op_infos_base(" * ", "mu"){ }
+        scal_mul_type() : op_infos_base(" * ", "mu",false){ }
       };
 
       class inplace_scal_mul_type : public op_infos_base{
-          inplace_scal_mul_type() : op_infos_base(" *= ", "mu_eq"){ }
+          inplace_scal_mul_type() : op_infos_base(" *= ", "mu_eq",true){ }
       };
 
 
       class scal_div_type : public op_infos_base{
-        scal_div_type() : op_infos_base(" / ", "div"){ }
+        scal_div_type() : op_infos_base(" / ", "div", false){ }
       };
 
       class inplace_scal_div_type :  public op_infos_base{
-          inplace_scal_div_type() : op_infos_base(" /= ", "div_eq"){ }
+          inplace_scal_div_type() : op_infos_base(" /= ", "div_eq", true){ }
       };
 
 
       class elementwise_prod_type :  public op_infos_base{
-          elementwise_prod_type() : op_infos_base(" * ", "ewp"){ }
+          elementwise_prod_type() : op_infos_base(" * ", "ewp",false){ }
       };
 
       class elementwise_div_type :  public op_infos_base{
-          elementwise_div_type() : op_infos_base(" / ", "ewd"){ }
+          elementwise_div_type() : op_infos_base(" / ", "ewd", false){ }
       };
 
       template<class LHS, class OP, class RHS>
@@ -185,9 +185,11 @@ namespace viennacl
           typedef viennacl::vector<SCALARTYPE,ALIGNMENT> runtime_type;
           typedef SCALARTYPE ScalarType;
           symbolic_vector(std::map<viennacl::backend::mem_handle, std::string> & access_names_map,
-                          runtime_type const & rt) : vec_infos_base( print_type<SCALARTYPE>::value()), rt_obj_(rt){
+                          runtime_type const & rt,
+                          bool * is_assigned) : vec_infos_base( print_type<SCALARTYPE>::value()), rt_obj_(rt){
               access_name_ = &access_names_map.insert(std::make_pair(rt_obj_.handle(),std::string())).first->second;
               name_ = "arg_"+to_string(access_names_map.size());
+              is_assigned_ = is_assigned;
           }
         private:
           runtime_type const & rt_obj_;
@@ -237,23 +239,31 @@ namespace viennacl
       public:
         typedef typename get_symbolic_type<T,LhsResult,RhsResult>::type result_type;
 
-          static result_type execute(std::map<viennacl::backend::mem_handle,std::string> & access_names_map, T const & t){
-              return result_type(dummy2exptree_impl<Lhs>::execute(access_names_map, t.lhs())
-                                 ,dummy2exptree_impl<Rhs>::execute(access_names_map, t.rhs()));
+          static result_type execute(std::map<viennacl::backend::mem_handle,std::string> & access_names_map,
+                                     std::map<viennacl::backend::mem_handle,bool> & assigned_map,
+                                     T const & t, bool ){
+              return result_type(dummy2exptree_impl<Lhs>::execute(access_names_map, assigned_map, t.lhs(),t.op().is_assignment())
+                                 ,dummy2exptree_impl<Rhs>::execute(access_names_map, assigned_map, t.rhs(), false));
           }
       };
 
       template<class ScalarType, unsigned int Alignment>
       struct dummy2exptree_impl<dummy_vector<ScalarType, Alignment> >{
           typedef symbolic_vector<ScalarType, Alignment> result_type;
-          static result_type execute(std::map<viennacl::backend::mem_handle,std::string> & access_names_map, dummy_vector<ScalarType,Alignment> const & v){
-              return result_type(access_names_map,v.vec());
+          static result_type execute(std::map<viennacl::backend::mem_handle,std::string> & access_names_map,
+                                     std::map<viennacl::backend::mem_handle,bool> & assigned_map,
+                                     dummy_vector<ScalarType,Alignment> const & v,bool is_assigned){
+              bool* b = &assigned_map.insert(std::make_pair(v.vec().handle(),is_assigned)).first->second;
+              if(is_assigned) *b = true;
+              return result_type(access_names_map, v.vec(),b);
           }
       };
 
       template<class T>
-      typename dummy2exptree_impl<T>::result_type dummy2exptree(std::map<viennacl::backend::mem_handle,std::string> & access_names_map, T const & t){
-          return dummy2exptree_impl<T>::execute(access_names_map,t);
+      typename dummy2exptree_impl<T>::result_type dummy2exptree(std::map<viennacl::backend::mem_handle,std::string> & access_names_map,
+                                                                std::map<viennacl::backend::mem_handle,bool> & assigned_map,
+                                                                T const & t){
+          return dummy2exptree_impl<T>::execute(access_names_map,assigned_map,t,false);
       }
 
 

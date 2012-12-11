@@ -21,7 +21,7 @@ namespace viennacl
 
           template<class T>
           void add(T const & op){
-              operations_manager_.add(dummy2exptree(access_names_map_,op));
+              operations_manager_.add(dummy2exptree(access_names_map_,assigned_map_,op));
           }
 
           std::string generate() const{
@@ -41,6 +41,7 @@ namespace viennacl
           std::string operation_name_;
           code_generation::operations_manager operations_manager_;
           std::map<viennacl::backend::mem_handle, std::string> access_names_map_; //Void* : don't mess up with that! :D
+          std::map<viennacl::backend::mem_handle, bool> assigned_map_;
      };
   }
 }
