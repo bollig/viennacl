@@ -142,19 +142,18 @@ namespace viennacl
 
       class leaf_infos_base : public infos_base{
       public:
-          void access_name(std::string const & new_name) { access_name_ = new_name; }
+          void access_name(std::string const & new_name) { *access_name_ = new_name; }
           virtual ~leaf_infos_base(){ }
           bool is_modified(){ return is_assigned_;}
-          virtual std::string generate() const { return access_name_; }
+          virtual std::string generate() const { return *access_name_; }
           virtual std::string name() const { return name_; }
           std::string const & scalartype() const { return scalartype_; }
-          bool operator<(leaf_infos_base const & other) const { return (&access_name_ < &other.access_name_); }
+          bool operator<(leaf_infos_base const & other) const { return (access_name_ < other.access_name_); }
 
       protected:
-          leaf_infos_base(std::string & access_name,
-                          std::string const & scalartype,
-                          std::string const & name): infos_base(), access_name_(access_name), scalartype_(scalartype),name_(name), is_assigned_(false){ }
-          std::string & access_name_;
+          leaf_infos_base(std::string const & scalartype,
+                          std::string const & name): infos_base(), scalartype_(scalartype),name_(name), is_assigned_(false){ }
+          std::string * access_name_;
           std::string scalartype_;
           std::string name_;
           bool is_assigned_;
@@ -162,13 +161,17 @@ namespace viennacl
 
       class kernel_argument : public leaf_infos_base{
       public:
-          kernel_argument(std::string & access_name, std::string const & scalartype, std::string const & name,int id) : leaf_infos_base(access_name,scalartype,name), id_(id){ }
+          kernel_argument(std::string const & scalartype, std::string const & name,int id) : leaf_infos_base(scalartype,name), id_(id){
+              access_name_ = &access_names_map_.insert(std::make_pair(id,std::string())).first->second;
+          }
           int id() const{ return id_; }
           virtual std::string kernel_arguments() const = 0;
       private:
           int id_;
+          static std::map<unsigned int, std::string> access_names_map_;
       };
 
+      std::map<unsigned int, std::string> kernel_argument::access_names_map_;
 
 
       class arithmetic_tree_infos_base :  public infos_base,public binary_tree_infos_base{
@@ -229,15 +232,14 @@ namespace viennacl
 
       class scal_infos_base : public kernel_argument{
       protected:
-          scal_infos_base(std::string & access_name,std::string const & scalartype, std::string const & name, int id) : kernel_argument(access_name,scalartype,name,id){ }
+          scal_infos_base(std::string const & scalartype, std::string const & name, int id) : kernel_argument(scalartype,name,id){ }
       };
 
       class cpu_scal_infos_base : public scal_infos_base{
       protected:
-          cpu_scal_infos_base(std::string & access_name
-                              ,std::string const & scalartype
+          cpu_scal_infos_base(std::string const & scalartype
                               , std::string const & name
-                              , int id) : scal_infos_base(access_name,scalartype,name,id){ }
+                              , int id) : scal_infos_base(scalartype,name,id){ }
       public:
           std::string kernel_arguments() const{
               return scalartype_ + " " + name_;
@@ -246,7 +248,7 @@ namespace viennacl
 
       class gpu_scal_infos_base : public scal_infos_base{
       protected:
-          gpu_scal_infos_base(std::string & access_name,std::string const & scalartype, std::string const & name, int id) : scal_infos_base(access_name,scalartype,name,id){ }
+          gpu_scal_infos_base(std::string const & scalartype, std::string const & name, int id) : scal_infos_base(scalartype,name,id){ }
       public:
           std::string kernel_arguments() const{
               return "__global " + scalartype_ + "*"  + " " + name_;
@@ -265,10 +267,8 @@ namespace viennacl
       protected:
           inprod_infos_base(infos_base * lhs, infos_base * rhs
                             ,std::string const & scalartype
-                            ,std::string & access_name
                             ,step_t & step): binary_tree_infos_base(lhs,rhs)
-                                             ,scal_infos_base(access_name
-                                                              ,scalartype
+                                             ,scal_infos_base(scalartype
                                                               ,lhs_->name() + "_inprod_" + rhs_->name()
                                                               ,-1)
                                             ,step_(step){ }
@@ -284,20 +284,14 @@ namespace viennacl
 
           inprod_infos(LHS const & lhs, RHS const & rhs) :
               inprod_infos_base(new LHS(lhs), new RHS(rhs),
-                                print_type<typename LHS::ScalarType>::value(),
-                                access_name_, step_){ }
+                                print_type<typename LHS::ScalarType>::value(), step_){ }
 
           std::string kernel_arguments() const{
               return "__global " + scalartype_ + "*" + " " + name_;
           }
       private:
           static step_t step_;
-          static std::string access_name_;
       };
-
-
-      template <class LHS, class RHS>
-      std::string inprod_infos<LHS,RHS>::access_name_;
 
       template <class LHS, class RHS>
       typename inprod_infos<LHS,RHS>::step_t inprod_infos<LHS,RHS>::step_ = inprod_infos<LHS,RHS>::compute;
@@ -308,21 +302,16 @@ namespace viennacl
     * @tparam ID The argument ID of the scalar in the generated code
     * @tparam SCALARTYPE The Scalartype of the scalar in the generated code
     */
-    template <unsigned int ID, typename SCALARTYPE>
+    template <typename SCALARTYPE>
     class cpu_symbolic_scalar : public cpu_scal_infos_base
     {
-    private:
-        static std::string access_name_;
     public:
         typedef SCALARTYPE ScalarType;
-        cpu_symbolic_scalar() : cpu_scal_infos_base(access_name_
-                                                    ,print_type<SCALARTYPE>::value()
-                                                    ,"c_s" + to_string(ID)
-                                                    ,ID){ }
+        cpu_symbolic_scalar(unsigned int id) : cpu_scal_infos_base(print_type<SCALARTYPE>::value()
+                                                    ,"c_s" + to_string(id)
+                                                    ,id){ }
     };
 
-    template <unsigned int ID, typename SCALARTYPE>
-    std::string cpu_symbolic_scalar<ID,SCALARTYPE>::access_name_;
 
     /**
     * @brief Symbolic scalar type. Will be passed by pointer.
@@ -330,17 +319,16 @@ namespace viennacl
     * @tparam ID The argument ID of the scalar in the generated code
     * @tparam SCALARTYPE The SCALARTYPE of the scalar in the generated code
     */
-    template <unsigned int ID, typename SCALARTYPE>
+    template <typename SCALARTYPE>
     class gpu_symbolic_scalar : public gpu_scal_infos_base
     {
       private:
-        typedef gpu_symbolic_scalar<ID,SCALARTYPE> self_type;
-        static std::string access_name_;
+        typedef gpu_symbolic_scalar<SCALARTYPE> self_type;
 
       public:
         typedef viennacl::scalar<SCALARTYPE> runtime_type;
         typedef SCALARTYPE ScalarType;
-        gpu_symbolic_scalar() : gpu_scal_infos_base(access_name_,print_type<SCALARTYPE>::value(), "g_s" + to_string(ID),ID ){ }
+        gpu_symbolic_scalar(unsigned int id) : gpu_scal_infos_base(print_type<SCALARTYPE>::value(), "g_s" + to_string(id),id ){ }
 
         leaf_infos_base& get(){
             static self_type res;
@@ -389,10 +377,6 @@ namespace viennacl
 
     };
 
-    template <unsigned int ID, typename SCALARTYPE>
-    std::string gpu_symbolic_scalar<ID,SCALARTYPE>::access_name_;
-
-
       class vec_infos_base : public kernel_argument{
       public:
           std::string const & size() const{ return size_; }
@@ -407,8 +391,8 @@ namespace viennacl
           }
           virtual ~vec_infos_base(){ }
       protected:
-          vec_infos_base(std::string & access_name, std::string const & scalartype, std::string const & name, unsigned int id) :
-                                                          kernel_argument(access_name,scalartype,name,id)
+          vec_infos_base(std::string const & scalartype, std::string const & name, unsigned int id) :
+                                                          kernel_argument(scalartype,name,id)
                                                           ,size_(name_+"_size")
                                                         ,internal_size_(""){ }
       private:
@@ -427,19 +411,17 @@ namespace viennacl
       */
 
       //TODO: Add start and inc...
-      template <unsigned int ID, typename SCALARTYPE, unsigned int ALIGNMENT=1>
+      template <typename SCALARTYPE, unsigned int ALIGNMENT=1>
       class symbolic_vector : public vec_infos_base{
         private:
-          typedef symbolic_vector<ID,SCALARTYPE,ALIGNMENT> self_type;
-          static std::string access_name_;
+          typedef symbolic_vector<SCALARTYPE,ALIGNMENT> self_type;
         public:
 
           typedef viennacl::vector<SCALARTYPE,ALIGNMENT> runtime_type;
           typedef SCALARTYPE ScalarType;
-          symbolic_vector() : vec_infos_base(access_name_,
-                                             print_type<SCALARTYPE>::value()
-                                             , "v_a" + to_string(ALIGNMENT) + "_" + to_string(ID)
-                                             , ID) { }
+          symbolic_vector(unsigned int id) : vec_infos_base(print_type<SCALARTYPE>::value()
+                                             , "v_a" + to_string(ALIGNMENT) + "_" + to_string(id)
+                                             , id) { }
 
 
           template<typename RHS_TYPE>
@@ -483,10 +465,6 @@ namespace viennacl
           }
       };
 
-      template <unsigned int ID, typename SCALARTYPE, unsigned int ALIGNMENT>
-      std::string symbolic_vector<ID,SCALARTYPE,ALIGNMENT>::access_name_;
-
-
       class mat_infos_base : public kernel_argument{
       public:
           std::string const & size1() const{ return size1_; }
@@ -513,12 +491,11 @@ namespace viennacl
           bool const is_transposed() const { return is_transposed_; }
           virtual ~mat_infos_base() { }
       protected:
-          mat_infos_base(std::string & access_name,
-                         std::string const & scalartype
+          mat_infos_base(std::string const & scalartype
                          ,std::string const & name
                          ,bool is_rowmajor
                          ,bool is_transposed
-                         ,unsigned int id) : kernel_argument(access_name, scalartype, name,id)
+                         ,unsigned int id) : kernel_argument(scalartype, name,id)
                                                 ,size1_(name_ + "_size1")
                                                 ,size2_(name_ + "size2")
                                                 ,internal_size1_(size1_ + "_internal")
@@ -551,27 +528,26 @@ namespace viennacl
       * @tparam F The Layout of the matrix in the generated code
       * @tparam ALIGNMENT The Alignment of the matrix in the generated code
       */
-      template<unsigned int ID, typename SCALARTYPE, class F, unsigned int ALIGNMENT=1>
+      template<typename SCALARTYPE, class F, unsigned int ALIGNMENT=1>
       class symbolic_matrix : public mat_infos_base
       {
 
-          typedef symbolic_matrix<ID, SCALARTYPE, F, ALIGNMENT> self_type;
+          typedef symbolic_matrix<SCALARTYPE, F, ALIGNMENT> self_type;
 
-          static std::string name()
+          static std::string name(unsigned int id)
           {
             return "m_a_" + viennacl::generator::to_string(F()) + "_"
                           + viennacl::generator::to_string(ALIGNMENT) + "_"
-                          + viennacl::generator::to_string<long>(ID);
+                          + viennacl::generator::to_string<long>(id);
           }
 
 
-          static std::string access_name_;
         public:
-          symbolic_matrix() : mat_infos_base(access_name_,
-                                             print_type<SCALARTYPE>::value()
-                                        ,name()
+          symbolic_matrix(unsigned int id) : mat_infos_base(print_type<SCALARTYPE>::value()
+                                        ,name(id)
                                         ,true
-                                        ,false){ }
+                                        ,false
+                                        ,id){ }
 
           typedef viennacl::matrix<SCALARTYPE,F,ALIGNMENT> runtime_type;
           typedef SCALARTYPE ScalarType;
@@ -616,14 +592,11 @@ namespace viennacl
           }
       };
 
-      template <unsigned int ID, typename SCALARTYPE, class F, unsigned int ALIGNMENT>
-      std::string symbolic_matrix<ID,SCALARTYPE,F,ALIGNMENT>::access_name_;
-
       template<class T>
       struct is_vector_expression{ enum { value = 0 }; };
 
-      template <unsigned int ID, typename SCALARTYPE, unsigned int ALIGNMENT>
-      struct is_vector_expression<symbolic_vector<ID,SCALARTYPE,ALIGNMENT> >{ enum { value = 1 }; };
+      template <typename SCALARTYPE, unsigned int ALIGNMENT>
+      struct is_vector_expression<symbolic_vector<SCALARTYPE,ALIGNMENT> >{ enum { value = 1 }; };
 
       template<class LHS, class OP, class RHS>
       struct is_vector_expression<vector_expression<LHS,OP,RHS> >{ enum { value = 1 }; };
@@ -632,8 +605,8 @@ namespace viennacl
       template<class T>
       struct is_matrix_expression{ enum { value = 0 }; };
 
-      template <unsigned int ID, typename SCALARTYPE, class F,unsigned int ALIGNMENT>
-      struct is_matrix_expression<symbolic_matrix<ID,SCALARTYPE,F,ALIGNMENT> >{ enum { value = 1 }; };
+      template <typename SCALARTYPE, class F,unsigned int ALIGNMENT>
+      struct is_matrix_expression<symbolic_matrix<SCALARTYPE,F,ALIGNMENT> >{ enum { value = 1 }; };
 
       template<class LHS, class OP, class RHS>
       struct is_matrix_expression<matrix_expression<LHS,OP,RHS> >{ enum { value = 1 }; };
@@ -641,11 +614,11 @@ namespace viennacl
       template<class T, class Enable=void>
       struct is_scalar_expression{ enum { value = 0 }; };
 
-      template <unsigned int ID, typename SCALARTYPE>
-      struct is_scalar_expression<gpu_symbolic_scalar<ID,SCALARTYPE> >{ enum { value = 1 }; };
+      template <typename SCALARTYPE>
+      struct is_scalar_expression<gpu_symbolic_scalar<SCALARTYPE> >{ enum { value = 1 }; };
 
-      template <unsigned int ID, typename SCALARTYPE>
-      struct is_scalar_expression<cpu_symbolic_scalar<ID,SCALARTYPE> >{ enum { value = 1 }; };
+      template <typename SCALARTYPE>
+      struct is_scalar_expression<cpu_symbolic_scalar<SCALARTYPE> >{ enum { value = 1 }; };
 
       template<class LHS, class OP, class RHS>
       struct is_scalar_expression<scalar_expression<LHS,OP,RHS> >{ enum { value = 1 }; };
