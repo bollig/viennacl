@@ -24,7 +24,6 @@
 #include <string>
 #include <fstream>
 #include <sstream>
-#include "viennacl/forwards.h"
 
 
 #include <vector>

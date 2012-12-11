@@ -2,8 +2,11 @@
 #define VIENNACL_GENERATOR_FUNCTIONS_HPP
 
 
-#include "symbolic_types.hpp"
+#include "viennacl/generator_fromscratch/symbolic_types_base.hpp"
+#include "viennacl/generator_fromscratch/dummy_types.hpp"
+#include <map>
 #include <list>
+#include <cassert>
 
 namespace viennacl{
 
@@ -110,75 +113,7 @@ namespace generator{
         unsigned int n_args_;
     };
 
-    #define MAKE_BUILTIN_FUNCTION1(name) static inline_function name = inline_function(#name,#name "(_1_)")
-    #define MAKE_BUILTIN_FUNCTION2(name) static inline_function name = inline_function(#name,#name "(_1_,_2_)")
-    #define MAKE_BUILTIN_FUNCTION3(name) static inline_function name = inline_function(#name,#name "(_1_,_2_,_3_)")
 
-    MAKE_BUILTIN_FUNCTION1(acos);
-    MAKE_BUILTIN_FUNCTION1(acosh);
-    MAKE_BUILTIN_FUNCTION1(acospi);
-    MAKE_BUILTIN_FUNCTION1(asin);
-    MAKE_BUILTIN_FUNCTION1(asinh);
-    MAKE_BUILTIN_FUNCTION1(asinpi);
-    MAKE_BUILTIN_FUNCTION1(atan);
-    MAKE_BUILTIN_FUNCTION2(atan2);
-    MAKE_BUILTIN_FUNCTION1(atanh);
-    MAKE_BUILTIN_FUNCTION1(atanpi);
-    MAKE_BUILTIN_FUNCTION2(atan2pi);
-    MAKE_BUILTIN_FUNCTION1(cbrt);
-    MAKE_BUILTIN_FUNCTION1(ceil);
-    MAKE_BUILTIN_FUNCTION2(copysign);
-    MAKE_BUILTIN_FUNCTION1(cos);
-    MAKE_BUILTIN_FUNCTION1(cosh);
-    MAKE_BUILTIN_FUNCTION1(cospi);
-    MAKE_BUILTIN_FUNCTION1(erfc);
-    MAKE_BUILTIN_FUNCTION1(erf);
-    MAKE_BUILTIN_FUNCTION1(exp);
-    MAKE_BUILTIN_FUNCTION1(exp2);
-    MAKE_BUILTIN_FUNCTION1(exp10);
-    MAKE_BUILTIN_FUNCTION1(expm1);
-    MAKE_BUILTIN_FUNCTION1(fabs);
-    MAKE_BUILTIN_FUNCTION2(fdim);
-    MAKE_BUILTIN_FUNCTION1(floor);
-    MAKE_BUILTIN_FUNCTION3(fma);
-    MAKE_BUILTIN_FUNCTION2(fmax);
-    MAKE_BUILTIN_FUNCTION2(fmin);
-    MAKE_BUILTIN_FUNCTION2(fmod);
-//    MAKE_BUILTIN_FUNCTION1(fract);
-//    MAKE_BUILTIN_FUNCTION1(frexp);
-    MAKE_BUILTIN_FUNCTION2(hypot);
-    MAKE_BUILTIN_FUNCTION1(ilogb);
-    MAKE_BUILTIN_FUNCTION2(ldexp);
-    MAKE_BUILTIN_FUNCTION1(lgamma);
-//    MAKE_BUILTIN_FUNCTION1(lgamma_r);
-    MAKE_BUILTIN_FUNCTION1(log);
-    MAKE_BUILTIN_FUNCTION1(log2);
-    MAKE_BUILTIN_FUNCTION1(log10);
-    MAKE_BUILTIN_FUNCTION1(log1p);
-    MAKE_BUILTIN_FUNCTION1(logb);
-    MAKE_BUILTIN_FUNCTION3(mad);
-//    MAKE_BUILTIN_FUNCTION1(modf);
-    MAKE_BUILTIN_FUNCTION1(nan);
-    MAKE_BUILTIN_FUNCTION2(nextafter);
-    MAKE_BUILTIN_FUNCTION2(pow);
-    MAKE_BUILTIN_FUNCTION2(pown);
-    MAKE_BUILTIN_FUNCTION2(powr);
-    MAKE_BUILTIN_FUNCTION2(remainder);
-//    MAKE_BUILTIN_FUNCTION1(remquo);
-    MAKE_BUILTIN_FUNCTION1(rint);
-    MAKE_BUILTIN_FUNCTION1(rootn);
-    MAKE_BUILTIN_FUNCTION1(round);
-    MAKE_BUILTIN_FUNCTION1(rsqrt);
-    MAKE_BUILTIN_FUNCTION1(sin);
-//    MAKE_BUILTIN_FUNCTION1(sincos);
-    MAKE_BUILTIN_FUNCTION1(sinh);
-    MAKE_BUILTIN_FUNCTION1(sinpi);
-    MAKE_BUILTIN_FUNCTION1(sqrt);
-    MAKE_BUILTIN_FUNCTION1(tan);
-    MAKE_BUILTIN_FUNCTION1(tanh);
-    MAKE_BUILTIN_FUNCTION1(tanpi);
-    MAKE_BUILTIN_FUNCTION1(tgamma);
-    MAKE_BUILTIN_FUNCTION1(trunc);
 
 
 
