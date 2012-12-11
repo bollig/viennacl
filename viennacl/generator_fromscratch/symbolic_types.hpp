@@ -184,11 +184,10 @@ namespace viennacl
         public:
           typedef viennacl::vector<SCALARTYPE,ALIGNMENT> runtime_type;
           typedef SCALARTYPE ScalarType;
-          symbolic_vector(unsigned int id,
-                          std::map<viennacl::backend::mem_handle, std::string> & access_names_map,
+          symbolic_vector(std::map<viennacl::backend::mem_handle, std::string> & access_names_map,
                           runtime_type const & rt) : vec_infos_base( print_type<SCALARTYPE>::value()), rt_obj_(rt){
               access_name_ = &access_names_map.insert(std::make_pair(rt_obj_.handle(),std::string())).first->second;
-              name_ = "arg_"+to_string(id);
+              name_ = "arg_"+to_string(access_names_map.size());
           }
         private:
           runtime_type const & rt_obj_;
@@ -238,24 +237,23 @@ namespace viennacl
       public:
         typedef typename get_symbolic_type<T,LhsResult,RhsResult>::type result_type;
 
-          static result_type execute(unsigned int & id, std::map<viennacl::backend::mem_handle,std::string> & access_names_map, T const & t){
-              return result_type(dummy2exptree_impl<Lhs>::execute(id,access_names_map, t.lhs())
-                                 ,dummy2exptree_impl<Rhs>::execute(id,access_names_map, t.rhs()));
+          static result_type execute(std::map<viennacl::backend::mem_handle,std::string> & access_names_map, T const & t){
+              return result_type(dummy2exptree_impl<Lhs>::execute(access_names_map, t.lhs())
+                                 ,dummy2exptree_impl<Rhs>::execute(access_names_map, t.rhs()));
           }
       };
 
       template<class ScalarType, unsigned int Alignment>
       struct dummy2exptree_impl<dummy_vector<ScalarType, Alignment> >{
           typedef symbolic_vector<ScalarType, Alignment> result_type;
-          static result_type execute(unsigned int & id, std::map<viennacl::backend::mem_handle,std::string> & access_names_map, dummy_vector<ScalarType,Alignment> const & v){
-              return result_type(id++, access_names_map,v.vec());
+          static result_type execute(std::map<viennacl::backend::mem_handle,std::string> & access_names_map, dummy_vector<ScalarType,Alignment> const & v){
+              return result_type(access_names_map,v.vec());
           }
       };
 
       template<class T>
       typename dummy2exptree_impl<T>::result_type dummy2exptree(std::map<viennacl::backend::mem_handle,std::string> & access_names_map, T const & t){
-          unsigned int current_id = 0;
-          return dummy2exptree_impl<T>::execute(current_id,access_names_map,t);
+          return dummy2exptree_impl<T>::execute(access_names_map,t);
       }
 
 
