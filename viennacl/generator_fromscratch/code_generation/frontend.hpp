@@ -1,7 +1,7 @@
 #ifndef VIENNACL_GENERATOR_CODE_GENERATION_FRONTEND_HPP
 #define VIENNACL_GENERATOR_CODE_GENERATION_FRONTEND_HPP
 
-#include "viennacl/generator_fromscratch/symbolic_types.hpp"
+#include "viennacl/generator_fromscratch/symbolic_types_base.hpp"
 #include "viennacl/generator_fromscratch/code_generation/backend.hpp"
 #include "viennacl/generator_fromscratch/code_generation/utils.hpp"
 
@@ -23,7 +23,6 @@ namespace viennacl{
                     kss_ << "__kernel void " + kernel_name_ + "(";
                     std::list<kernel_argument*> args(utils::cast<kernel_argument>(utils::filter<utils::EXTRACT_IF>(trees_,utils::is_type<kernel_argument>)));
                     utils::remove_unsorted_duplicates(args);
-                    args.sort(utils::deref_less());
                     for(std::list<kernel_argument*>::iterator it = args.begin() ; it!= args.end() ; ++it){
                         if(it!=args.begin()) kss_ << ",";
                         kss_ << (*it)->kernel_arguments();

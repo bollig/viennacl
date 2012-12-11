@@ -5,6 +5,7 @@ namespace viennacl{
 
 namespace generator{
 
+class custom_operation;
 class infos_base;
 class assign_type;
 class add_type;

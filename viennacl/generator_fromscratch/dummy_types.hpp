@@ -1,8 +1,10 @@
 #ifndef VIENNACL_GENERATOR_DUMMY_TYPES_HPP
 #define VIENNACL_GENERATOR_DUMMY_TYPES_HPP
 
-#include "viennacl/generator_fromscratch/forwards.h"
 #include "viennacl/meta/enable_if.hpp"
+#include "viennacl/generator_fromscratch/forwards.h"
+#include "viennacl/vector.hpp"
+
 namespace viennacl{
 
 namespace generator{
@@ -33,6 +35,15 @@ public: scalar_expression_wrapper(LHS const & lhs, RHS const & rhs) : compile_ti
 template<class LHS, class OP, class RHS>
 class matrix_expression_wrapper : public compile_time_beast<LHS,OP,RHS>{
 public: matrix_expression_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,OP,RHS>(lhs,rhs){ }
+};
+
+class inline_function_wrapper{
+public:
+    inline_function_wrapper(std::string const & name
+                    ,std::string const & expr) : name_(name), expr_(expr){ }
+private:
+    std::string name_;
+    std::string expr_;
 };
 
 template<typename ScalarType, unsigned int Alignment=1>
@@ -234,7 +245,75 @@ operator/(LHS const & lhs, RHS const & rhs){
 
 
 
+#define MAKE_BUILTIN_FUNCTION1(name) static inline_function_wrapper name = inline_function_wrapper(#name,#name "(_1_)")
+#define MAKE_BUILTIN_FUNCTION2(name) static inline_function_wrapper name = inline_function_wrapper(#name,#name "(_1_,_2_)")
+#define MAKE_BUILTIN_FUNCTION3(name) static inline_function_wrapper name = inline_function_wrapper(#name,#name "(_1_,_2_,_3_)")
 
+MAKE_BUILTIN_FUNCTION1(acos);
+MAKE_BUILTIN_FUNCTION1(acosh);
+MAKE_BUILTIN_FUNCTION1(acospi);
+MAKE_BUILTIN_FUNCTION1(asin);
+MAKE_BUILTIN_FUNCTION1(asinh);
+MAKE_BUILTIN_FUNCTION1(asinpi);
+MAKE_BUILTIN_FUNCTION1(atan);
+MAKE_BUILTIN_FUNCTION2(atan2);
+MAKE_BUILTIN_FUNCTION1(atanh);
+MAKE_BUILTIN_FUNCTION1(atanpi);
+MAKE_BUILTIN_FUNCTION2(atan2pi);
+MAKE_BUILTIN_FUNCTION1(cbrt);
+MAKE_BUILTIN_FUNCTION1(ceil);
+MAKE_BUILTIN_FUNCTION2(copysign);
+MAKE_BUILTIN_FUNCTION1(cos);
+MAKE_BUILTIN_FUNCTION1(cosh);
+MAKE_BUILTIN_FUNCTION1(cospi);
+MAKE_BUILTIN_FUNCTION1(erfc);
+MAKE_BUILTIN_FUNCTION1(erf);
+MAKE_BUILTIN_FUNCTION1(exp);
+MAKE_BUILTIN_FUNCTION1(exp2);
+MAKE_BUILTIN_FUNCTION1(exp10);
+MAKE_BUILTIN_FUNCTION1(expm1);
+MAKE_BUILTIN_FUNCTION1(fabs);
+MAKE_BUILTIN_FUNCTION2(fdim);
+MAKE_BUILTIN_FUNCTION1(floor);
+MAKE_BUILTIN_FUNCTION3(fma);
+MAKE_BUILTIN_FUNCTION2(fmax);
+MAKE_BUILTIN_FUNCTION2(fmin);
+MAKE_BUILTIN_FUNCTION2(fmod);
+//    MAKE_BUILTIN_FUNCTION1(fract);
+//    MAKE_BUILTIN_FUNCTION1(frexp);
+MAKE_BUILTIN_FUNCTION2(hypot);
+MAKE_BUILTIN_FUNCTION1(ilogb);
+MAKE_BUILTIN_FUNCTION2(ldexp);
+MAKE_BUILTIN_FUNCTION1(lgamma);
+//    MAKE_BUILTIN_FUNCTION1(lgamma_r);
+MAKE_BUILTIN_FUNCTION1(log);
+MAKE_BUILTIN_FUNCTION1(log2);
+MAKE_BUILTIN_FUNCTION1(log10);
+MAKE_BUILTIN_FUNCTION1(log1p);
+MAKE_BUILTIN_FUNCTION1(logb);
+MAKE_BUILTIN_FUNCTION3(mad);
+//    MAKE_BUILTIN_FUNCTION1(modf);
+MAKE_BUILTIN_FUNCTION1(nan);
+MAKE_BUILTIN_FUNCTION2(nextafter);
+MAKE_BUILTIN_FUNCTION2(pow);
+MAKE_BUILTIN_FUNCTION2(pown);
+MAKE_BUILTIN_FUNCTION2(powr);
+MAKE_BUILTIN_FUNCTION2(remainder);
+//    MAKE_BUILTIN_FUNCTION1(remquo);
+MAKE_BUILTIN_FUNCTION1(rint);
+MAKE_BUILTIN_FUNCTION1(rootn);
+MAKE_BUILTIN_FUNCTION1(round);
+MAKE_BUILTIN_FUNCTION1(rsqrt);
+MAKE_BUILTIN_FUNCTION1(sin);
+//    MAKE_BUILTIN_FUNCTION1(sincos);
+MAKE_BUILTIN_FUNCTION1(sinh);
+MAKE_BUILTIN_FUNCTION1(sinpi);
+MAKE_BUILTIN_FUNCTION1(sqrt);
+MAKE_BUILTIN_FUNCTION1(tan);
+MAKE_BUILTIN_FUNCTION1(tanh);
+MAKE_BUILTIN_FUNCTION1(tanpi);
+MAKE_BUILTIN_FUNCTION1(tgamma);
+MAKE_BUILTIN_FUNCTION1(trunc);
 
 
 

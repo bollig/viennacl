@@ -1,10 +1,9 @@
 #ifndef VIENNACL_GENERATOR_CUSTOM_OPERATION_HPP
 #define VIENNACL_GENERATOR_CUSTOM_OPERATION_HPP
 
-
-#include "viennacl/generator_fromscratch/symbolic_types.hpp"
 #include "viennacl/generator_fromscratch/functions.hpp"
 #include "viennacl/generator_fromscratch/code_generation/frontend.hpp"
+#include "viennacl/generator_fromscratch/symbolic_types.hpp"
 #include "viennacl/tools/shared_ptr.hpp"
 
 namespace viennacl
@@ -14,13 +13,15 @@ namespace viennacl
   /** @brief A class for making a custom operation */
       class custom_operation
       {
+        friend class kernel_argument;
+
         public :
 
-          custom_operation(std::string const & operation_name) : operation_name_(operation_name){ }
+        custom_operation(std::string const & operation_name) : operation_name_(operation_name){ }
 
           template<class T>
           void add(T const & op){
-              operations_manager_.add(dummy2exptree(op));
+              operations_manager_.add(dummy2exptree(access_names_map_,op));
           }
 
           std::string generate() const{
@@ -39,6 +40,7 @@ namespace viennacl
         private:
           std::string operation_name_;
           code_generation::operations_manager operations_manager_;
+          std::map<viennacl::backend::mem_handle, std::string> access_names_map_; //Void* : don't mess up with that! :D
      };
   }
 }
