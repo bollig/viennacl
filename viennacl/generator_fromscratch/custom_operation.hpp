@@ -20,7 +20,7 @@ namespace viennacl
 
           template<class T>
           void add(T const & op){
-              operations_manager_.add(op);
+              operations_manager_.add(dummy2exptree(op));
           }
 
           std::string generate() const{

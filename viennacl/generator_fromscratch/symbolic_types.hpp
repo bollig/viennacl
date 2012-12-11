@@ -151,8 +151,7 @@ namespace viennacl
           bool operator<(leaf_infos_base const & other) const { return (access_name_ < other.access_name_); }
 
       protected:
-          leaf_infos_base(std::string const & scalartype,
-                          std::string const & name): infos_base(), scalartype_(scalartype),name_(name), is_assigned_(false){ }
+          leaf_infos_base(std::string const & scalartype): infos_base(), scalartype_(scalartype){ }
           std::string * access_name_;
           std::string scalartype_;
           std::string name_;
@@ -161,8 +160,9 @@ namespace viennacl
 
       class kernel_argument : public leaf_infos_base{
       public:
-          kernel_argument(std::string const & scalartype, std::string const & name,int id) : leaf_infos_base(scalartype,name), id_(id){
+          kernel_argument(std::string const & scalartype, int id) : leaf_infos_base(scalartype), id_(id){
               access_name_ = &access_names_map_.insert(std::make_pair(id,std::string())).first->second;
+              name_ = "arg"+to_string(id_);
           }
           int id() const{ return id_; }
           virtual std::string kernel_arguments() const = 0;
@@ -232,14 +232,13 @@ namespace viennacl
 
       class scal_infos_base : public kernel_argument{
       protected:
-          scal_infos_base(std::string const & scalartype, std::string const & name, int id) : kernel_argument(scalartype,name,id){ }
+          scal_infos_base(std::string const & scalartype, int id) : kernel_argument(scalartype,id){ }
       };
 
       class cpu_scal_infos_base : public scal_infos_base{
       protected:
           cpu_scal_infos_base(std::string const & scalartype
-                              , std::string const & name
-                              , int id) : scal_infos_base(scalartype,name,id){ }
+                              , int id) : scal_infos_base(scalartype,id){ }
       public:
           std::string kernel_arguments() const{
               return scalartype_ + " " + name_;
@@ -248,7 +247,7 @@ namespace viennacl
 
       class gpu_scal_infos_base : public scal_infos_base{
       protected:
-          gpu_scal_infos_base(std::string const & scalartype, std::string const & name, int id) : scal_infos_base(scalartype,name,id){ }
+          gpu_scal_infos_base(std::string const & scalartype, int id) : scal_infos_base(scalartype,id){ }
       public:
           std::string kernel_arguments() const{
               return "__global " + scalartype_ + "*"  + " " + name_;
@@ -268,9 +267,7 @@ namespace viennacl
           inprod_infos_base(infos_base * lhs, infos_base * rhs
                             ,std::string const & scalartype
                             ,step_t & step): binary_tree_infos_base(lhs,rhs)
-                                             ,scal_infos_base(scalartype
-                                                              ,lhs_->name() + "_inprod_" + rhs_->name()
-                                                              ,-1)
+                                             ,scal_infos_base(scalartype,-1)
                                             ,step_(step){ }
 
 
@@ -328,51 +325,11 @@ namespace viennacl
       public:
         typedef viennacl::scalar<SCALARTYPE> runtime_type;
         typedef SCALARTYPE ScalarType;
-        gpu_symbolic_scalar(unsigned int id) : gpu_scal_infos_base(print_type<SCALARTYPE>::value(), "g_s" + to_string(id),id ){ }
+        gpu_symbolic_scalar(unsigned int id) : gpu_scal_infos_base(print_type<SCALARTYPE>::value(),id ){ }
 
         leaf_infos_base& get(){
             static self_type res;
             return res;
-        }
-
-        template<typename RHS_TYPE>
-        scalar_expression<self_type, assign_type, RHS_TYPE >
-        operator= ( RHS_TYPE const & rhs )
-        {
-          is_assigned_=true;
-          return scalar_expression<self_type,assign_type,RHS_TYPE >(*this,rhs);
-        }
-
-        template<typename RHS_TYPE>
-        scalar_expression<self_type, inplace_scal_mul_type, RHS_TYPE >
-        operator*= ( RHS_TYPE const & rhs )
-        {
-          is_assigned_=true;
-          return scalar_expression<self_type,inplace_scal_mul_type,RHS_TYPE >(*this,rhs);
-        }
-
-        template<typename RHS_TYPE>
-        scalar_expression<self_type, inplace_scal_div_type, RHS_TYPE >
-        operator/= ( RHS_TYPE const & rhs )
-        {
-          is_assigned_=true;
-          return scalar_expression<self_type,inplace_scal_div_type,RHS_TYPE >(*this,rhs);
-        }
-
-        template<typename RHS_TYPE>
-        scalar_expression<self_type, inplace_add_type, RHS_TYPE >
-        operator+= ( RHS_TYPE const & rhs )
-        {
-          is_assigned_=true;
-          return scalar_expression<self_type,inplace_add_type,RHS_TYPE >(*this,rhs);
-        }
-
-        template<typename RHS_TYPE>
-        scalar_expression<self_type, inplace_sub_type, RHS_TYPE >
-        operator-= ( RHS_TYPE const & rhs )
-        {
-          is_assigned_=true;
-          return scalar_expression<self_type,inplace_sub_type,RHS_TYPE >(*this,rhs);
         }
 
     };
@@ -391,9 +348,9 @@ namespace viennacl
           }
           virtual ~vec_infos_base(){ }
       protected:
-          vec_infos_base(std::string const & scalartype, std::string const & name, unsigned int id) :
-                                                          kernel_argument(scalartype,name,id)
-                                                          ,size_(name_+"_size")
+          vec_infos_base(std::string const & scalartype, unsigned int id) :
+                                                          kernel_argument(scalartype,id)
+                                                        ,size_(name_+"_size")
                                                         ,internal_size_(""){ }
       private:
           std::string size_;
@@ -411,58 +368,14 @@ namespace viennacl
       */
 
       //TODO: Add start and inc...
-      template <typename SCALARTYPE, unsigned int ALIGNMENT=1>
+      template <typename SCALARTYPE, unsigned int ALIGNMENT>
       class symbolic_vector : public vec_infos_base{
         private:
           typedef symbolic_vector<SCALARTYPE,ALIGNMENT> self_type;
         public:
-
           typedef viennacl::vector<SCALARTYPE,ALIGNMENT> runtime_type;
           typedef SCALARTYPE ScalarType;
-          symbolic_vector(unsigned int id) : vec_infos_base(print_type<SCALARTYPE>::value()
-                                             , "v_a" + to_string(ALIGNMENT) + "_" + to_string(id)
-                                             , id) { }
-
-
-          template<typename RHS_TYPE>
-          vector_expression<self_type, assign_type, RHS_TYPE >
-          operator= ( RHS_TYPE const & rhs)
-          {
-            is_assigned_=true;
-            return vector_expression<self_type,assign_type,RHS_TYPE >(*this,rhs);
-          }
-
-          template<typename RHS_TYPE>
-          vector_expression<self_type, inplace_scal_mul_type, RHS_TYPE >
-          operator*= ( RHS_TYPE const & rhs )
-          {
-            is_assigned_=true;
-            return vector_expression<self_type,inplace_scal_mul_type,RHS_TYPE >(*this,rhs);
-          }
-
-          template<typename RHS_TYPE>
-          vector_expression<self_type, inplace_scal_div_type, RHS_TYPE >
-          operator/= ( RHS_TYPE const & rhs )
-          {
-            is_assigned_=true;
-            return vector_expression<self_type,inplace_scal_div_type,RHS_TYPE >(*this,rhs);
-          }
-
-          template<typename RHS_TYPE>
-          vector_expression<self_type, inplace_add_type, RHS_TYPE >
-          operator+= ( RHS_TYPE const & rhs )
-          {
-            is_assigned_=true;
-            return vector_expression<self_type,inplace_add_type,RHS_TYPE >(*this,rhs);
-          }
-
-          template<typename RHS_TYPE>
-          vector_expression<self_type, inplace_sub_type, RHS_TYPE >
-          operator-= ( RHS_TYPE const & rhs )
-          {
-            is_assigned_=true;
-            return vector_expression<self_type,inplace_sub_type,RHS_TYPE >(*this,rhs);
-          }
+          symbolic_vector(runtime_type const & rt) : vec_infos_base(print_type<SCALARTYPE>::value(), 0) { }
       };
 
       class mat_infos_base : public kernel_argument{
@@ -476,7 +389,7 @@ namespace viennacl
           std::string const & row_start() const{ return row_start_;}
           std::string const & col_start() const{ return col_start_;}
           std::string kernel_arguments() const{
-              return " __global " + scalartype_ + "*"  + " " + name()
+              return " __global " + scalartype_ + "*"  + " " + name_
                     + ", unsigned int " + row_start_
                     + ", unsigned int " + col_start_
                     + ", unsigned int " + row_inc_
@@ -492,10 +405,9 @@ namespace viennacl
           virtual ~mat_infos_base() { }
       protected:
           mat_infos_base(std::string const & scalartype
-                         ,std::string const & name
                          ,bool is_rowmajor
                          ,bool is_transposed
-                         ,unsigned int id) : kernel_argument(scalartype, name,id)
+                         ,unsigned int id) : kernel_argument(scalartype,id)
                                                 ,size1_(name_ + "_size1")
                                                 ,size2_(name_ + "size2")
                                                 ,internal_size1_(size1_ + "_internal")
@@ -531,302 +443,62 @@ namespace viennacl
       template<typename SCALARTYPE, class F, unsigned int ALIGNMENT=1>
       class symbolic_matrix : public mat_infos_base
       {
-
           typedef symbolic_matrix<SCALARTYPE, F, ALIGNMENT> self_type;
-
-          static std::string name(unsigned int id)
-          {
-            return "m_a_" + viennacl::generator::to_string(F()) + "_"
-                          + viennacl::generator::to_string(ALIGNMENT) + "_"
-                          + viennacl::generator::to_string<long>(id);
-          }
-
 
         public:
           symbolic_matrix(unsigned int id) : mat_infos_base(print_type<SCALARTYPE>::value()
-                                        ,name(id)
                                         ,true
                                         ,false
                                         ,id){ }
 
           typedef viennacl::matrix<SCALARTYPE,F,ALIGNMENT> runtime_type;
           typedef SCALARTYPE ScalarType;
-          template<typename RHS_TYPE>
-          matrix_expression<self_type, assign_type, RHS_TYPE >
-          operator= ( RHS_TYPE const & rhs )
-          {
-            is_assigned_=true;
-            return matrix_expression<self_type,assign_type,RHS_TYPE >(*this,rhs);
-          }
+      };
 
-          template<typename RHS_TYPE>
-          matrix_expression<self_type, inplace_scal_mul_type, RHS_TYPE >
-          operator*= ( RHS_TYPE const & rhs )
-          {
-            is_assigned_=true;
-            return matrix_expression<self_type,inplace_scal_mul_type,RHS_TYPE >(*this,rhs);
-          }
+      template<class Model, class LHS, class RHS>
+      struct get_symbolic_type;
 
-          template<typename RHS_TYPE>
-          matrix_expression<self_type, inplace_scal_div_type, RHS_TYPE >
-          operator/= ( RHS_TYPE const & rhs )
-          {
-            is_assigned_=true;
-            return matrix_expression<self_type,inplace_scal_div_type,RHS_TYPE >(*this,rhs);
-          }
+      template<class OP, class LHS1, class RHS1, class LHS2, class RHS2>
+      struct get_symbolic_type<vector_expression_wrapper<LHS1,OP,RHS1>,LHS2,RHS2 >{ typedef vector_expression<LHS2,OP,RHS2> type;};
+      template<class OP, class LHS1, class RHS1, class LHS2, class RHS2>
+      struct get_symbolic_type<scalar_expression_wrapper<LHS1,OP,RHS1>,LHS2,RHS2 >{ typedef scalar_expression<LHS2,OP,RHS2> type;};
+      template<class OP, class LHS1, class RHS1, class LHS2, class RHS2>
+      struct get_symbolic_type<matrix_expression_wrapper<LHS1,OP,RHS1>,LHS2,RHS2 >{ typedef matrix_expression<LHS2,OP,RHS2> type;};
 
-          template<typename RHS_TYPE>
-          matrix_expression<self_type, inplace_add_type, RHS_TYPE >
-          operator+= ( RHS_TYPE const & rhs )
-          {
-            is_assigned_=true;
-            return matrix_expression<self_type,inplace_add_type,RHS_TYPE >(*this,rhs);
-          }
+      template<class T>
+      struct dummy2exptree_impl;
 
-          template<typename RHS_TYPE>
-          matrix_expression<self_type, inplace_sub_type, RHS_TYPE >
-          operator-= ( RHS_TYPE const & rhs )
-          {
-            is_assigned_=true;
-            return matrix_expression<self_type,inplace_sub_type,RHS_TYPE >(*this,rhs);
+      template<class T>
+      struct dummy2exptree_impl
+      {
+      private:
+        typedef typename T::Lhs Lhs;
+        typedef typename T::Rhs Rhs;
+        typedef typename dummy2exptree_impl<Lhs>::result_type LhsResult;
+        typedef typename dummy2exptree_impl<Rhs>::result_type RhsResult;
+      public:
+        typedef typename get_symbolic_type<T,LhsResult,RhsResult>::type result_type;
+
+          static result_type execute(T const & t){
+              return result_type(dummy2exptree_impl<Lhs>::execute(t.lhs())
+                                 ,dummy2exptree_impl<Rhs>::execute(t.rhs()));
+          }
+      };
+
+      template<class ScalarType, unsigned int Alignment>
+      struct dummy2exptree_impl<dummy_vector<ScalarType, Alignment> >{
+          typedef symbolic_vector<ScalarType, Alignment> result_type;
+          static result_type execute(dummy_vector<ScalarType,Alignment> const & v){
+              return result_type(v.vec());
           }
       };
 
       template<class T>
-      struct is_vector_expression{ enum { value = 0 }; };
-
-      template <typename SCALARTYPE, unsigned int ALIGNMENT>
-      struct is_vector_expression<symbolic_vector<SCALARTYPE,ALIGNMENT> >{ enum { value = 1 }; };
-
-      template<class LHS, class OP, class RHS>
-      struct is_vector_expression<vector_expression<LHS,OP,RHS> >{ enum { value = 1 }; };
-
-
-      template<class T>
-      struct is_matrix_expression{ enum { value = 0 }; };
-
-      template <typename SCALARTYPE, class F,unsigned int ALIGNMENT>
-      struct is_matrix_expression<symbolic_matrix<SCALARTYPE,F,ALIGNMENT> >{ enum { value = 1 }; };
-
-      template<class LHS, class OP, class RHS>
-      struct is_matrix_expression<matrix_expression<LHS,OP,RHS> >{ enum { value = 1 }; };
-
-      template<class T, class Enable=void>
-      struct is_scalar_expression{ enum { value = 0 }; };
-
-      template <typename SCALARTYPE>
-      struct is_scalar_expression<gpu_symbolic_scalar<SCALARTYPE> >{ enum { value = 1 }; };
-
-      template <typename SCALARTYPE>
-      struct is_scalar_expression<cpu_symbolic_scalar<SCALARTYPE> >{ enum { value = 1 }; };
-
-      template<class LHS, class OP, class RHS>
-      struct is_scalar_expression<scalar_expression<LHS,OP,RHS> >{ enum { value = 1 }; };
-
-      template<class LHS, class RHS>
-      struct is_scalar_expression<inprod_infos<LHS,RHS> >{ enum { value = 1 }; };
-
-      template<class T>
-      struct is_scalar_expression<T, typename viennacl::enable_if<is_primitive_type<T>::value>::type>{ enum { value = 1}; };
-
-      template<class T, class Enable=void>
-      struct wrap_scalar{ typedef T type; };
-
-//      template<class T>
-//      struct wrap_scalar<T, typename enable_if<is_primitive_type<T>::value>::type>{ typedef primitive_type_infos<T> type ; };
-
-
-      /** @brief Unary minus operator */
-      template<class T>
-      unary_minus<T> operator -(T const &)
-      {
-        return unary_minus<T>();
-      }
-
-//      /** @brief Scalar multiplication operator */
-//      template<class LHS_TYPE, class RHS_TYPE>
-//      compound_node<LHS_TYPE,scal_mul_type,RHS_TYPE>
-//      operator* ( LHS_TYPE const &, RHS_TYPE const & )
-//      {
-//        return compound_node<LHS_TYPE, scal_mul_type,RHS_TYPE> ();
-//      }
-
-
-
-//      /** @brief Scalar division operator */
-//      template<class LHS_TYPE, class RHS_TYPE>
-//      compound_node<LHS_TYPE,scal_div_type,RHS_TYPE>
-//      operator/ ( LHS_TYPE const &, RHS_TYPE const & )
-//      {
-//        return compound_node<LHS_TYPE,scal_div_type,RHS_TYPE> ();
-//      }
-
-      /**
-       * Operator* for Scalar*Vector
-       */
-      template<class LHS_TYPE, class RHS_TYPE>
-      typename viennacl::enable_if<(is_scalar_expression<LHS_TYPE>::value && is_vector_expression<RHS_TYPE>::value)
-                                 ||(is_scalar_expression<RHS_TYPE>::value && is_vector_expression<LHS_TYPE>::value)
-                                  ,vector_expression<LHS_TYPE,scal_mul_type,RHS_TYPE> >::type
-      operator* ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return vector_expression<typename wrap_scalar<LHS_TYPE>::type,scal_mul_type,typename wrap_scalar<RHS_TYPE>::type>(lhs,rhs);
-      }
-
-      /**
-       * Operator* for Scalar*Matrix
-       */
-      template<class LHS_TYPE, class RHS_TYPE>
-      typename viennacl::enable_if<(is_scalar_expression<LHS_TYPE>::value && is_matrix_expression<RHS_TYPE>::value)
-                                 ||(is_scalar_expression<RHS_TYPE>::value && is_matrix_expression<LHS_TYPE>::value)
-                                  ,matrix_expression<LHS_TYPE,scal_mul_type,RHS_TYPE> >::type
-      operator* ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return matrix_expression<typename wrap_scalar<LHS_TYPE>::type,scal_mul_type,typename wrap_scalar<RHS_TYPE>::type>(lhs,rhs);
-      }
-
-      /**
-       * Operator* for Scalar*Scalar
-       */
-      template<class LHS_TYPE, class RHS_TYPE>
-      typename viennacl::enable_if<(is_scalar_expression<LHS_TYPE>::value && is_scalar_expression<RHS_TYPE>::value)
-                                  ,scalar_expression<LHS_TYPE,scal_mul_type,RHS_TYPE> >::type
-      operator* ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return scalar_expression<typename wrap_scalar<LHS_TYPE>::type,scal_mul_type,typename wrap_scalar<RHS_TYPE>::type>(lhs,rhs);
+      typename dummy2exptree_impl<T>::result_type dummy2exptree(T const & t){
+          return dummy2exptree_impl<T>::execute(t);
       }
 
 
-      /**
-       * operator/ for Scalar*Vector
-       */
-      template<class LHS_TYPE, class RHS_TYPE>
-      typename viennacl::enable_if<(is_scalar_expression<LHS_TYPE>::value && is_vector_expression<RHS_TYPE>::value)
-                                 ||(is_scalar_expression<RHS_TYPE>::value && is_vector_expression<LHS_TYPE>::value)
-                                  ,vector_expression<LHS_TYPE,scal_div_type,RHS_TYPE> >::type
-      operator/ ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return vector_expression<typename wrap_scalar<LHS_TYPE>::type,scal_div_type,typename wrap_scalar<RHS_TYPE>::type>(lhs,rhs);
-      }
-
-      /**
-       * operator/ for Scalar*Matrix
-       */
-      template<class LHS_TYPE, class RHS_TYPE>
-      typename viennacl::enable_if<(is_scalar_expression<LHS_TYPE>::value && is_matrix_expression<RHS_TYPE>::value)
-                                 ||(is_scalar_expression<RHS_TYPE>::value && is_matrix_expression<LHS_TYPE>::value)
-                                  ,matrix_expression<LHS_TYPE,scal_div_type,RHS_TYPE> >::type
-      operator/ ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return matrix_expression<typename wrap_scalar<LHS_TYPE>::type,scal_div_type,typename wrap_scalar<RHS_TYPE>::type>(lhs,rhs);
-      }
-
-      /**
-       * operator/ for Scalar*Scalar
-       */
-      template<class LHS_TYPE, class RHS_TYPE>
-      typename viennacl::enable_if<(is_scalar_expression<LHS_TYPE>::value && is_scalar_expression<RHS_TYPE>::value)
-                                  ,scalar_expression<LHS_TYPE,scal_div_type,RHS_TYPE> >::type
-      operator/ ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return scalar_expression<typename wrap_scalar<LHS_TYPE>::type,scal_div_type,typename wrap_scalar<RHS_TYPE>::type>(lhs,rhs);
-      }
-
-
-      /**
-       * Operator+ for adding 2vectors
-       */
-      template<class LHS_TYPE, class RHS_TYPE>
-      typename viennacl::enable_if<is_vector_expression<LHS_TYPE>::value && is_vector_expression<RHS_TYPE>::value
-                                  ,vector_expression<LHS_TYPE,add_type,RHS_TYPE> >::type
-      operator+ ( LHS_TYPE const & lhs , RHS_TYPE const & rhs){
-          return vector_expression<LHS_TYPE,add_type,RHS_TYPE>(lhs,rhs);
-      }
-
-
-      /**
-       * Operator+ for adding 2matrices
-       */
-      template<class LHS_TYPE, class RHS_TYPE>
-      typename viennacl::enable_if<is_matrix_expression<LHS_TYPE>::value && is_matrix_expression<RHS_TYPE>::value
-                                  ,matrix_expression<LHS_TYPE,add_type,RHS_TYPE> >::type
-      operator+ ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return matrix_expression<LHS_TYPE,add_type,RHS_TYPE>(lhs,rhs);
-      }
-
-
-      /**
-       * Operator+ for adding 2scalars
-       */
-      template<class LHS_TYPE, class RHS_TYPE>
-      typename viennacl::enable_if<is_scalar_expression<LHS_TYPE>::value && is_scalar_expression<RHS_TYPE>::value
-                                  ,scalar_expression<LHS_TYPE,add_type,RHS_TYPE> >::type
-      operator+ ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return scalar_expression<typename wrap_scalar<LHS_TYPE>::type,add_type,typename wrap_scalar<RHS_TYPE>::type>(lhs,rhs);
-      }
-
-
-
-
-      /**
-       * Operator- for adding 2vectors
-       */
-      template<class LHS_TYPE, class RHS_TYPE>
-      typename viennacl::enable_if<is_vector_expression<LHS_TYPE>::value && is_vector_expression<RHS_TYPE>::value
-                                  ,vector_expression<LHS_TYPE,sub_type,RHS_TYPE> >::type
-      operator- ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return vector_expression<LHS_TYPE,sub_type,RHS_TYPE>(lhs,rhs);
-      }
-
-
-      /**
-       * Operator- for adding 2matrices
-       */
-      template<class LHS_TYPE, class RHS_TYPE>
-      typename viennacl::enable_if<is_matrix_expression<LHS_TYPE>::value && is_matrix_expression<RHS_TYPE>::value
-                                  ,matrix_expression<LHS_TYPE,sub_type,RHS_TYPE> >::type
-      operator- ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return matrix_expression<LHS_TYPE,sub_type,RHS_TYPE>(lhs,rhs);
-      }
-
-
-      /**
-       * Operator- for adding 2scalars
-       */
-      template<class LHS_TYPE, class RHS_TYPE>
-      typename viennacl::enable_if<is_scalar_expression<LHS_TYPE>::value && is_scalar_expression<RHS_TYPE>::value
-                                  ,scalar_expression<LHS_TYPE,sub_type,RHS_TYPE> >::type
-      operator- ( LHS_TYPE const &, RHS_TYPE const & ){
-          return scalar_expression<LHS_TYPE,sub_type,RHS_TYPE>();
-      }
-
-
-      template<class LHS_TYPE, class RHS_TYPE>
-      typename viennacl::enable_if<is_vector_expression<LHS_TYPE>::value && is_vector_expression<RHS_TYPE>::value
-                                  ,inprod_infos<LHS_TYPE,RHS_TYPE> >::type
-      inner_prod ( LHS_TYPE const & lhs, RHS_TYPE const & rhs ){
-          return inprod_infos<LHS_TYPE,RHS_TYPE>(lhs,rhs);
-      }
-
-//      /**
-//      * @brief Specialization for the matrix-vector product.
-//      */
-//      template<class LHS_, class RHS_>
-//      class compound_node<LHS_,prod_type,RHS_>
-//      {
-//        private:
-//          typedef compound_node<LHS_,prod_type,RHS_> self_type;
-
-//        public:
-//          typedef LHS_ LHS;
-//          typedef RHS_ RHS;
-
-//          typedef prod_type OP;
-//          enum { id = LHS::id };
-
-//          typedef typename result_of::expression_type<LHS>::Result IntermediateType;    //Note: Visual Studio does not allow to combine this line with the next one directly.
-//          typedef typename IntermediateType::ScalarType ScalarType;
-//          static const unsigned int Alignment = result_of::expression_type<LHS>::Result::Alignment;
-
-//          static std::string name()
-//          {
-//            return LHS::name() + "_prod_" + RHS::name();
-//          }
-//      };
 
 
   } // namespace generator
