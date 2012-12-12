@@ -39,13 +39,96 @@ class matrix_expression_wrapper : public compile_time_beast<LHS,OP,RHS>{
 public: matrix_expression_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,OP,RHS>(lhs,rhs){ }
 };
 
-class inline_function_wrapper{
+template<class T1>
+struct function1_wrapper{
+    function1_wrapper(std::string const & _name, std::string const & _expr,T1 const & _t1) : t1(_t1), name(_name), expr(_expr){ }
+    T1 const & t1;
+    std::string name;
+    std::string expr;
+};
+
+//template<class T1, class T2>
+//struct function2_wrapper{
+//    function2_wrapper(T1 const & _t1, T2 const & _t2) : t1(_t1), t2(_t2){ }
+//    T1 const & t1;
+//    T2 const & t2;
+//};
+
+
+//template<class T1, class T2, class T3>
+//struct function1_wrapper{
+//    function1_wrapper(T1 const & _t1, T2 const & _t2, T3 const & _t3) : t1(_t1, t2(_t2), t3(_t3)){ }
+//    T1 const & t1;
+//    T2 const & t2;
+//    T3 const & t3;
+//};
+
+
+class function_wrapper{
 public:
-    inline_function_wrapper(std::string const & name
-                    ,std::string const & expr) : name_(name), expr_(expr){ }
+    function_wrapper(std::string const & name
+                    ,std::string const & expr) : name_(name), expr_(expr){
+        n_args_ = 0;
+        bool keep_going = true;
+        while(keep_going){
+            std::string current_arg = "_"+to_string(n_args_+1)+"_";
+            if(expr_.find(current_arg)!=std::string::npos)
+                ++n_args_;
+            else
+                keep_going=false;
+        }
+        assert(n_args_>0 && "\nNo argument specified for the function\n"
+                            "\nRecall : 1st arg : _1_\n"
+                            "\n         2nd arg : _2_\n"
+                                      "...");
+    }
+
+//    std::list<infos_base*> args() const{
+//        std::list<infos_base*> res;
+//        for(args_map_t::const_iterator it = args_map_.begin() ; it!= args_map_.end() ; ++it)
+//            res.push_back(it->second.get());
+//        return res;
+//    }
+
+    template<class T1>
+    function1_wrapper<T1> operator()(T1 const & t1){
+        assert(n_args_==1);
+        return function1_wrapper<T1>(name_,expr_,t1);
+    }
+
+//    template<class T1, class T2>
+//    function_wrapper& operator()(T1 const & t1, T2 const & t2){
+//        assert(n_args_==2);
+//        return *this;
+//    }
+
+//    template<class T1, class T2, class T3>
+//    function_wrapper& operator()(T1 const & t1, T2 const & t2, T3 const & t3){
+//        assert(n_args_==3);
+//        return *this;
+//    }
+
+
+//    template<class T1, class T2, class T3, class T4>
+//    function_wrapper& operator()(T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4){
+//        assert(n_args_==4);
+////        args_map_.insert(std::make_pair("_1_",viennacl::tools::shared_ptr<infos_base>(new T1(t1))));
+////        args_map_.insert(std::make_pair("_2_",viennacl::tools::shared_ptr<infos_base>(new T2(t2))));
+////        args_map_.insert(std::make_pair("_3_",viennacl::tools::shared_ptr<infos_base>(new T3(t3))));
+////        args_map_.insert(std::make_pair("_4_",viennacl::tools::shared_ptr<infos_base>(new T4(t4))));
+//        return *this;
+//    }
+
+//    template<class T1, class T2, class T3, class T4, class T5>
+//    function_wrapper& operator()(T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4, T5 const & t5){
+//        assert(n_args_==4);
+
+//        return *this;
+//    }
 private:
     std::string name_;
     std::string expr_;
+    unsigned int n_args_;
 };
 
 template<typename ScalarType, unsigned int Alignment=1>
@@ -171,6 +254,8 @@ template<>
 struct is_scalar_expression_t<dummy_scalar>{ enum { value = 1}; };
 template<class LHS, class OP, class RHS>
 struct is_scalar_expression_t<scalar_expression_wrapper<LHS,OP,RHS> >{ enum { value = 1}; };
+template<class T>
+struct is_scalar_expression_t<function1_wrapper<T> >{ enum { value = 1}; };
 
 template<class T>
 struct is_matrix_expression_t{ enum { value = 0 }; };
@@ -194,17 +279,36 @@ struct convert_to_expr<LHS,OP,RHS,false,false,true>{ typedef matrix_expression_w
 //{
 //  return unary_minus<T>();
 //}
+template<class LHS, class RHS> struct create_vector{
+    enum{  value= (is_vector_expression_t<LHS>::value && is_scalar_expression_t<RHS>::value)
+         || (is_scalar_expression_t<LHS>::value && is_vector_expression_t<RHS>::value)
+         || (is_vector_expression_t<LHS>::value && is_vector_expression_t<RHS>::value) };
+};
+
+template<class LHS, class RHS> struct create_scalar{
+    enum{  value= (is_scalar_expression_t<LHS>::value && is_scalar_expression_t<RHS>::value) };
+};
+
+
+template<class LHS, class RHS> struct create_matrix{
+    enum{  value= (is_matrix_expression_t<LHS>::value && is_scalar_expression_t<RHS>::value)
+         || (is_scalar_expression_t<LHS>::value && is_matrix_expression_t<RHS>::value)
+         || (is_matrix_expression_t<LHS>::value && is_matrix_expression_t<RHS>::value) };
+};
 
 template<class LHS, class RHS>
-typename viennacl::enable_if< (is_vector_expression_t<LHS>::value && is_vector_expression_t<RHS>::value)
-                             ||(is_scalar_expression_t<LHS>::value && is_scalar_expression_t<RHS>::value)
+typename viennacl::enable_if< (is_scalar_expression_t<LHS>::value || is_scalar_expression_t<RHS>::value)
+                             ||(is_vector_expression_t<LHS>::value && is_vector_expression_t<RHS>::value)
                              ||(is_matrix_expression_t<LHS>::value && is_matrix_expression_t<RHS>::value)
                             ,typename convert_to_expr<LHS,add_type,RHS
-                                                    ,is_vector_expression_t<LHS>::value
-                                                    ,is_scalar_expression_t<LHS>::value
-                                                    ,is_matrix_expression_t<LHS>::value>::type>::type
+                                                    ,create_vector<LHS,RHS>::value
+                                                    ,create_scalar<LHS,RHS>::value
+                                                    ,create_matrix<LHS,RHS>::value>::type>::type
 operator+(LHS const & lhs, RHS const & rhs){
-    return typename convert_to_expr<LHS,add_type,RHS, is_vector_expression_t<LHS>::value, is_scalar_expression_t<LHS>::value, is_matrix_expression_t<LHS>::value>::type(lhs,rhs);
+    return typename convert_to_expr<LHS,add_type,RHS
+            ,create_vector<LHS,RHS>::value
+            ,create_scalar<LHS,RHS>::value
+            ,create_matrix<LHS,RHS>::value>::type(lhs,rhs);
 }
 
 template<class LHS, class RHS>
@@ -247,9 +351,9 @@ operator/(LHS const & lhs, RHS const & rhs){
 
 
 
-#define MAKE_BUILTIN_FUNCTION1(name) static inline_function_wrapper name = inline_function_wrapper(#name,#name "(_1_)")
-#define MAKE_BUILTIN_FUNCTION2(name) static inline_function_wrapper name = inline_function_wrapper(#name,#name "(_1_,_2_)")
-#define MAKE_BUILTIN_FUNCTION3(name) static inline_function_wrapper name = inline_function_wrapper(#name,#name "(_1_,_2_,_3_)")
+#define MAKE_BUILTIN_FUNCTION1(name) static function_wrapper name = function_wrapper(#name,#name "(_1_)")
+#define MAKE_BUILTIN_FUNCTION2(name) static function_wrapper name = function_wrapper(#name,#name "(_1_,_2_)")
+#define MAKE_BUILTIN_FUNCTION3(name) static function_wrapper name = function_wrapper(#name,#name "(_1_,_2_,_3_)")
 
 MAKE_BUILTIN_FUNCTION1(acos);
 MAKE_BUILTIN_FUNCTION1(acosh);

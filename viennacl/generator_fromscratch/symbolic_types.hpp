@@ -21,13 +21,12 @@
 
 #include "viennacl/generator_fromscratch/dummy_types.hpp"
 #include "viennacl/generator_fromscratch/symbolic_types_base.hpp"
+#include "viennacl/generator_fromscratch/functions.hpp"
 
 namespace viennacl
 {
   namespace generator
   {
-
-
 
 
       struct shared_infos{
@@ -260,6 +259,17 @@ namespace viennacl
                                      dummy_vector<ScalarType,Alignment> const & v){
               std::map<viennacl::backend::mem_handle,shared_infos>::iterator it = access_names_map.insert(std::make_pair(v.vec().handle(),shared_infos(std::string(), std::string("arg"+to_string(access_names_map.size()))))).first;
               return result_type(it->second.access_name(), it->second.name(), v.vec());
+          }
+      };
+
+      template<class T>
+      struct dummy2exptree_impl<function1_wrapper<T> >{
+          typedef symbolic_function result_type;
+          static result_type execute(std::map<viennacl::backend::mem_handle,shared_infos> & access_names_map
+                                     ,function1_wrapper<T> func){
+              return result_type(func.name
+                                 ,func.expr
+                                 ,dummy2exptree_impl<T>::execute(access_names_map, func.t1));
           }
       };
 
