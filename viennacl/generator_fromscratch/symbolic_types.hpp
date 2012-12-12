@@ -83,15 +83,6 @@ namespace viennacl
           inplace_scal_div_type() : op_infos_base(" /= ", "div_eq", true){ }
       };
 
-
-      class elementwise_prod_type :  public op_infos_base{
-          elementwise_prod_type() : op_infos_base(" * ", "ewp",false){ }
-      };
-
-      class elementwise_div_type :  public op_infos_base{
-          elementwise_div_type() : op_infos_base(" / ", "ewd", false){ }
-      };
-
       template<class LHS, class OP, class RHS>
       class vector_expression : public vector_expression_infos_base{
       public:
@@ -125,15 +116,13 @@ namespace viennacl
       class inprod_infos : public inprod_infos_base{
       public:
           inprod_infos(LHS const & lhs, RHS const & rhs) :
-              inprod_infos_base(
-                                new LHS(lhs), new RHS(rhs),new step_t(inprod_infos_base::compute),
+              inprod_infos_base(new LHS(lhs), new RHS(rhs)
+                                ,new step_t(inprod_infos_base::compute),
                                 print_type<typename LHS::ScalarType>::value()){ }
 
           std::string kernel_arguments() const{
               return "__global " + scalartype_ + "*" + " " + name_;
           }
-      private:
-          viennacl::vector<typename LHS::ScalarType> temp_;
       };
 
     /**
@@ -169,7 +158,7 @@ namespace viennacl
         typedef SCALARTYPE ScalarType;
         gpu_symbolic_scalar() : gpu_scal_infos_base(print_type<SCALARTYPE>::value()){ }
 
-        leaf_infos_base& get(){
+        kernel_argument& get(){
             static self_type res;
             return res;
         }
@@ -179,12 +168,9 @@ namespace viennacl
       /**
       * @brief Symbolic vector type
       *
-      * @tparam ID The argument ID of the vector in the generated code
       * @tparam SCALARTYPE The Scalartype of the vector in the generated code
       * @tparam ALIGNMENT The Alignment of the vector in the generated code
       */
-
-      //TODO: Add start and inc...
       template <typename SCALARTYPE, unsigned int ALIGNMENT>
       class symbolic_vector : public vec_infos_base{
         private:
@@ -194,18 +180,19 @@ namespace viennacl
           typedef SCALARTYPE ScalarType;
           symbolic_vector(std::string & access_name
                           ,std::string const & name
-                          ,runtime_type const & rt) : vec_infos_base(name,print_type<SCALARTYPE>::value()), rt_obj_(rt){
+                          ,runtime_type const & vcl_vec) : vec_infos_base(name,print_type<SCALARTYPE>::value()), vcl_vec_(vcl_vec){
               access_name_ = &access_name;
           }
+          virtual viennacl::backend::mem_handle handle() const{ return vcl_vec_.handle(); }
+
         private:
-          runtime_type const & rt_obj_;
+          runtime_type const & vcl_vec_;
       };
 
 
       /**
       * @brief Symbolic matrix type
       *
-      * @tparam ID The argument ID of the matrix in the generated code
       * @tparam SCALARTYPE The Scalartype of the matrix in the generated code
       * @tparam F The Layout of the matrix in the generated code
       * @tparam ALIGNMENT The Alignment of the matrix in the generated code
@@ -227,6 +214,8 @@ namespace viennacl
       template<class Model, class LHS, class RHS>
       struct get_symbolic_type;
 
+      template<class LHS1, class RHS1, class LHS2, class RHS2>
+      struct get_symbolic_type<inner_prod_wrapper<LHS1, RHS1>, LHS2, RHS2> { typedef inprod_infos<LHS2,RHS2> type; };
       template<class OP, class LHS1, class RHS1, class LHS2, class RHS2>
       struct get_symbolic_type<vector_expression_wrapper<LHS1,OP,RHS1>,LHS2,RHS2 >{ typedef vector_expression<LHS2,OP,RHS2> type;};
       template<class OP, class LHS1, class RHS1, class LHS2, class RHS2>

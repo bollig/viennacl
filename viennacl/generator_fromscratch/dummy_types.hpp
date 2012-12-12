@@ -26,6 +26,9 @@ private:
     OP  op_;
 };
 
+struct inprod_type{ };
+
+
 template<class LHS, class OP, class RHS>
 class vector_expression_wrapper : public compile_time_beast<LHS,OP,RHS>{
 public: vector_expression_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,OP,RHS>(lhs,rhs){ }
@@ -37,6 +40,10 @@ public: scalar_expression_wrapper(LHS const & lhs, RHS const & rhs) : compile_ti
 template<class LHS, class OP, class RHS>
 class matrix_expression_wrapper : public compile_time_beast<LHS,OP,RHS>{
 public: matrix_expression_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,OP,RHS>(lhs,rhs){ }
+};
+template<class LHS, class RHS>
+class inner_prod_wrapper : public compile_time_beast<LHS,inprod_type,RHS>{
+public: inner_prod_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,inprod_type, RHS>(lhs,rhs){ }
 };
 
 
@@ -50,8 +57,10 @@ struct function_wrapper_impl{
     T3 const * t3;
     T4 const * t4;
     T5 const * t5;
-
 };
+
+
+
 
 class function_wrapper{
 public:
@@ -222,6 +231,7 @@ public:
     }
 };
 
+
 template<class T>
 struct is_vector_expression_t{ enum { value = 0 }; };
 template<typename ScalarType, unsigned int Alignment>
@@ -235,8 +245,11 @@ template<>
 struct is_scalar_expression_t<dummy_scalar>{ enum { value = 1}; };
 template<class LHS, class OP, class RHS>
 struct is_scalar_expression_t<scalar_expression_wrapper<LHS,OP,RHS> >{ enum { value = 1}; };
+template<class LHS, class RHS>
+struct is_scalar_expression_t<inner_prod_wrapper<LHS,RHS> >{ enum { value = 1}; };
 template<class T1, class T2, class T3, class T4, class T5>
 struct is_scalar_expression_t<function_wrapper_impl<T1,T2,T3,T4,T5> >{ enum { value = 1}; };
+
 
 template<class T>
 struct is_matrix_expression_t{ enum { value = 0 }; };
@@ -255,11 +268,14 @@ template<class LHS, class OP, class RHS>
 struct convert_to_expr<LHS,OP,RHS,false,false,true>{ typedef matrix_expression_wrapper<LHS,OP,RHS> type; };
 
 
+
 //template<class T>
 //unary_minus<T> operator -(T const &)
 //{
 //  return unary_minus<T>();
 //}
+
+
 template<class LHS, class RHS> struct create_vector{
     enum{  value= (is_vector_expression_t<LHS>::value && is_scalar_expression_t<RHS>::value)
          || (is_scalar_expression_t<LHS>::value && is_vector_expression_t<RHS>::value)
@@ -277,6 +293,15 @@ template<class LHS, class RHS> struct create_matrix{
          || (is_matrix_expression_t<LHS>::value && is_matrix_expression_t<RHS>::value) };
 };
 
+
+template<class LHS, class RHS>
+typename viennacl::enable_if<is_vector_expression_t<LHS>::value && is_vector_expression_t<RHS>::value
+                            ,inner_prod_wrapper<LHS,RHS> >::type
+inner_prod(LHS const & lhs, RHS const & rhs)
+{
+    return inner_prod_wrapper<LHS,RHS>(lhs,rhs);
+}
+
 template<class LHS, class RHS>
 typename viennacl::enable_if< (is_scalar_expression_t<LHS>::value || is_scalar_expression_t<RHS>::value)
                              ||(is_vector_expression_t<LHS>::value && is_vector_expression_t<RHS>::value)
@@ -293,28 +318,30 @@ operator+(LHS const & lhs, RHS const & rhs){
 }
 
 template<class LHS, class RHS>
-typename viennacl::enable_if< (is_vector_expression_t<LHS>::value && is_vector_expression_t<RHS>::value)
-                             ||(is_scalar_expression_t<LHS>::value && is_scalar_expression_t<RHS>::value)
+typename viennacl::enable_if< (is_scalar_expression_t<LHS>::value || is_scalar_expression_t<RHS>::value)
+                             ||(is_vector_expression_t<LHS>::value && is_vector_expression_t<RHS>::value)
                              ||(is_matrix_expression_t<LHS>::value && is_matrix_expression_t<RHS>::value)
                             ,typename convert_to_expr<LHS,sub_type,RHS
-                                                    ,is_vector_expression_t<LHS>::value
-                                                    ,is_scalar_expression_t<LHS>::value
-                                                    ,is_matrix_expression_t<LHS>::value>::type>::type
+                                                    ,create_vector<LHS,RHS>::value
+                                                    ,create_scalar<LHS,RHS>::value
+                                                    ,create_matrix<LHS,RHS>::value>::type>::type
 operator-(LHS const & lhs, RHS const & rhs){
-    return typename convert_to_expr<LHS,sub_type,RHS, is_vector_expression_t<LHS>::value, is_scalar_expression_t<LHS>::value, is_matrix_expression_t<LHS>::value>::type(lhs,rhs);
+    return typename convert_to_expr<LHS,sub_type,RHS
+            ,create_vector<LHS,RHS>::value
+            ,create_scalar<LHS,RHS>::value
+            ,create_matrix<LHS,RHS>::value>::type(lhs,rhs);
 }
-
 template<class LHS, class RHS>
 typename viennacl::enable_if< is_scalar_expression_t<LHS>::value || is_scalar_expression_t<RHS>::value
                             ,typename convert_to_expr<LHS,scal_mul_type,RHS
-                                                    ,is_vector_expression_t<LHS>::value || is_vector_expression_t<RHS>::value
-                                                    ,is_scalar_expression_t<LHS>::value || is_scalar_expression_t<RHS>::value
-                                                    ,is_matrix_expression_t<LHS>::value || is_matrix_expression_t<RHS>::value>::type>::type
+                            ,create_vector<LHS,RHS>::value
+                            ,create_scalar<LHS,RHS>::value
+                            ,create_matrix<LHS,RHS>::value>::type>::type
 operator*(LHS const & lhs, RHS const & rhs){
     return typename convert_to_expr<LHS,scal_mul_type,RHS
-            ,is_vector_expression_t<LHS>::value || is_vector_expression_t<RHS>::value
-            ,is_scalar_expression_t<LHS>::value || is_scalar_expression_t<RHS>::value
-            ,is_matrix_expression_t<LHS>::value || is_matrix_expression_t<RHS>::value>::type(lhs,rhs);
+                                    ,create_vector<LHS,RHS>::value
+                                    ,create_scalar<LHS,RHS>::value
+                                    ,create_matrix<LHS,RHS>::value>::type(lhs,rhs);
 }
 
 template<class LHS, class RHS>
