@@ -83,54 +83,51 @@ namespace viennacl{
             bool operator<(leaf_infos_base const & other) const { return (access_name_ < other.access_name_); }
 
         protected:
-            leaf_infos_base(std::string const & scalartype):  scalartype_(scalartype){ }
+            leaf_infos_base(std::string const & name, std::string const & scalartype):  name_(name), scalartype_(scalartype){ }
             std::string * access_name_;
-            std::string scalartype_;
             std::string name_;
+            std::string scalartype_;
         };
 
         class kernel_argument : public leaf_infos_base{
         public:
-            bool is_modified(){ return *is_assigned_;}
-            kernel_argument( std::string const & scalartype) : leaf_infos_base(scalartype){ }
+            kernel_argument( std::string const & name, std::string const & scalartype) : leaf_infos_base(name,scalartype){ }
             virtual std::string kernel_arguments() const = 0;
-        protected:
-            bool* is_assigned_;
         };
 
         class arithmetic_tree_infos_base :  public infos_base,public binary_tree_infos_base{
         public:
-            infos_base & op() { return *op_; }
+            op_infos_base & op() { return *op_; }
             std::string generate() const { return "(" + lhs_->generate() + op_->generate() + rhs_->generate() + ")"; }
             std::string name() const { return lhs_->name() + op_->name() + rhs_->name(); }
-            arithmetic_tree_infos_base( infos_base * lhs, infos_base* op, infos_base * rhs) :  binary_tree_infos_base(lhs,rhs), op_(op){        }
+            arithmetic_tree_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) :  binary_tree_infos_base(lhs,rhs), op_(op){        }
         private:
-            viennacl::tools::shared_ptr<infos_base> op_;
+            viennacl::tools::shared_ptr<op_infos_base> op_;
         };
 
         class vector_expression_infos_base : public arithmetic_tree_infos_base{
         public:
-            vector_expression_infos_base( infos_base * lhs, infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
+            vector_expression_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
         };
 
         class scalar_expression_infos_base : public arithmetic_tree_infos_base{
         public:
-            scalar_expression_infos_base( infos_base * lhs, infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
+            scalar_expression_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
         };
 
         class matrix_expression_infos_base : public arithmetic_tree_infos_base{
         public:
-            matrix_expression_infos_base( infos_base * lhs, infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
+            matrix_expression_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
         };
 
         class scal_infos_base : public kernel_argument{
         protected:
-            scal_infos_base( std::string const & scalartype) : kernel_argument( scalartype){ }
+            scal_infos_base(std::string const & name, std::string const & scalartype) : kernel_argument(name, scalartype){ }
         };
 
         class cpu_scal_infos_base : public scal_infos_base{
         protected:
-            cpu_scal_infos_base( std::string const & scalartype) : scal_infos_base( scalartype){ }
+            cpu_scal_infos_base(std::string const & name, std::string const & scalartype) : scal_infos_base(name, scalartype){ }
         public:
             std::string kernel_arguments() const{
                 return scalartype_ + " " + name_;
@@ -139,7 +136,7 @@ namespace viennacl{
 
         class gpu_scal_infos_base : public scal_infos_base{
         protected:
-            gpu_scal_infos_base( std::string const & scalartype) : scal_infos_base( scalartype){ }
+            gpu_scal_infos_base(std::string const & name, std::string const & scalartype) : scal_infos_base(name, scalartype){ }
         public:
             std::string kernel_arguments() const{
                 return "__global " + scalartype_ + "*"  + " " + name_;
@@ -159,7 +156,7 @@ namespace viennacl{
             inprod_infos_base(
                               infos_base * lhs, infos_base * rhs,step_t * step
                               ,std::string const & scalartype): binary_tree_infos_base(lhs,rhs)
-                                               ,scal_infos_base( scalartype)
+                                               ,scal_infos_base(lhs->name()+"ip"+rhs->name(),scalartype)
                                               ,step_(step){ }
 
 
@@ -181,8 +178,8 @@ namespace viennacl{
             }
             virtual ~vec_infos_base(){ }
         protected:
-            vec_infos_base( std::string const & scalartype) :
-                                                            kernel_argument(
+            vec_infos_base(std::string const & name, std::string const & scalartype) :
+                                                            kernel_argument(name,
                                                                             scalartype)
                                                           ,size_(name_+"_size")
                                                           ,internal_size_(""){ }
@@ -220,10 +217,10 @@ namespace viennacl{
             bool const is_transposed() const { return is_transposed_; }
             virtual ~mat_infos_base() { }
         protected:
-            mat_infos_base(
-                           std::string const & scalartype
+            mat_infos_base(std::string const & name
+                           ,std::string const & scalartype
                            ,bool is_rowmajor
-                           ,bool is_transposed) : kernel_argument(scalartype)
+                           ,bool is_transposed) : kernel_argument(name,scalartype)
                                                   ,size1_(name_ + "_size1")
                                                   ,size2_(name_ + "size2")
                                                   ,internal_size1_(size1_ + "_internal")
