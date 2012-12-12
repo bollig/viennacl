@@ -262,14 +262,36 @@ namespace viennacl
           }
       };
 
-      template<class T>
-      struct dummy2exptree_impl<function1_wrapper<T> >{
+
+
+
+      template<class T1, class T2, class T3, class T4, class T5>
+      struct dummy2exptree_impl<function_wrapper_impl<T1,T2,T3,T4,T5> >{
+      private:
+          template<class U>
+          static void handle_function_arg(symbolic_function & fun, U const * t, std::string name
+                              , std::map<viennacl::backend::mem_handle,shared_infos> & access_names_map)
+          {
+              fun.add_arg(name, dummy2exptree_impl<U>::execute(access_names_map,*t));
+          }
+
+          static void handle_function_arg(symbolic_function & fun, void const* t, std::string name
+                              , std::map<viennacl::backend::mem_handle,shared_infos> & access_names_map)
+          { }
+
+      public:
           typedef symbolic_function result_type;
           static result_type execute(std::map<viennacl::backend::mem_handle,shared_infos> & access_names_map
-                                     ,function1_wrapper<T> func){
-              return result_type(func.name
-                                 ,func.expr
-                                 ,dummy2exptree_impl<T>::execute(access_names_map, func.t1));
+                                     ,function_wrapper_impl<T1,T2,T3,T4,T5> func){
+              result_type res(func.name,func.expr);
+              handle_function_arg(res,func.t1,"_1_",access_names_map);
+              handle_function_arg(res,func.t2,"_2_",access_names_map);
+              handle_function_arg(res,func.t3,"_3_",access_names_map);
+              handle_function_arg(res,func.t4,"_4_",access_names_map);
+              handle_function_arg(res,func.t5,"_5_",access_names_map);
+              return res;
+
+
           }
       };
 

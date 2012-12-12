@@ -4,6 +4,7 @@
 
 #include "viennacl/generator_fromscratch/symbolic_types_base.hpp"
 #include "viennacl/generator_fromscratch/dummy_types.hpp"
+
 #include <map>
 #include <list>
 #include <cassert>
@@ -29,11 +30,12 @@ namespace generator{
 
     class symbolic_function : public function_base{
     public:
-        template<class T1>
-        symbolic_function(std::string const & name
-                        ,std::string const & expr
-                          ,T1 const & t1) : function_base(name), expr_(expr){
-            args_map_.insert(std::make_pair("_1_", new T1(t1)));
+        symbolic_function(std::string const & name,std::string const & expr) : function_base(name), expr_(expr){
+        }
+
+        template<class T>
+        void add_arg(std::string const & arg_name, T const & t){
+            args_map_.insert(std::make_pair(arg_name, new T(t)));
         }
 
 
@@ -55,7 +57,6 @@ namespace generator{
     private:
         std::string expr_;
         args_map_t args_map_;
-        unsigned int n_args_;
     };
 
 

@@ -39,30 +39,19 @@ class matrix_expression_wrapper : public compile_time_beast<LHS,OP,RHS>{
 public: matrix_expression_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,OP,RHS>(lhs,rhs){ }
 };
 
-template<class T1>
-struct function1_wrapper{
-    function1_wrapper(std::string const & _name, std::string const & _expr,T1 const & _t1) : t1(_t1), name(_name), expr(_expr){ }
-    T1 const & t1;
+
+template<class T1, class T2=void, class T3=void, class T4=void, class T5=void>
+struct function_wrapper_impl{
+    function_wrapper_impl(std::string const & _name, std::string const & _expr) : name(_name), expr(_expr), t1(NULL), t2(NULL), t3(NULL), t4(NULL), t5(NULL){ }
     std::string name;
     std::string expr;
+    T1 const * t1;
+    T2 const * t2;
+    T3 const * t3;
+    T4 const * t4;
+    T5 const * t5;
+
 };
-
-//template<class T1, class T2>
-//struct function2_wrapper{
-//    function2_wrapper(T1 const & _t1, T2 const & _t2) : t1(_t1), t2(_t2){ }
-//    T1 const & t1;
-//    T2 const & t2;
-//};
-
-
-//template<class T1, class T2, class T3>
-//struct function1_wrapper{
-//    function1_wrapper(T1 const & _t1, T2 const & _t2, T3 const & _t3) : t1(_t1, t2(_t2), t3(_t3)){ }
-//    T1 const & t1;
-//    T2 const & t2;
-//    T3 const & t3;
-//};
-
 
 class function_wrapper{
 public:
@@ -83,48 +72,40 @@ public:
                                       "...");
     }
 
-//    std::list<infos_base*> args() const{
-//        std::list<infos_base*> res;
-//        for(args_map_t::const_iterator it = args_map_.begin() ; it!= args_map_.end() ; ++it)
-//            res.push_back(it->second.get());
-//        return res;
-//    }
-
     template<class T1>
-    function1_wrapper<T1> operator()(T1 const & t1){
+    function_wrapper_impl<T1> operator()(T1 const & t1){
         assert(n_args_==1);
-        return function1_wrapper<T1>(name_,expr_,t1);
+        function_wrapper_impl<T1> res(name_,expr_);
+        res.t1 = &t1;
+        return res;
     }
 
-//    template<class T1, class T2>
-//    function_wrapper& operator()(T1 const & t1, T2 const & t2){
-//        assert(n_args_==2);
-//        return *this;
-//    }
+    template<class T1, class T2>
+    function_wrapper_impl<T1,T2> operator()(T1 const & t1, T2 const & t2){
+        assert(n_args_==2);
+        function_wrapper_impl<T1, T2> res(name_,expr_);
+        res.t1 = &t1; res.t2 = &t2;
+        return res;
+    }
 
-//    template<class T1, class T2, class T3>
-//    function_wrapper& operator()(T1 const & t1, T2 const & t2, T3 const & t3){
-//        assert(n_args_==3);
-//        return *this;
-//    }
+    template<class T1, class T2, class T3>
+    function_wrapper_impl<T1,T2, T3> operator()(T1 const & t1, T2 const & t2, T3 const & t3){
+        assert(n_args_==3);
+        function_wrapper_impl<T1, T2,T3> res(name_,expr_);
+        res.t1 = &t1; res.t2 = &t2; res.t3 = &t3;
+        return res;
+    }
+
+    template<class T1, class T2, class T3, class T4>
+    function_wrapper_impl<T1,T2, T3, T4> operator()(T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4){
+        assert(n_args_==4);
+        function_wrapper_impl<T1, T2,T3, T4> res(name_,expr_);
+        res.t1 = &t1; res.t2 = &t2; res.t3 = &t3; res.t4=&t4;
+        return res;
+    }
 
 
-//    template<class T1, class T2, class T3, class T4>
-//    function_wrapper& operator()(T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4){
-//        assert(n_args_==4);
-////        args_map_.insert(std::make_pair("_1_",viennacl::tools::shared_ptr<infos_base>(new T1(t1))));
-////        args_map_.insert(std::make_pair("_2_",viennacl::tools::shared_ptr<infos_base>(new T2(t2))));
-////        args_map_.insert(std::make_pair("_3_",viennacl::tools::shared_ptr<infos_base>(new T3(t3))));
-////        args_map_.insert(std::make_pair("_4_",viennacl::tools::shared_ptr<infos_base>(new T4(t4))));
-//        return *this;
-//    }
 
-//    template<class T1, class T2, class T3, class T4, class T5>
-//    function_wrapper& operator()(T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4, T5 const & t5){
-//        assert(n_args_==4);
-
-//        return *this;
-//    }
 private:
     std::string name_;
     std::string expr_;
@@ -254,8 +235,8 @@ template<>
 struct is_scalar_expression_t<dummy_scalar>{ enum { value = 1}; };
 template<class LHS, class OP, class RHS>
 struct is_scalar_expression_t<scalar_expression_wrapper<LHS,OP,RHS> >{ enum { value = 1}; };
-template<class T>
-struct is_scalar_expression_t<function1_wrapper<T> >{ enum { value = 1}; };
+template<class T1, class T2, class T3, class T4, class T5>
+struct is_scalar_expression_t<function_wrapper_impl<T1,T2,T3,T4,T5> >{ enum { value = 1}; };
 
 template<class T>
 struct is_matrix_expression_t{ enum { value = 0 }; };
