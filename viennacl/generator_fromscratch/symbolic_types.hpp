@@ -30,6 +30,15 @@ namespace viennacl
 
 
 
+      struct shared_infos{
+      public:
+          shared_infos(std::string access_name, std::string name) : access_name_(name), name_(name){ }
+          std::string & access_name(){ return access_name_; }
+          std::string const & name() const{ return name_; }
+      private:
+          std::string access_name_;
+          std::string name_;
+      };
 
 
       class assign_type : public op_infos_base{
@@ -184,12 +193,10 @@ namespace viennacl
         public:
           typedef viennacl::vector<SCALARTYPE,ALIGNMENT> runtime_type;
           typedef SCALARTYPE ScalarType;
-          symbolic_vector(std::map<viennacl::backend::mem_handle, std::string> & access_names_map,
-                          runtime_type const & rt,
-                          bool * is_assigned) : vec_infos_base( print_type<SCALARTYPE>::value()), rt_obj_(rt){
-              access_name_ = &access_names_map.insert(std::make_pair(rt_obj_.handle(),std::string())).first->second;
-              name_ = "arg_"+to_string(access_names_map.size());
-              is_assigned_ = is_assigned;
+          symbolic_vector(std::string & access_name
+                          ,std::string const & name
+                          ,runtime_type const & rt) : vec_infos_base(name,print_type<SCALARTYPE>::value()), rt_obj_(rt){
+              access_name_ = &access_name;
           }
         private:
           runtime_type const & rt_obj_;
@@ -239,31 +246,27 @@ namespace viennacl
       public:
         typedef typename get_symbolic_type<T,LhsResult,RhsResult>::type result_type;
 
-          static result_type execute(std::map<viennacl::backend::mem_handle,std::string> & access_names_map,
-                                     std::map<viennacl::backend::mem_handle,bool> & assigned_map,
-                                     T const & t, bool ){
-              return result_type(dummy2exptree_impl<Lhs>::execute(access_names_map, assigned_map, t.lhs(),t.op().is_assignment())
-                                 ,dummy2exptree_impl<Rhs>::execute(access_names_map, assigned_map, t.rhs(), false));
+          static result_type execute(std::map<viennacl::backend::mem_handle,shared_infos> & access_names_map,
+                                     T const & t){
+              return result_type(dummy2exptree_impl<Lhs>::execute(access_names_map, t.lhs())
+                                 ,dummy2exptree_impl<Rhs>::execute(access_names_map, t.rhs()));
           }
       };
 
       template<class ScalarType, unsigned int Alignment>
       struct dummy2exptree_impl<dummy_vector<ScalarType, Alignment> >{
           typedef symbolic_vector<ScalarType, Alignment> result_type;
-          static result_type execute(std::map<viennacl::backend::mem_handle,std::string> & access_names_map,
-                                     std::map<viennacl::backend::mem_handle,bool> & assigned_map,
-                                     dummy_vector<ScalarType,Alignment> const & v,bool is_assigned){
-              bool* b = &assigned_map.insert(std::make_pair(v.vec().handle(),is_assigned)).first->second;
-              if(is_assigned) *b = true;
-              return result_type(access_names_map, v.vec(),b);
+          static result_type execute(std::map<viennacl::backend::mem_handle,shared_infos> & access_names_map,
+                                     dummy_vector<ScalarType,Alignment> const & v){
+              std::map<viennacl::backend::mem_handle,shared_infos>::iterator it = access_names_map.insert(std::make_pair(v.vec().handle(),shared_infos(std::string(), std::string("arg"+to_string(access_names_map.size()))))).first;
+              return result_type(it->second.access_name(), it->second.name(), v.vec());
           }
       };
 
       template<class T>
-      typename dummy2exptree_impl<T>::result_type dummy2exptree(std::map<viennacl::backend::mem_handle,std::string> & access_names_map,
-                                                                std::map<viennacl::backend::mem_handle,bool> & assigned_map,
+      typename dummy2exptree_impl<T>::result_type dummy2exptree(std::map<viennacl::backend::mem_handle,shared_infos> & access_names_map,
                                                                 T const & t){
-          return dummy2exptree_impl<T>::execute(access_names_map,assigned_map,t,false);
+          return dummy2exptree_impl<T>::execute(access_names_map,t);
       }
 
 

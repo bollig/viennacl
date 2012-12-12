@@ -10,21 +10,23 @@ namespace viennacl
 {
   namespace generator
   {
+
+
   /** @brief A class for making a custom operation */
       class custom_operation
       {
         friend class kernel_argument;
 
         public :
-
         custom_operation(std::string const & operation_name) : operation_name_(operation_name){ }
 
           template<class T>
           void add(T const & op){
-              operations_manager_.add(dummy2exptree(access_names_map_,assigned_map_,op));
+              operations_manager_.add(dummy2exptree(access_names_map_,op));
           }
 
           std::string generate() const{
+
             std::ostringstream oss;
             code_generation::utils::kernel_generation_stream kss(oss);
             typedef std::vector<std::list<infos_base*> >  kernels_t;
@@ -40,8 +42,7 @@ namespace viennacl
         private:
           std::string operation_name_;
           code_generation::operations_manager operations_manager_;
-          std::map<viennacl::backend::mem_handle, std::string> access_names_map_; //Void* : don't mess up with that! :D
-          std::map<viennacl::backend::mem_handle, bool> assigned_map_;
+          std::map<viennacl::backend::mem_handle, shared_infos> access_names_map_;
      };
   }
 }

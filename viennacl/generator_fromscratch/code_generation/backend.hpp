@@ -50,6 +50,7 @@ namespace viennacl{
                         vectors_.merge(tmp0);
                         code_generation::utils::remove_unsorted_duplicates(vectors_);
 
+
                         std::list<gpu_scal_infos_base * > tmp1(code_generation::utils::extract_cast<gpu_scal_infos_base>(scalar_expressions_));
                         gpu_scalars_ = code_generation::utils::extract_cast<gpu_scal_infos_base>(vector_expressions_);
                         gpu_scalars_.merge(tmp1);
@@ -68,8 +69,23 @@ namespace viennacl{
 
                         std::set<vec_infos_base *> vector_cached_entries;
                         std::set<gpu_scal_infos_base *> scalar_cached_entries;
-                        code_generation::utils::cache_manager<vec_infos_base> vector_cache(vectors_,kss,vector_cached_entries);
-                        code_generation::utils::cache_manager<gpu_scal_infos_base> scalar_cache(gpu_scalars_,kss,scalar_cached_entries);
+
+                        std::list<vec_infos_base *> assigned_vec;
+                        for(std::list<infos_base*>::iterator it=vector_expressions_.begin(); it!= vector_expressions_.end();++it){
+                            vector_expression_infos_base* p=static_cast<vector_expression_infos_base*>(*it);
+                            if(p->op().is_assignment()==true) assigned_vec.push_back(dynamic_cast<vec_infos_base*>(&p->lhs()));
+                        }
+
+
+                        std::list<gpu_scal_infos_base *> assigned_scal;
+                        for(std::list<infos_base*>::iterator it=scalar_expressions_.begin(); it!= scalar_expressions_.end();++it){
+                            scalar_expression_infos_base* p=static_cast<scalar_expression_infos_base*>(*it);
+                            if(p->op().is_assignment()==true) assigned_scal.push_back(dynamic_cast<gpu_scal_infos_base*>(&p->lhs()));
+                        }
+
+
+                        code_generation::utils::cache_manager<vec_infos_base> vector_cache(vectors_,assigned_vec,kss,vector_cached_entries);
+                        code_generation::utils::cache_manager<gpu_scal_infos_base> scalar_cache(gpu_scalars_,assigned_scal,kss,scalar_cached_entries);
                         vec_infos_base * first_vector =  NULL;
                         if(vectors_.size())
                             first_vector = vectors_.front();

@@ -147,8 +147,10 @@ namespace viennacl{
                     res_t_all res;
                     for(std::list<infos_base*>::const_iterator it = trees.begin() ; it != trees.end() ; ++it){
                         res_t_single tmp(filter<FILTER_T,Pred>(*it,pred));
+
                         FILTER_T::do_on_next_operation_merge(tmp,res);
                     }
+
                     return res;
                 }
 
@@ -169,12 +171,15 @@ namespace viennacl{
                 template<class T>
                 class cache_manager{
                 public:
-                    cache_manager(std::list<T * > const & expressions,  utils::kernel_generation_stream & kss, std::set<T *>& cached_entries) : expressions_(expressions)
-                                                                                                                                               , kss_(kss)
+                    cache_manager(std::list<T * > const & expressions_read
+                                  ,std::list<T * > const & expressions_write
+                                  ,  utils::kernel_generation_stream & kss, std::set<T *>& cached_entries) : expressions_read_(expressions_read)
+                                                                                                            ,expressions_write_(expressions_write)
+                                                                                                            ,kss_(kss)
                       ,cached_entries_(cached_entries){         }
 
                     void fetch_entries(std::string const & idx){
-                        for(typename std::list<T * >::iterator it = expressions_.begin() ; it != expressions_.end() ; ++it){
+                        for(typename std::list<T * >::iterator it = expressions_read_.begin() ; it != expressions_read_.end() ; ++it){
                             T * p = *it;
                             if(cached_entries_.insert(p).second){
                                 p->access_name(p->name()+"_val");
@@ -184,15 +189,16 @@ namespace viennacl{
                     }
 
                     void writeback_entries(std::string const & idx){
-                        for(typename std::list<T * >::iterator it = expressions_.begin() ; it != expressions_.end() ; ++it){
+                        for(typename std::list<T * >::iterator it = expressions_write_.begin() ; it != expressions_write_.end() ; ++it){
                             T * p = *it;
-                            if(p->is_modified())
-                                kss_<< p->name() << "[" << idx << "]"<< " = "  << p->generate() << ";" << std::endl;
+                            std::cout << p->name() << std::endl;
+                            kss_<< p->name() << "[" << idx << "]"<< " = "  << p->generate() << ";" << std::endl;
                         }
                     }
 
                 private:
-                    std::list<T * > expressions_;
+                    std::list<T * > expressions_read_;
+                    std::list<T * > expressions_write_;
                     utils::kernel_generation_stream & kss_;
                     std::set<T *> & cached_entries_;
 
