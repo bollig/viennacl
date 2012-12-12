@@ -3,7 +3,7 @@
 
 #include "viennacl/generator_fromscratch/utils.hpp"
 #include "viennacl/generator_fromscratch/forwards.h"
-
+#include "viennacl/backend/memory.hpp"
 namespace viennacl{
 
     namespace generator{
@@ -73,27 +73,6 @@ namespace viennacl{
             viennacl::tools::shared_ptr<infos_base> sub_;
         };
 
-        class leaf_infos_base : public infos_base{
-        public:
-            void access_name(std::string const & new_name) { *access_name_ = new_name; }
-            virtual ~leaf_infos_base(){ }
-            virtual std::string generate() const { return *access_name_; }
-            virtual std::string name() const { return name_; }
-            std::string const & scalartype() const { return scalartype_; }
-            bool operator<(leaf_infos_base const & other) const { return (access_name_ < other.access_name_); }
-
-        protected:
-            leaf_infos_base(std::string const & name, std::string const & scalartype):  name_(name), scalartype_(scalartype){ }
-            std::string * access_name_;
-            std::string name_;
-            std::string scalartype_;
-        };
-
-        class kernel_argument : public leaf_infos_base{
-        public:
-            kernel_argument( std::string const & name, std::string const & scalartype) : leaf_infos_base(name,scalartype){ }
-            virtual std::string kernel_arguments() const = 0;
-        };
 
         class arithmetic_tree_infos_base :  public infos_base,public binary_tree_infos_base{
         public:
@@ -120,30 +99,43 @@ namespace viennacl{
             matrix_expression_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
         };
 
-        class scal_infos_base : public kernel_argument{
+        class kernel_argument : public infos_base{
+        private:
+            virtual viennacl::backend::mem_handle handle() const = 0;
+        public:
+            void access_name(std::string const & new_name) { *access_name_ = new_name; }
+            virtual ~kernel_argument(){ }
+            virtual std::string generate() const { return *access_name_; }
+            virtual std::string name() const { return name_; }
+            std::string const & scalartype() const { return scalartype_; }
+            kernel_argument( std::string const & name, std::string const & scalartype) :name_(name), scalartype_(scalartype){ }
+            virtual std::string kernel_arguments() const = 0;
+            bool operator<(kernel_argument const & other) const { return handle() < other.handle(); }
         protected:
-            scal_infos_base(std::string const & name, std::string const & scalartype) : kernel_argument(name, scalartype){ }
+            std::string * access_name_;
+            std::string name_;
+            std::string scalartype_;
         };
 
-        class cpu_scal_infos_base : public scal_infos_base{
+        class cpu_scal_infos_base : public kernel_argument{
         protected:
-            cpu_scal_infos_base(std::string const & name, std::string const & scalartype) : scal_infos_base(name, scalartype){ }
+            cpu_scal_infos_base(std::string const & name, std::string const & scalartype) : kernel_argument(name, scalartype){ }
         public:
             std::string kernel_arguments() const{
                 return scalartype_ + " " + name_;
             }
         };
 
-        class gpu_scal_infos_base : public scal_infos_base{
+        class gpu_scal_infos_base : public kernel_argument{
         protected:
-            gpu_scal_infos_base(std::string const & name, std::string const & scalartype) : scal_infos_base(name, scalartype){ }
+            gpu_scal_infos_base(std::string const & name, std::string const & scalartype) : kernel_argument(name, scalartype){ }
         public:
             std::string kernel_arguments() const{
                 return "__global " + scalartype_ + "*"  + " " + name_;
             }
         };
 
-        class inprod_infos_base : public binary_tree_infos_base, public scal_infos_base{
+        class inprod_infos_base : public binary_tree_infos_base, public kernel_argument{
         public:
             enum step_t{compute,reduce};
             step_t step(){ return *step_; }
@@ -156,7 +148,7 @@ namespace viennacl{
             inprod_infos_base(
                               infos_base * lhs, infos_base * rhs,step_t * step
                               ,std::string const & scalartype): binary_tree_infos_base(lhs,rhs)
-                                               ,scal_infos_base(lhs->name()+"ip"+rhs->name(),scalartype)
+                                               ,kernel_argument(lhs->name()+"ip"+rhs->name(),scalartype)
                                               ,step_(step){ }
 
 

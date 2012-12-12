@@ -40,7 +40,7 @@ namespace viennacl{
                         if(utils::is_type<vector_expression_infos_base>(*it))
                             vec_exprs.push_back(*it);
                         else if(utils::is_type<scalar_expression_infos_base>(*it)
-                                ||utils::is_type<scal_infos_base>(*it))
+                                ||utils::is_type<inprod_infos_base>(*it))
                             scal_exprs.push_back(*it);
                         else
                             mat_exprs.push_back(*it);
