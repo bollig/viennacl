@@ -23,26 +23,7 @@ namespace viennacl{
                     return dynamic_cast<T *>(p);
                 }
 
-                struct less {
-                  template<class T>
-                  bool operator()(T &a, T &b) {
-                    return std::less<T>()(a, b);
-                  }
-                };
 
-                struct deref_less {
-                  template<class T>
-                  bool operator()(T a, T b) {
-                    return less()(*a, *b);
-                  }
-                };
-
-                struct double_deref_less {
-                  template<class T>
-                  bool operator()(T a, T b) {
-                    return less()(**a, **b);
-                  }
-                };
 
                 template<class T>
                 struct deref_t{ typedef deref_less type; };

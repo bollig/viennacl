@@ -79,8 +79,12 @@ namespace viennacl{
 
                         std::list<gpu_scal_infos_base *> assigned_scal;
                         for(std::list<infos_base*>::iterator it=scalar_expressions_.begin(); it!= scalar_expressions_.end();++it){
-                            scalar_expression_infos_base* p=static_cast<scalar_expression_infos_base*>(*it);
-                            if(p->op().is_assignment()==true) assigned_scal.push_back(dynamic_cast<gpu_scal_infos_base*>(&p->lhs()));
+                            if(scalar_expression_infos_base* p=dynamic_cast<scalar_expression_infos_base*>(*it)){
+                                if(p->op().is_assignment()==true){
+                                    std::cout << "blabla" << std::endl;
+                                    assigned_scal.push_back(dynamic_cast<gpu_scal_infos_base*>(&p->lhs()));
+                                }
+                            }
                         }
 
 
@@ -114,14 +118,18 @@ namespace viennacl{
                             kss << "barrier(CLK_LOCAL_MEM_FENCE)" << std::endl;
                         }
 
+
                         scalar_cache.fetch_entries("0");
                         if(first_vector){
                             for(std::list<inprod_infos_base *>::iterator it=inner_prods_compute_.begin() ; it!=inner_prods_compute_.end();++it){
                                 kss << (*it)->scalartype() << " " << (*it)->name()+"_sum" << " = 0;" << std::endl;
                             }
+                            std::cout << "oh noez" << std::endl;
+
                             kss << "for(unsigned int i = get_global_id(0) ; i <" << first_vector->size() << " ; i += get_global_size(0){" << std::endl;
                             kss.inc_tab();
                             vector_cache.fetch_entries("i");
+
                             for(std::list<infos_base *>::iterator it=vector_expressions_.begin() ; it!=vector_expressions_.end();++it){
                                 kss << (*it)->generate() << std::endl;
                             }
@@ -133,6 +141,7 @@ namespace viennacl{
                             kss << "}" << std::endl;
                         }
                         scalar_cache.writeback_entries("0");
+
                         if(inner_prods_compute_.size()){
                             std::list<local_memory> local_mems;
                             for( std::list<inprod_infos_base *>::const_iterator it = inner_prods_compute_.begin(); it != inner_prods_compute_.end() ; ++it){

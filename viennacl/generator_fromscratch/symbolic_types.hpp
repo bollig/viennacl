@@ -29,16 +29,6 @@ namespace viennacl
   {
 
 
-      struct shared_infos{
-      public:
-          shared_infos(std::string access_name, std::string name) : access_name_(name), name_(name){ }
-          std::string & access_name(){ return access_name_; }
-          std::string const & name() const{ return name_; }
-      private:
-          std::string access_name_;
-          std::string name_;
-      };
-
 
       class assign_type : public op_infos_base{
       public:
@@ -114,15 +104,28 @@ namespace viennacl
 
       template<class LHS, class RHS>
       class inprod_infos : public inprod_infos_base{
+          typedef typename LHS::ScalarType ScalarType;
+          viennacl::backend::mem_handle const & handle() const{
+              return handle_;
+          }
+
       public:
-          inprod_infos(LHS const & lhs, RHS const & rhs) :
+          inprod_infos(shared_infos_map_t & shared_infos,
+                       temporaries_map_t & temporaries_map,
+                       LHS const & lhs, RHS const & rhs) :
               inprod_infos_base(new LHS(lhs), new RHS(rhs)
-                                ,new step_t(inprod_infos_base::compute),
-                                print_type<typename LHS::ScalarType>::value()){ }
+                                ,new step_t(inprod_infos_base::compute)){
+              temporaries_map_t::iterator it = temporaries_map.insert(std::make_pair(this,viennacl::backend::mem_handle())).first;
+              viennacl::backend::memory_create(it->second,sizeof(ScalarType)*128);
+              handle_ = it->second;
+              infos_ = &shared_infos.insert(std::make_pair(it->second,shared_infos_t(shared_infos.size(),print_type<ScalarType>::value()))).first->second;
+          }
 
           std::string kernel_arguments() const{
-              return "__global " + scalartype_ + "*" + " " + name_;
+              return "__global " + scalartype() + "*" + " " + name();
           }
+      private:
+          viennacl::backend::mem_handle handle_;
       };
 
     /**
@@ -176,17 +179,16 @@ namespace viennacl
         private:
           typedef symbolic_vector<SCALARTYPE,ALIGNMENT> self_type;
         public:
-          typedef viennacl::vector<SCALARTYPE,ALIGNMENT> runtime_type;
+          typedef viennacl::vector<SCALARTYPE,ALIGNMENT> vcl_vec_t;
           typedef SCALARTYPE ScalarType;
-          symbolic_vector(std::string & access_name
-                          ,std::string const & name
-                          ,runtime_type const & vcl_vec) : vec_infos_base(name,print_type<SCALARTYPE>::value()), vcl_vec_(vcl_vec){
-              access_name_ = &access_name;
+          symbolic_vector(shared_infos_map_t & map
+                          ,vcl_vec_t const & vcl_vec) : vcl_vec_(vcl_vec){
+            infos_= &map.insert(std::make_pair(vcl_vec_.handle(),shared_infos_t(map.size(),print_type<ScalarType>::value()))).first->second;
           }
-          virtual viennacl::backend::mem_handle handle() const{ return vcl_vec_.handle(); }
+          virtual viennacl::backend::mem_handle const & handle() const{ return vcl_vec_.handle(); }
 
         private:
-          runtime_type const & vcl_vec_;
+          vcl_vec_t const & vcl_vec_;
       };
 
 
@@ -234,20 +236,37 @@ namespace viennacl
       public:
         typedef typename get_symbolic_type<T,LhsResult,RhsResult>::type result_type;
 
-          static result_type execute(std::map<viennacl::backend::mem_handle,shared_infos> & access_names_map,
+          static result_type execute(shared_infos_map_t & shared_infos,
+                                     temporaries_map_t & temporaries,
                                      T const & t){
-              return result_type(dummy2exptree_impl<Lhs>::execute(access_names_map, t.lhs())
-                                 ,dummy2exptree_impl<Rhs>::execute(access_names_map, t.rhs()));
+              return result_type(dummy2exptree_impl<Lhs>::execute(shared_infos, temporaries, t.lhs())
+                                 ,dummy2exptree_impl<Rhs>::execute(shared_infos, temporaries, t.rhs()));
           }
       };
 
       template<class ScalarType, unsigned int Alignment>
       struct dummy2exptree_impl<dummy_vector<ScalarType, Alignment> >{
           typedef symbolic_vector<ScalarType, Alignment> result_type;
-          static result_type execute(std::map<viennacl::backend::mem_handle,shared_infos> & access_names_map,
+          static result_type execute(shared_infos_map_t & shared_infos,
+                                     temporaries_map_t & temporaries_,
                                      dummy_vector<ScalarType,Alignment> const & v){
-              std::map<viennacl::backend::mem_handle,shared_infos>::iterator it = access_names_map.insert(std::make_pair(v.vec().handle(),shared_infos(std::string(), std::string("arg"+to_string(access_names_map.size()))))).first;
-              return result_type(it->second.access_name(), it->second.name(), v.vec());
+              return result_type(shared_infos, v.vec());
+          }
+      };
+
+      template<class LHS, class RHS>
+      struct dummy2exptree_impl<inner_prod_wrapper<LHS,RHS> >{
+      private:
+          typedef typename dummy2exptree_impl<LHS>::result_type LhsResult;
+          typedef typename dummy2exptree_impl<RHS>::result_type RhsResult;
+      public:
+          typedef inprod_infos<LhsResult,RhsResult> result_type;
+          static result_type execute(shared_infos_map_t & shared_infos,
+                                     temporaries_map_t & temporaries,
+                                     inner_prod_wrapper<LHS,RHS> const & v){
+              return result_type(shared_infos, temporaries,
+                                 dummy2exptree_impl<LHS>::execute(shared_infos,temporaries,v.lhs()),
+                                 dummy2exptree_impl<RHS>::execute(shared_infos,temporaries,v.rhs()));
           }
       };
 
@@ -259,25 +278,29 @@ namespace viennacl
       private:
           template<class U>
           static void handle_function_arg(symbolic_function & fun, U const * t, std::string name
-                              , std::map<viennacl::backend::mem_handle,shared_infos> & access_names_map)
+                              , shared_infos_map_t & shared_infos
+                              , temporaries_map_t & temporaries)
           {
-              fun.add_arg(name, dummy2exptree_impl<U>::execute(access_names_map,*t));
+
+              fun.add_arg(name, dummy2exptree_impl<U>::execute(shared_infos,temporaries,*t));
           }
 
           static void handle_function_arg(symbolic_function & fun, void const* t, std::string name
-                              , std::map<viennacl::backend::mem_handle,shared_infos> & access_names_map)
+                              , shared_infos_map_t & shared_infos
+                              , temporaries_map_t & temporaries)
           { }
 
       public:
           typedef symbolic_function result_type;
-          static result_type execute(std::map<viennacl::backend::mem_handle,shared_infos> & access_names_map
-                                     ,function_wrapper_impl<T1,T2,T3,T4,T5> func){
+          static result_type execute(shared_infos_map_t & shared_infos,
+                                     temporaries_map_t & temporaries,
+                                     function_wrapper_impl<T1,T2,T3,T4,T5> func){
               result_type res(func.name,func.expr);
-              handle_function_arg(res,func.t1,"_1_",access_names_map);
-              handle_function_arg(res,func.t2,"_2_",access_names_map);
-              handle_function_arg(res,func.t3,"_3_",access_names_map);
-              handle_function_arg(res,func.t4,"_4_",access_names_map);
-              handle_function_arg(res,func.t5,"_5_",access_names_map);
+              handle_function_arg(res,func.t1,"_1_",shared_infos,temporaries);
+              handle_function_arg(res,func.t2,"_2_",shared_infos,temporaries);
+              handle_function_arg(res,func.t3,"_3_",shared_infos,temporaries);
+              handle_function_arg(res,func.t4,"_4_",shared_infos,temporaries);
+              handle_function_arg(res,func.t5,"_5_",shared_infos,temporaries);
               return res;
 
 
@@ -285,9 +308,10 @@ namespace viennacl
       };
 
       template<class T>
-      typename dummy2exptree_impl<T>::result_type dummy2exptree(std::map<viennacl::backend::mem_handle,shared_infos> & access_names_map,
+      typename dummy2exptree_impl<T>::result_type dummy2exptree(shared_infos_map_t & shared_infos,
+                                                                temporaries_map_t & temporaries,
                                                                 T const & t){
-          return dummy2exptree_impl<T>::execute(access_names_map,t);
+          return dummy2exptree_impl<T>::execute(shared_infos,temporaries,t);
       }
 
 

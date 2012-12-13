@@ -18,11 +18,12 @@ namespace viennacl
         friend class kernel_argument;
 
         public :
+
         custom_operation(std::string const & operation_name) : operation_name_(operation_name){ }
 
           template<class T>
           void add(T const & op){
-              operations_manager_.add(dummy2exptree(access_names_map_,op));
+              operations_manager_.add(dummy2exptree(shared_infos_,temporaries_,op));
           }
 
           std::string generate() const{
@@ -42,7 +43,8 @@ namespace viennacl
         private:
           std::string operation_name_;
           code_generation::operations_manager operations_manager_;
-          std::map<viennacl::backend::mem_handle, shared_infos> access_names_map_;
+          shared_infos_map_t shared_infos_;
+          temporaries_map_t temporaries_;
      };
   }
 }
