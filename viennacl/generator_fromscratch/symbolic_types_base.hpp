@@ -5,6 +5,8 @@
 #include "viennacl/generator_fromscratch/forwards.h"
 #include "viennacl/backend/memory.hpp"
 #include <map>
+#include <set>
+#include <list>
 
 namespace viennacl{
 
@@ -73,6 +75,8 @@ namespace viennacl{
             viennacl::tools::shared_ptr<infos_base> rhs_;
         };
 
+        class kernel_argument;
+
         class infos_base{
         public:
             virtual std::string generate() const = 0;
@@ -130,10 +134,9 @@ namespace viennacl{
             virtual std::string generate() const { return infos_->access_name(); }
             virtual std::string name() const { return infos_->name(); }
             std::string const & scalartype() const { return infos_->scalartype(); }
-            virtual std::string kernel_arguments() const = 0;
+            virtual std::string arguments_string() const = 0;
         protected:
             shared_infos_t* infos_;
-
         };
 
         class user_kernel_argument : public kernel_argument{ };
@@ -144,7 +147,7 @@ namespace viennacl{
         protected:
             cpu_scal_infos_base() { }
         public:
-            std::string kernel_arguments() const{
+            virtual std::string arguments_string() const{
                 return scalartype() + " " + name();
             }
         };
@@ -153,8 +156,8 @@ namespace viennacl{
         protected:
             gpu_scal_infos_base() { }
         public:
-            std::string kernel_arguments() const{
-                return "__global " + scalartype() + "*"  + " " + name();
+            virtual std::string arguments_string() const{
+                return  "__global " + scalartype() + "*"  + " " + name();
             }
         };
 
@@ -164,9 +167,11 @@ namespace viennacl{
             step_t step(){ return *step_; }
             void step(step_t s){ *step_ = s; }
             local_memory make_local_memory(unsigned int size){
-                return local_memory(name(),size,scalartype());
+                return local_memory(name()+"_local",size,scalartype());
             }
-
+            std::string arguments_string() const{
+                return "__global " + scalartype() + "*" + " " + name();
+            }
         protected:
             inprod_infos_base(infos_base * lhs
                               , infos_base * rhs
@@ -183,12 +188,9 @@ namespace viennacl{
             std::string  internal_size() const{ return name() + "_internal_size_";}
             std::string  start() const{ return name() + "_start";}
             std::string  inc() const{ return name() + "_inc";}
-            std::string kernel_arguments() const
-            {
-              return " __global " + scalartype() + "*"  + " " + name()
-                  + ", unsigned int " + size()
-                  + ", unsigned int " + internal_size()+ "\n" ;
-            }
+            std::string arguments_string() const{ return  " __global " + scalartype() + "*"  + " " + name()
+                                                                     + ", unsigned int " + size()
+                                                                     + ", unsigned int " + internal_size();}
             virtual ~vec_infos_base(){ }
         protected:
             vec_infos_base() { }
@@ -205,17 +207,16 @@ namespace viennacl{
             std::string  col_inc() const{ return name() +"col_inc_";}
             std::string  row_start() const{ return name() +"row_start_";}
             std::string  col_start() const{ return name() +"col_start_";}
-            std::string kernel_arguments() const{
-                return " __global " + scalartype() + "*"  + " " + name()
-                        + ", unsigned int " + row_start()
-                        + ", unsigned int " + col_start()
-                        + ", unsigned int " + row_inc()
-                        + ", unsigned int " + col_inc()
-                        + ", unsigned int " + size1()
-                        + ", unsigned int " + size2()
-                        + ", unsigned int " + internal_size1()
-                        + ", unsigned int " + internal_size2()
-                      + "\n";
+            std::string arguments_string() const{
+                " __global " + scalartype() + "*"  + " " + name()
+                                                            + ", unsigned int " + row_start()
+                                                            + ", unsigned int " + col_start()
+                                                            + ", unsigned int " + row_inc()
+                                                            + ", unsigned int " + col_inc()
+                                                            + ", unsigned int " + size1()
+                                                            + ", unsigned int " + size2()
+                                                            + ", unsigned int " + internal_size1()
+                                                            + ", unsigned int " + internal_size2();
             }
             bool const is_rowmajor() const { return is_rowmajor_; }
             bool const is_transposed() const { return is_transposed_; }
@@ -229,12 +230,61 @@ namespace viennacl{
             bool is_transposed_;
         };
 
+        class function_base : public infos_base{
+        protected:
+            typedef std::map<std::string,viennacl::tools::shared_ptr<infos_base> > args_map_t;
+        public:
+            function_base(std::string const & name) : name_(name){ }
+            virtual std::string name() const {
+                return name_;
+            }
+
+            virtual std::list<infos_base*> args() const = 0;
+
+        protected:
+            std::string name_;
+
+        };
+
+        class symbolic_function : public function_base{
+        public:
+            symbolic_function(std::string const & name,std::string const & expr) : function_base(name), expr_(expr){
+            }
+
+
+            template<class T>
+            void add_arg(std::string const & arg_name, T const & t){
+                args_map_.insert(std::make_pair(arg_name, new T(t)));
+            }
+
+
+            std::list<infos_base*> args() const{
+                std::list<infos_base*> res;
+                for(args_map_t::const_iterator it = args_map_.begin() ; it!= args_map_.end() ; ++it)
+                    res.push_back(it->second.get());
+                return res;
+            }
+
+            virtual std::string generate() const {
+                std::string res(expr_);
+                for(args_map_t::const_iterator it = args_map_.begin() ; it!= args_map_.end() ; ++it)
+                    replace_all_occurences(res,it->first,it->second->generate());
+                return res;
+            }
+
+
+        private:
+            std::string expr_;
+            args_map_t args_map_;
+        };
+
+
         bool operator<(infos_base const & first, infos_base const & other){
             if(binary_tree_infos_base const * t = dynamic_cast<binary_tree_infos_base const *>(&first)){
-                return t->lhs() < other && t->rhs() < other;
+                return t->lhs() < other || t->rhs() < other;
             }
             else if(binary_tree_infos_base const * p= dynamic_cast<binary_tree_infos_base const *>(&other)){
-                return first < p->lhs() && first < p->rhs();
+                return first < p->lhs() || first < p->rhs();
             }
             else if(user_kernel_argument const * t = dynamic_cast<user_kernel_argument const *>(&first)){
                   if(user_kernel_argument const * p = dynamic_cast<user_kernel_argument const*>(&other)){
@@ -245,8 +295,32 @@ namespace viennacl{
        }
 
         typedef std::map<viennacl::backend::mem_handle, shared_infos_t> shared_infos_map_t;
-        typedef std::map<infos_base*,viennacl::backend::mem_handle,deref_less> temporaries_map_t;
+        typedef std::map<kernel_argument*,viennacl::backend::mem_handle,deref_less> temporaries_map_t;
 
+        template<class T, class Pred>
+        void extract_as(infos_base* root, std::set<T*, deref_less> & args, Pred pred){
+            if(user_kernel_argument* p = dynamic_cast<user_kernel_argument*>(root)){
+
+            }
+            else if(arithmetic_tree_infos_base* p = dynamic_cast<arithmetic_tree_infos_base*>(root)){
+                extract_as(&p->lhs(), args,pred);
+                extract_as(&p->rhs(),args,pred);
+            }
+            else if(function_base* p = dynamic_cast<function_base*>(root)){
+                std::list<infos_base*> func_args(p->args());
+                for(std::list<infos_base*>::const_iterator it = func_args.begin(); it!= func_args.end(); ++it){
+                    extract_as(*it,args,pred);
+                }
+            }
+            else if(inprod_infos_base* p = dynamic_cast<inprod_infos_base*>(root)){
+                if(p->step() == inprod_infos_base::compute){
+                    extract_as(&p->lhs(), args,pred);
+                    extract_as(&p->rhs(),args,pred);
+                }
+            }
+            if(T* t = dynamic_cast<T*>(root))
+                if(pred(t)) args.insert(t);
+        }
 
     }
 

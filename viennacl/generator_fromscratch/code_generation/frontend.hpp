@@ -13,7 +13,6 @@ namespace viennacl{
 
     namespace generator{
 
-
         namespace code_generation{
 
             class kernel_generator{
@@ -21,11 +20,13 @@ namespace viennacl{
 
                 void generate_headers(){
                     kss_ << "__kernel void " + kernel_name_ + "(";
-                    std::list<kernel_argument*> args(utils::cast<kernel_argument>(utils::filter<utils::EXTRACT_IF>(trees_,utils::is_type<kernel_argument>)));
-                    utils::remove_unsorted_duplicates(args);
-                    for(std::list<kernel_argument*>::iterator it = args.begin() ; it!= args.end() ; ++it){
-                        if(it!=args.begin()) kss_ << ",";
-                        kss_ << (*it)->kernel_arguments();
+                    std::set<kernel_argument*, deref_less>  args;
+                    for(std::list<infos_base*>::iterator it = trees_.begin() ; it!= trees_.end() ; ++it){
+                        extract_as<kernel_argument>(*it,args,utils::is_type<kernel_argument>());
+                    }
+                    for(std::set<kernel_argument*, deref_less>::iterator it=args.begin(); it!=args.end();++it){
+                        if(it!=args.begin()) kss_ << ',';
+                        kss_ << (*it)->arguments_string() << std::endl ;
                     }
                     kss_ << ")" << std::endl;
                 }
@@ -37,10 +38,10 @@ namespace viennacl{
                     std::list<infos_base *> scal_exprs;
                     std::list<infos_base *> mat_exprs;
                     for(std::list<infos_base*>::const_iterator it = trees_.begin(); it!=trees_.end();++it){
-                        if(utils::is_type<vector_expression_infos_base>(*it))
+                        if(utils::is_type<vector_expression_infos_base>()(*it))
                             vec_exprs.push_back(*it);
-                        else if(utils::is_type<scalar_expression_infos_base>(*it)
-                                ||utils::is_type<inprod_infos_base>(*it))
+                        else if(utils::is_type<scalar_expression_infos_base>()(*it)
+                                ||utils::is_type<inprod_infos_base>()(*it))
                             scal_exprs.push_back(*it);
                         else
                             mat_exprs.push_back(*it);
@@ -88,7 +89,7 @@ namespace viennacl{
                     res_t res(1);
                     for(typename operations_t::const_iterator it = operations_.begin() ; it!=operations_.end() ; ++it){
                         infos_base* p = it->get();
-                        std::list<infos_base*> inprods(utils::filter<utils::EXTRACT_IF>(p,utils::is_type<inprod_infos_base>));
+                        std::list<infos_base*> inprods(utils::filter<utils::EXTRACT_IF>(p,utils::is_type<inprod_infos_base>()));
                         if(inprods.size()){
                             res.back().merge(inprods);
                             res.push_back(std::list<infos_base*>());

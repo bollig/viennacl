@@ -120,10 +120,6 @@ namespace viennacl
               handle_ = it->second;
               infos_ = &shared_infos.insert(std::make_pair(it->second,shared_infos_t(shared_infos.size(),print_type<ScalarType>::value()))).first->second;
           }
-
-          std::string kernel_arguments() const{
-              return "__global " + scalartype() + "*" + " " + name();
-          }
       private:
           viennacl::backend::mem_handle handle_;
       };
