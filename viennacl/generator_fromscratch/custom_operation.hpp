@@ -1,7 +1,6 @@
 #ifndef VIENNACL_GENERATOR_CUSTOM_OPERATION_HPP
 #define VIENNACL_GENERATOR_CUSTOM_OPERATION_HPP
 
-#include "viennacl/generator_fromscratch/functions.hpp"
 #include "viennacl/generator_fromscratch/code_generation/frontend.hpp"
 #include "viennacl/generator_fromscratch/symbolic_types.hpp"
 #include "viennacl/tools/shared_ptr.hpp"

@@ -5,6 +5,7 @@
 #include <set>
 #include <algorithm>
 #include <ostream>
+#include <map>
 
 namespace viennacl{
 
@@ -19,10 +20,11 @@ namespace viennacl{
 
 
                 template<class T>
-                static bool is_type(infos_base* p){
-                    return dynamic_cast<T *>(p);
-                }
-
+                struct is_type{
+                    bool operator()(infos_base* p) const{
+                        return dynamic_cast<T *>(p);
+                    }
+                };
 
 
                 template<class T>
@@ -136,6 +138,8 @@ namespace viennacl{
                 }
 
 
+
+
                 template<class T, class B>
                 static std::list<T *> cast(std::list<B *> const & in){
                     std::list<T*> res(in.size());
@@ -145,43 +149,38 @@ namespace viennacl{
 
                 template<class T>
                 static std::list<T *> extract_cast(std::list<infos_base*> const & trees){
-                    return cast<T,infos_base>(filter<EXTRACT_IF>(trees,is_type<T>));
+                    return cast<T,infos_base>(filter<EXTRACT_IF>(trees,is_type<T>()));
                 }
 
 
                 template<class T>
                 class cache_manager{
                 public:
-                    cache_manager(std::list<T * > const & expressions_read
-                                  ,std::list<T * > const & expressions_write
-                                  ,  utils::kernel_generation_stream & kss, std::set<T *>& cached_entries) : expressions_read_(expressions_read)
-                                                                                                            ,expressions_write_(expressions_write)
-                                                                                                            ,kss_(kss)
-                      ,cached_entries_(cached_entries){         }
+                    cache_manager( std::set<T *, viennacl::generator::deref_less>& expressions_read
+                                  ,std::list<T *> const & expressions_write
+                                  ,  utils::kernel_generation_stream & kss) : expressions_read_(expressions_read), expressions_write_(expressions_write)
+                                                                              ,kss_(kss){
+                    }
 
                     void fetch_entries(std::string const & idx){
-                        for(typename std::list<T * >::iterator it = expressions_read_.begin() ; it != expressions_read_.end() ; ++it){
+                        for(typename std::set<T *, viennacl::generator::deref_less>::iterator it = expressions_read_.begin() ; it != expressions_read_.end() ; ++it){
                             T * p = *it;
-                            if(cached_entries_.insert(p).second){
-                                p->access_name(p->name()+"_val");
-                                kss_ << p->scalartype() << " " << p->generate() << " = " << p->name() << "[" << idx << "];" << std::endl;
-                            }
+                            p->access_name(p->name()+"_val");
+                            kss_ << p->scalartype() << " " << p->generate() << " = " << p->name() << "[" << idx << "];" << std::endl;
                         }
                     }
 
                     void writeback_entries(std::string const & idx){
                         for(typename std::list<T * >::iterator it = expressions_write_.begin() ; it != expressions_write_.end() ; ++it){
                             T * p = *it;
-                            std::cout << p->name() << std::endl;
                             kss_<< p->name() << "[" << idx << "]"<< " = "  << p->generate() << ";" << std::endl;
                         }
                     }
 
                 private:
-                    std::list<T * > expressions_read_;
                     std::list<T * > expressions_write_;
                     utils::kernel_generation_stream & kss_;
-                    std::set<T *> & cached_entries_;
+                    std::set<T *, viennacl::generator::deref_less> & expressions_read_;
 
                 };
 
