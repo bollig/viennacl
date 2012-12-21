@@ -172,10 +172,22 @@ namespace viennacl{
             std::string arguments_string() const{
                 return "__global " + scalartype() + "*" + " " + name();
             }
+            std::string generate() const{
+                if(*step_==compute){
+                    return sum_name() + " += " "(" + lhs_->generate() +  ")" " * " "(" + rhs_->generate() + ")" ;
+                }
+                return infos_->access_name();
+            }
+            std::string sum_name() const{
+                return name()+"_sum";
+            }
+
         protected:
             inprod_infos_base(infos_base * lhs
                               , infos_base * rhs
-                              ,step_t * step): binary_tree_infos_base(lhs,rhs),step_(step){ }
+                              ,step_t * step): binary_tree_infos_base(lhs,rhs),step_(step){
+
+            }
 
 
         private:

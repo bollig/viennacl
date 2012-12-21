@@ -71,12 +71,10 @@ namespace viennacl{
                         for(std::list<infos_base*>::iterator it=scalar_expressions_.begin(); it!= scalar_expressions_.end();++it){
                             if(scalar_expression_infos_base* p=dynamic_cast<scalar_expression_infos_base*>(*it)){
                                 if(p->op().is_assignment()==true){
-                                    std::cout << "blabla" << std::endl;
                                     assigned_scal.push_back(dynamic_cast<gpu_scal_infos_base*>(&p->lhs()));
                                 }
                             }
                         }
-
 
                         code_generation::utils::cache_manager<vec_infos_base> vector_cache(vectors_,assigned_vec,kss);
                         code_generation::utils::cache_manager<gpu_scal_infos_base> scalar_cache(gpu_scalars_,assigned_scal,kss);
@@ -84,22 +82,23 @@ namespace viennacl{
                         if(vectors_.size())
                             first_vector = *vectors_.begin();
 //                        //Assumes same size...
+
                         if(inner_prods_reduce_.size()){
                             std::list<local_memory> local_mems;
                             for( std::set<inprod_infos_base *, viennacl::generator::deref_less>::const_iterator it = inner_prods_reduce_.begin(); it != inner_prods_reduce_.end() ; ++it){
-                                kss <<  (*it)->scalartype() << " sum_" << (*it)->name()<< " = 0 ;" << std::endl;
+                                kss <<  (*it)->scalartype() <<  " " << (*it)->sum_name()<< " = 0 ;" << std::endl;
                             }
-                             kss << "for(unsigned int i = get_global_id(0) ; i <" << first_vector->size() << " ; i += get_global_size(0){" << std::endl;
-                             kss.inc_tab();
-                             for( std::set<inprod_infos_base *, viennacl::generator::deref_less>::const_iterator it = inner_prods_reduce_.begin(); it != inner_prods_reduce_.end() ; ++it){
-                                 kss << "sum_" << (*it)->name() << " = " << (*it)->name() << "[i]" << std::endl;
-                             }
-                             kss.dec_tab();
-                             kss << "}" << std::endl;
+                            kss << "for(unsigned int i = get_global_id(0) ; i <" << first_vector->size() << " ; i += get_global_size(0){" << std::endl;
+                            kss.inc_tab();
+                            for( std::set<inprod_infos_base *, viennacl::generator::deref_less>::const_iterator it = inner_prods_reduce_.begin(); it != inner_prods_reduce_.end() ; ++it){
+                                kss << (*it)->sum_name() << " = " << (*it)->name() << "[i]" << std::endl;
+                            }
+                            kss.dec_tab();
+                            kss << "}" << std::endl;
                             for( std::set<inprod_infos_base *, viennacl::generator::deref_less>::const_iterator it = inner_prods_reduce_.begin(); it != inner_prods_reduce_.end() ; ++it){
                                 local_mems.push_back((*it)->make_local_memory(64));
                                 kss << local_mems.back().declare() << ";" << std::endl;
-                                kss << local_mems.back().access("get_local_id(0)") << " = " << "sum_" << (*it)->name()<< ";" << std::endl;
+                                kss << local_mems.back().access("get_local_id(0)") << " = " << (*it)->sum_name()<< ";" << std::endl;
                             }
                             compute_reductions_samesize(kss,local_mems);
                             for( std::set<inprod_infos_base *, viennacl::generator::deref_less>::const_iterator it = inner_prods_reduce_.begin(); it != inner_prods_reduce_.end() ; ++it){
@@ -112,7 +111,7 @@ namespace viennacl{
                         scalar_cache.fetch_entries("0");
                         if(first_vector){
                             for(std::set<inprod_infos_base *, viennacl::generator::deref_less>::iterator it=inner_prods_compute_.begin() ; it!=inner_prods_compute_.end();++it){
-                                kss << (*it)->scalartype() << " " << (*it)->name()+"_sum" << " = 0;" << std::endl;
+                                kss << (*it)->scalartype() << " " << (*it)->sum_name() << " = 0;" << std::endl;
                             }
                             kss << "for(unsigned int i = get_global_id(0) ; i <" << first_vector->size() << " ; i += get_global_size(0){" << std::endl;
                             kss.inc_tab();
@@ -122,7 +121,7 @@ namespace viennacl{
                                 kss << (*it)->generate() << std::endl;
                             }
                             for(std::set<inprod_infos_base *, viennacl::generator::deref_less>::iterator it=inner_prods_compute_.begin() ; it!=inner_prods_compute_.end();++it){
-                                kss << (*it)->name()+"_sum" << " += " << "(" << (*it)->lhs().generate() << ")" << " * " << "(" << (*it)->rhs().generate() << ")" << std::endl;
+                                kss << (*it)->generate() << std::endl;
                             }
                             vector_cache.writeback_entries("i");
                             kss.dec_tab();
@@ -135,7 +134,7 @@ namespace viennacl{
                             for( std::set<inprod_infos_base *, viennacl::generator::deref_less>::const_iterator it = inner_prods_compute_.begin(); it != inner_prods_compute_.end() ; ++it){
                                 local_mems.push_back((*it)->make_local_memory(64));
                                 kss << local_mems.back().declare() << ";" << std::endl;
-                                kss << local_mems.back().access("get_local_id(0)") << " = " <<  (*it)->name() + "_sum" << ";" << std::endl;
+                                kss << local_mems.back().access("get_local_id(0)") << " = " <<  (*it)->sum_name() << ";" << std::endl;
                             }
                             compute_reductions_samesize(kss,local_mems);
                         }
