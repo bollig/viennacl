@@ -12,6 +12,7 @@ namespace viennacl{
     namespace generator{
 
 
+
         namespace code_generation{
 
 
@@ -166,7 +167,7 @@ namespace viennacl{
                         for(typename std::set<T *, viennacl::generator::deref_less>::iterator it = expressions_read_.begin() ; it != expressions_read_.end() ; ++it){
                             T * p = *it;
                             p->access_name(p->name()+"_val");
-                            kss_ << p->scalartype() << " " << p->generate() << " = " << p->name() << "[" << idx << "];" << std::endl;
+                            kss_ << p->aligned_scalartype() << " " << p->generate() << " = " << p->name() << "[" << idx << "];" << std::endl;
                         }
                     }
 

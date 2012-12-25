@@ -13,7 +13,7 @@ if (ENABLE_OPENCL)
 
   if(ENABLE_VIENNAPROFILER)
     include_directories(${VIENNAPROFILER_INCLUDE_DIRS})
-    foreach(par vector matrix sparse)
+    foreach(par generated_kernels vector matrix sparse)
       add_executable(${par}params_vprof ${par}.cpp
           ${PROJECT_SOURCE_DIR}/external/pugixml/src/pugixml.cpp)
       target_link_libraries(${par}params_vprof

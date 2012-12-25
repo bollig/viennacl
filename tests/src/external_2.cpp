@@ -58,7 +58,7 @@
   #include "viennacl/linalg/svd.hpp"
   #include "viennacl/fft.hpp"
   #include "viennacl/io/kernel_parameters.hpp"
-  #include "viennacl/generator/custom_operation.hpp"
+//  #include "viennacl/generator/custom_operation.hpp"
 #endif
 
 #include "viennacl/io/matrix_market.hpp"

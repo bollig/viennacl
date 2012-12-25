@@ -82,6 +82,7 @@ void record_full_timings(TimingType & timings,
   {
     for (unsigned int local_workers = config.min_local_size(); local_workers <= config.max_local_size(); local_workers *= 2)   //iterate over local thread number
     {
+
       //set parameter:
       set_kernel_params(config.program_name(), config.kernel_name(), work_groups, local_workers);
       

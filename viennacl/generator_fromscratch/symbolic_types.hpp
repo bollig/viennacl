@@ -23,6 +23,7 @@
 #include "viennacl/generator_fromscratch/symbolic_types_base.hpp"
 #include "viennacl/generator_fromscratch/functions.hpp"
 
+
 namespace viennacl
 {
   namespace generator
@@ -110,16 +111,21 @@ namespace viennacl
           }
 
       public:
-          inprod_infos(shared_infos_map_t & shared_infos,
-                       temporaries_map_t & temporaries_map,
+          template<class SharedInfosMapT, class TemporariesMapT>
+          inprod_infos(SharedInfosMapT & shared_infos,
+                       TemporariesMapT & temporaries_map,
                        LHS const & lhs, RHS const & rhs) :
               inprod_infos_base(new LHS(lhs), new RHS(rhs)
                                 ,new step_t(inprod_infos_base::compute)){
-              temporaries_map_t::iterator it = temporaries_map.insert(std::make_pair(this,viennacl::backend::mem_handle())).first;
+              typename TemporariesMapT::iterator it = temporaries_map.insert(std::make_pair(this,viennacl::backend::mem_handle())).first;
               viennacl::backend::memory_create(it->second,sizeof(ScalarType)*128);
               handle_ = it->second;
               infos_ = &shared_infos.insert(std::make_pair(it->second,shared_infos_t(shared_infos.size(),print_type<ScalarType>::value()))).first->second;
           }
+
+           void enqueue(unsigned int & arg, viennacl::ocl::kernel & k) const{
+               k.arg(arg++,handle_.opencl_handle());
+           }
       private:
           viennacl::backend::mem_handle handle_;
       };
@@ -177,11 +183,16 @@ namespace viennacl
         public:
           typedef viennacl::vector<SCALARTYPE,ALIGNMENT> vcl_vec_t;
           typedef SCALARTYPE ScalarType;
-          symbolic_vector(shared_infos_map_t & map
+          template<class SharedInfosMapT>
+          symbolic_vector(SharedInfosMapT & map
                           ,vcl_vec_t const & vcl_vec) : vcl_vec_(vcl_vec){
             infos_= &map.insert(std::make_pair(vcl_vec_.handle(),shared_infos_t(map.size(),print_type<ScalarType>::value()))).first->second;
           }
           virtual viennacl::backend::mem_handle const & handle() const{ return vcl_vec_.handle(); }
+          void enqueue(unsigned int & n_arg, viennacl::ocl::kernel & k) const{
+              k.arg(n_arg++,vcl_vec_);
+              k.arg(n_arg++,cl_uint(vcl_vec_.size()));
+          }
 
         private:
           vcl_vec_t const & vcl_vec_;
@@ -221,94 +232,6 @@ namespace viennacl
       template<class OP, class LHS1, class RHS1, class LHS2, class RHS2>
       struct get_symbolic_type<matrix_expression_wrapper<LHS1,OP,RHS1>,LHS2,RHS2 >{ typedef matrix_expression<LHS2,OP,RHS2> type;};
 
-      template<class T>
-      struct dummy2exptree_impl
-      {
-      private:
-        typedef typename T::Lhs Lhs;
-        typedef typename T::Rhs Rhs;
-        typedef typename dummy2exptree_impl<Lhs>::result_type LhsResult;
-        typedef typename dummy2exptree_impl<Rhs>::result_type RhsResult;
-      public:
-        typedef typename get_symbolic_type<T,LhsResult,RhsResult>::type result_type;
-
-          static result_type execute(shared_infos_map_t & shared_infos,
-                                     temporaries_map_t & temporaries,
-                                     T const & t){
-              return result_type(dummy2exptree_impl<Lhs>::execute(shared_infos, temporaries, t.lhs())
-                                 ,dummy2exptree_impl<Rhs>::execute(shared_infos, temporaries, t.rhs()));
-          }
-      };
-
-      template<class ScalarType, unsigned int Alignment>
-      struct dummy2exptree_impl<dummy_vector<ScalarType, Alignment> >{
-          typedef symbolic_vector<ScalarType, Alignment> result_type;
-          static result_type execute(shared_infos_map_t & shared_infos,
-                                     temporaries_map_t & temporaries_,
-                                     dummy_vector<ScalarType,Alignment> const & v){
-              return result_type(shared_infos, v.vec());
-          }
-      };
-
-      template<class LHS, class RHS>
-      struct dummy2exptree_impl<inner_prod_wrapper<LHS,RHS> >{
-      private:
-          typedef typename dummy2exptree_impl<LHS>::result_type LhsResult;
-          typedef typename dummy2exptree_impl<RHS>::result_type RhsResult;
-      public:
-          typedef inprod_infos<LhsResult,RhsResult> result_type;
-          static result_type execute(shared_infos_map_t & shared_infos,
-                                     temporaries_map_t & temporaries,
-                                     inner_prod_wrapper<LHS,RHS> const & v){
-              return result_type(shared_infos, temporaries,
-                                 dummy2exptree_impl<LHS>::execute(shared_infos,temporaries,v.lhs()),
-                                 dummy2exptree_impl<RHS>::execute(shared_infos,temporaries,v.rhs()));
-          }
-      };
-
-
-
-
-      template<class T1, class T2, class T3, class T4, class T5>
-      struct dummy2exptree_impl<function_wrapper_impl<T1,T2,T3,T4,T5> >{
-      private:
-          template<class U>
-          static void handle_function_arg(symbolic_function & fun, U const * t, std::string name
-                              , shared_infos_map_t & shared_infos
-                              , temporaries_map_t & temporaries)
-          {
-
-              fun.add_arg(name, dummy2exptree_impl<U>::execute(shared_infos,temporaries,*t));
-          }
-
-          static void handle_function_arg(symbolic_function & fun, void const* t, std::string name
-                              , shared_infos_map_t & shared_infos
-                              , temporaries_map_t & temporaries)
-          { }
-
-      public:
-          typedef symbolic_function result_type;
-          static result_type execute(shared_infos_map_t & shared_infos,
-                                     temporaries_map_t & temporaries,
-                                     function_wrapper_impl<T1,T2,T3,T4,T5> func){
-              result_type res(func.name,func.expr);
-              handle_function_arg(res,func.t1,"_1_",shared_infos,temporaries);
-              handle_function_arg(res,func.t2,"_2_",shared_infos,temporaries);
-              handle_function_arg(res,func.t3,"_3_",shared_infos,temporaries);
-              handle_function_arg(res,func.t4,"_4_",shared_infos,temporaries);
-              handle_function_arg(res,func.t5,"_5_",shared_infos,temporaries);
-              return res;
-
-
-          }
-      };
-
-      template<class T>
-      typename dummy2exptree_impl<T>::result_type dummy2exptree(shared_infos_map_t & shared_infos,
-                                                                temporaries_map_t & temporaries,
-                                                                T const & t){
-          return dummy2exptree_impl<T>::execute(shared_infos,temporaries,t);
-      }
 
 
 
