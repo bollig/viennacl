@@ -31,7 +31,7 @@ class config
             while (2 * units < dev.compute_units());
             min_work_groups_ = units;
             max_work_groups_ = 256; //reasonable upper limit on current GPUs
-            min_local_size_ = 32; //less than 32 threads per work group is unlikely to have any impact
+            min_local_size_ = 16; //less than 16 threads per work group is unlikely to have any impact
 
         }
         else if (dev.type() == CL_DEVICE_TYPE_CPU)// CPU specific test setup
@@ -129,14 +129,19 @@ std::pair<double, code_generation::optimization_profile> benchmark_timings(std::
         }
         viennacl::ocl::program & prog = viennacl::ocl::current_context().add_program(oss.str(),"benchmark_test");
         for(std::map<std::string, generator::code_generation::kernel_infos_t>::iterator it = kernels_infos.begin() ; it != kernels_infos.end() ; ++it){
-            std::cout << "." << std::flush ;
             viennacl::ocl::kernel & k = prog.add_kernel(it->first);
+            code_generation::optimization_profile& profile = it->second.profile();
+
+            //Anticipates kernel failure
+            size_t max_workgroup_size = k.max_workgroup_size(config.device().id());
+            if(profile.local_work_size(0) > max_workgroup_size || profile.local_work_size(1) > max_workgroup_size)
+                continue;
+
             set_arguments(k,it->second.arguments());
             k.local_work_size(0, it->second.profile().local_work_size(0));
             k.local_work_size(1, it->second.profile().local_work_size(1));
+            std::cout << "." << std::flush ;
             for (unsigned int work_groups = config.min_work_groups(); work_groups <= config.max_work_groups(); work_groups *= 2){
-                code_generation::optimization_profile& profile = it->second.profile();
-
                 k.global_work_size(0, k.local_work_size(0)*work_groups);
                 k.global_work_size(1, k.local_work_size(1)*work_groups);
                 profile.global_work_size(0,k.global_work_size(0));

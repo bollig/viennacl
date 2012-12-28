@@ -191,7 +191,7 @@ namespace viennacl
           virtual viennacl::backend::mem_handle const & handle() const{ return vcl_vec_.handle(); }
           void enqueue(unsigned int & n_arg, viennacl::ocl::kernel & k) const{
               k.arg(n_arg++,vcl_vec_);
-              k.arg(n_arg++,cl_uint(vcl_vec_.size()));
+              k.arg(n_arg++,cl_uint(vcl_vec_.internal_size()));
           }
 
         private:

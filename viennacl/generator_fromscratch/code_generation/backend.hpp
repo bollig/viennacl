@@ -189,7 +189,7 @@ namespace viennacl{
                             for(std::set<inprod_infos_base *, viennacl::generator::deref_less>::iterator it=inner_prods_compute_.begin() ; it!=inner_prods_compute_.end();++it){
                                 kss << (*it)->scalartype() << " " << (*it)->sum_name() << " = 0;" << std::endl;
                             }
-                            kss << "for(unsigned int i = get_global_id(0)*" << n_unroll << "; i <" << first_vector->size() << "/" << alignment << " - " << n_unroll << "+1" << " ; i += get_global_size(0)*" << n_unroll << "){" << std::endl;
+                            kss << "for(unsigned int i = get_global_id(0)*" << n_unroll << "; i <" << first_vector->size() << "/" << alignment  << " - " << n_unroll << "+ 1 " << " ; i += get_global_size(0)*" << n_unroll << "){" << std::endl;
                             kss.inc_tab();
                             for(unsigned int j=0 ; j<n_unroll  ; ++j){
                                 vector_cache.fetch_entries(j, "i + " + to_string(j));

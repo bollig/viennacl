@@ -83,7 +83,7 @@ namespace viennacl
             queue.finish();
             err = clEnqueueNDRangeKernel(queue.handle().get(), k.handle().get(), 1, NULL, &tmp_global, &tmp_local, 0, NULL, NULL);
           }
-          
+
           if (err != CL_SUCCESS)
           {
             //could not start kernel with any parameters

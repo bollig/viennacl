@@ -103,7 +103,15 @@ namespace viennacl
         return *this;
       }
       
-      
+      /** @brief Returns the maximum work group size supported by a kernel (taking registers pressure, etc... in account) */
+      size_t max_workgroup_size(cl_device_id device_id){
+          init();
+          size_t res;
+          int err = clGetKernelWorkGroupInfo(handle_.get(),device_id,CL_KERNEL_WORK_GROUP_SIZE,sizeof(size_t),(void*)&res,NULL);
+           VIENNACL_ERR_CHECK(err);
+          return res;
+      }
+
       /** @brief Sets an unsigned integer argument at the provided position */
       void arg(unsigned int pos, cl_uint val)
       {
