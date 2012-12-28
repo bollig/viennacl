@@ -26,11 +26,6 @@ class dummy_vector;
 class dummy_scalar;
 class dummy_matrix;
 
-namespace autotune{
-    template<class TestConfig>
-    void benchmark_timings(custom_operation & op, TestConfig & config);
-}
-
 }
 
 }

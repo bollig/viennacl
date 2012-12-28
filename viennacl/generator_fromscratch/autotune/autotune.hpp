@@ -16,12 +16,11 @@ static const int BENCHMARK_RUNS = 10;
 class config
 {
   public:
-    config() {}
-    config(viennacl::ocl::device const & dev){
+    config(viennacl::ocl::device const & dev) : device_(dev){
         max_local_size_ = dev.max_work_group_size();
 
         min_unroll_ = 1;
-        max_unroll_ = 32;
+        max_unroll_ = 64;
 
         // GPU specific test setup:
         if (dev.type() == CL_DEVICE_TYPE_GPU)
@@ -67,9 +66,10 @@ class config
         min_alignments_["long"] = static_cast<unsigned int>(std::max(cl_uint(1),vector_width_long/2));
         max_alignments_["long"] = static_cast<unsigned int>(std::min(cl_uint(16),vector_width_long*2));
 
-        min_alignments_["float"] = static_cast<unsigned int>(std::max(cl_uint(1),vector_width_float/2));
-        max_alignments_["float"] = static_cast<unsigned int>(std::min(cl_uint(16),vector_width_float*2));
-
+        min_alignments_["float"] = 1  ;//static_cast<unsigned int>(std::max(cl_uint(1),vector_width_float/2));
+        max_alignments_["float"] = 16 ;//static_cast<unsigned int>(std::min(cl_uint(16),vector_width_float*2));
+//        std::cout <<  min_alignments_["float"] << std::endl;
+//        std::cout <<  max_alignments_["float"] << std::endl;
         min_alignments_["double"] = static_cast<unsigned int>(std::max(cl_uint(1),vector_width_double/2));
         max_alignments_["double"] = static_cast<unsigned int>(std::min(cl_uint(16),vector_width_double*2));
 
@@ -89,6 +89,10 @@ class config
     unsigned int min_alignment(std::string const & scalartype) const { return min_alignments_.at(scalartype); }
     unsigned int max_alignment(std::string const & scalartype) const { return max_alignments_.at(scalartype); }
 
+    viennacl::ocl::device const & device() const{
+        return device_;
+    }
+
   private:
     unsigned int min_work_groups_;
     unsigned int max_work_groups_;
@@ -98,11 +102,11 @@ class config
     unsigned int max_unroll_;
     std::map<std::string, unsigned int> min_alignments_;
     std::map<std::string, unsigned int> max_alignments_;
+    viennacl::ocl::device const & device_;
 };
 
 template<class TestConfig>
-void benchmark_timings(std::vector<std::list<infos_base*> > kernels, TestConfig & config){
-    Timer t;
+std::pair<double, code_generation::optimization_profile> benchmark_timings(std::vector<std::list<infos_base*> > kernels, TestConfig & config){
     for(std::vector<std::list<infos_base*> >::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
         std::string program_name = "k"+to_string(it-kernels.begin())+"_bench_";
         std::map<double, viennacl::generator::code_generation::optimization_profile> timings;
@@ -121,12 +125,11 @@ void benchmark_timings(std::vector<std::list<infos_base*> > kernels, TestConfig 
                     kg.generate();
                 }
             }
+
         }
-        std::cout << "Compiling ..." << std::endl;
         viennacl::ocl::program & prog = viennacl::ocl::current_context().add_program(oss.str(),"benchmark_test");
-        std::cout << "Compiled ..." << std::endl;
         for(std::map<std::string, generator::code_generation::kernel_infos_t>::iterator it = kernels_infos.begin() ; it != kernels_infos.end() ; ++it){
-            std::cout << "Executing " << it->first << std::endl;
+            std::cout << "." << std::flush ;
             viennacl::ocl::kernel & k = prog.add_kernel(it->first);
             set_arguments(k,it->second.arguments());
             k.local_work_size(0, it->second.profile().local_work_size(0));
@@ -139,6 +142,7 @@ void benchmark_timings(std::vector<std::list<infos_base*> > kernels, TestConfig 
                 profile.global_work_size(0,k.global_work_size(0));
                 profile.global_work_size(1,k.global_work_size(1));
 
+                Timer t;
                 viennacl::ocl::enqueue(k);
                 viennacl::ocl::get_queue().finish();
                 t.start();
@@ -154,30 +158,18 @@ void benchmark_timings(std::vector<std::list<infos_base*> > kernels, TestConfig 
         }
 
 //        for(std::map<double, viennacl::generator::code_generation::optimization_profile>::iterator it = timings.begin() ; it != timings.end() ; ++it){
-//          code_generation::optimization_profile & profile = it->second;
-//            std::cout << it->first
-//                      << " ["
-//                                        << "Alignment :" << profile.alignment()
-//                                        << ", Local Sork Size 0 :" << profile.local_work_size(0)
-//                                        << ", Global Work Size 0 :" << profile.global_work_size(0)
-//                                        << ", Unroll : " << profile.loop_unroll()
-//                                        << "]" << std::endl;
+//            std::cout << it->first << " " << it->second << std::endl;
 //        }
-        code_generation::optimization_profile & best_profile = timings.begin()->second;
-        std::cout << " Best : ["
-                  << "Alignment :" << best_profile.alignment()
-                  << ", Local Sork Size 0 :" << best_profile.local_work_size(0)
-                  << ", Global Work Size 0 :" << best_profile.global_work_size(0)
-                  << ", Unroll : " << best_profile.loop_unroll()
-                  << "]" << std::endl;
+        std::cout << std::endl;
+        return *timings.begin();
     }
 
 
 }
 
 template<class TestConfig>
-void benchmark_timings(custom_operation& op, TestConfig & config){
-    benchmark_timings(op.kernels_list(), config);
+std::pair<double, code_generation::optimization_profile> benchmark_timings(custom_operation& op, TestConfig & config){
+    return benchmark_timings(op.kernels_list(), config);
 }
 
 }

@@ -51,6 +51,8 @@ namespace viennacl{
                         return loop_unroll_;
                     }
 
+                    friend std::ostream& operator<<(std::ostream& os, optimization_profile const & );
+
                     void local_work_size(unsigned int index, size_type val){
                         assert(index==0 || index==1);
                         local_work_size_[index]=val;
@@ -76,6 +78,16 @@ namespace viennacl{
                     unsigned int alignment_;
                     unsigned int loop_unroll_;
                 };
+
+                std::ostream& operator<<(std::ostream& os, optimization_profile const & prof){
+                    os << " Alignment : " << prof.alignment_ << " | "
+                       << " Unroll : " << prof.loop_unroll_ << " | "
+                       << " Local Work Size 0 : " << prof.local_work_size_[0] << " | "
+                       << " Global Work Size 0 : " << prof.global_work_size_[0] << " | "
+                       << " Local Work Size 1 : " << prof.local_work_size_[1] << " | "
+                       << " Global Work Size 1 : " << prof.global_work_size_[1] ;
+                    return os;
+                }
 
                 void compute_reductions_samesize(utils::kernel_generation_stream& kss, std::list<local_memory> const & lmems){
                    //Same size assumption
@@ -177,7 +189,7 @@ namespace viennacl{
                             for(std::set<inprod_infos_base *, viennacl::generator::deref_less>::iterator it=inner_prods_compute_.begin() ; it!=inner_prods_compute_.end();++it){
                                 kss << (*it)->scalartype() << " " << (*it)->sum_name() << " = 0;" << std::endl;
                             }
-                            kss << "for(unsigned int i = get_global_id(0)*" << n_unroll << "; i <" << first_vector->size() << "/" << alignment << " ; i += get_global_size(0)*" << n_unroll << "){" << std::endl;
+                            kss << "for(unsigned int i = get_global_id(0)*" << n_unroll << "; i <" << first_vector->size() << "/" << alignment << " - " << n_unroll << "+1" << " ; i += get_global_size(0)*" << n_unroll << "){" << std::endl;
                             kss.inc_tab();
                             for(unsigned int j=0 ; j<n_unroll  ; ++j){
                                 vector_cache.fetch_entries(j, "i + " + to_string(j));
