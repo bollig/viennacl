@@ -19,7 +19,7 @@ namespace viennacl{
                 class optimization_profile{
                     typedef unsigned int size_type;
                 public:
-                    optimization_profile() : alignment_(4){ }
+                    optimization_profile() : alignment_(1), loop_unroll_(1){ }
 
                     void load(viennacl::ocl::device const & d){
 
@@ -43,6 +43,13 @@ namespace viennacl{
                         return alignment_;
                     }
 
+                    void loop_unroll(unsigned int val){
+                        loop_unroll_ = val;
+                    }
+
+                    unsigned int loop_unroll(){
+                        return loop_unroll_;
+                    }
 
                     void local_work_size(unsigned int index, size_type val){
                         assert(index==0 || index==1);
@@ -67,6 +74,7 @@ namespace viennacl{
                     size_type local_work_size_[2];
                     size_type global_work_size_[2];
                     unsigned int alignment_;
+                    unsigned int loop_unroll_;
                 };
 
                 void compute_reductions_samesize(utils::kernel_generation_stream& kss, std::list<local_memory> const & lmems){
@@ -114,6 +122,7 @@ namespace viennacl{
 
                         unsigned int local_work_size0 = optimization_profile_.local_work_size(0);
                         unsigned int alignment = optimization_profile_.alignment();
+                        unsigned int n_unroll = optimization_profile_.loop_unroll();
                         std::list<vec_infos_base *> assigned_vec;
 
                         for(std::list<infos_base*>::iterator it=vector_expressions_.begin(); it!= vector_expressions_.end();++it){
@@ -157,31 +166,40 @@ namespace viennacl{
                             }
                             compute_reductions_samesize(kss,local_mems);
                             for( std::set<inprod_infos_base *, viennacl::generator::deref_less>::const_iterator it = inner_prods_reduce_.begin(); it != inner_prods_reduce_.end() ; ++it){
-                                (*it)->access_name((*it)->make_local_memory(local_work_size0).access("0"));
+                                (*it)->access_name(0,(*it)->make_local_memory(local_work_size0).access("0"));
                             }
                             kss << "barrier(CLK_LOCAL_MEM_FENCE)" << std::endl;
                         }
 
 
-                        scalar_cache.fetch_entries("0");
+                        scalar_cache.fetch_entries(0,"0");
                         if(first_vector){
                             for(std::set<inprod_infos_base *, viennacl::generator::deref_less>::iterator it=inner_prods_compute_.begin() ; it!=inner_prods_compute_.end();++it){
                                 kss << (*it)->scalartype() << " " << (*it)->sum_name() << " = 0;" << std::endl;
                             }
-                            kss << "for(unsigned int i = get_global_id(0)" << "; i <" << first_vector->size() << "/" << first_vector->alignment() << " ; i += get_global_size(0)){" << std::endl;
+                            kss << "for(unsigned int i = get_global_id(0)*" << n_unroll << "; i <" << first_vector->size() << "/" << alignment << " ; i += get_global_size(0)*" << n_unroll << "){" << std::endl;
                             kss.inc_tab();
-                            vector_cache.fetch_entries("i");
-                            for(std::list<infos_base *>::iterator it=vector_expressions_.begin() ; it!=vector_expressions_.end();++it){
-                                kss << (*it)->generate() << ";" << std::endl;
+                            for(unsigned int j=0 ; j<n_unroll  ; ++j){
+                                vector_cache.fetch_entries(j, "i + " + to_string(j));
                             }
-                            for(std::set<inprod_infos_base *, viennacl::generator::deref_less>::iterator it=inner_prods_compute_.begin() ; it!=inner_prods_compute_.end();++it){
-                                kss << (*it)->generate() << ";" << std::endl;
+
+                            for(unsigned int j=0 ; j < n_unroll ; ++j){
+                                for(std::list<infos_base *>::iterator it=vector_expressions_.begin() ; it!=vector_expressions_.end();++it){
+                                    kss << (*it)->generate(j) << ";" << std::endl;
+                                }
+                                for(std::set<inprod_infos_base *, viennacl::generator::deref_less>::iterator it=inner_prods_compute_.begin() ; it!=inner_prods_compute_.end();++it){
+                                    kss << (*it)->generate(j) << ";" << std::endl;
+                                }
                             }
-                            vector_cache.writeback_entries("i");
+
+                            for(unsigned int j=0 ; j<n_unroll  ; ++j){
+                                vector_cache.writeback_entries(j,"i + " + to_string(j));
+                            }
+
                             kss.dec_tab();
                             kss << "}" << std::endl;
                         }
-                        scalar_cache.writeback_entries("0");
+                        scalar_cache.writeback_entries(0,"0");
 
                         if(inner_prods_compute_.size()){
                             std::list<local_memory> local_mems;

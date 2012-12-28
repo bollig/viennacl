@@ -40,14 +40,15 @@ namespace viennacl{
         struct shared_infos_t{
         public:
             shared_infos_t(unsigned int id, std::string scalartype, unsigned int alignment = 1) : id_(id), name_("arg"+to_string(id)), scalartype_(scalartype), alignment_(alignment){ }
-            std::string & access_name(){ return access_name_; }
+            std::string const & access_name(unsigned int i){ return access_names_.at(i); }
+            void  access_name(unsigned int i, std::string const & name_){ access_names_[i] = name_; }
             std::string const & name() const{ return name_; }
             unsigned int id() const{ return id_; }
             std::string const & scalartype() const{ return scalartype_; }
             unsigned int alignment() const{ return alignment_; }
             void alignment(unsigned int val) { alignment_ = val; }
         private:
-            std::string access_name_;
+            std::map<unsigned int,std::string> access_names_;
             unsigned int id_;
             std::string name_;
             std::string scalartype_;
@@ -58,7 +59,7 @@ namespace viennacl{
 
         class op_infos_base{
         public:
-            std::string generate() const{ return expr_; }
+            std::string generate(unsigned int i) const{ return expr_; }
             std::string name() const { return name_; }
             bool is_assignment() const { return is_assignment_; }
         protected:
@@ -86,7 +87,7 @@ namespace viennacl{
 
         class infos_base{
         public:
-            virtual std::string generate() const = 0;
+            virtual std::string generate(unsigned int i) const = 0;
             virtual std::string name() const = 0;
             virtual ~infos_base(){ }
         };
@@ -97,8 +98,8 @@ namespace viennacl{
         public:
             infos_base & sub(){ return *sub_; }
 
-            std::string generate() const{
-                return "(-" + sub_->generate() +")";
+            std::string generate(unsigned int i) const{
+                return "(-" + sub_->generate(i) +")";
             }
 
         protected:
@@ -110,7 +111,7 @@ namespace viennacl{
         class arithmetic_tree_infos_base :  public infos_base,public binary_tree_infos_base{
         public:
             op_infos_base & op() { return *op_; }
-            std::string generate() const { return "(" + lhs_->generate() + op_->generate() + rhs_->generate() + ")"; }
+            std::string generate(unsigned int i) const { return "(" + lhs_->generate(i) + op_->generate(i) + rhs_->generate(i) + ")"; }
             std::string name() const { return lhs_->name() + op_->name() + rhs_->name(); }
             arithmetic_tree_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) :  binary_tree_infos_base(lhs,rhs), op_(op){        }
         private:
@@ -136,9 +137,9 @@ namespace viennacl{
         public:
             virtual viennacl::backend::mem_handle const & handle() const = 0;
             kernel_argument( ) { }
-            void access_name(std::string const & new_name) { infos_->access_name() = new_name; }
+            void access_name(unsigned int i, std::string const & new_name) { infos_->access_name(i,new_name); }
             virtual ~kernel_argument(){ }
-            virtual std::string generate() const { return infos_->access_name(); }
+            virtual std::string generate(unsigned int i) const { return infos_->access_name(i); }
             virtual std::string name() const { return infos_->name(); }
             std::string const & scalartype() const { return infos_->scalartype(); }
             std::string aligned_scalartype() const {
@@ -193,11 +194,11 @@ namespace viennacl{
             std::string arguments_string() const{
                 return "__global " + scalartype() + "*" + " " + name();
             }
-            std::string generate() const{
+            std::string generate(unsigned int i) const{
                 if(*step_==compute){
-                    return sum_name() + " += " "(" + lhs_->generate() +  ")" " * " "(" + rhs_->generate() + ")" ;
+                    return sum_name() + " += " "(" + lhs_->generate(i) +  ")" " * " "(" + rhs_->generate(i) + ")" ;
                 }
-                return infos_->access_name();
+                return infos_->access_name(0);
             }
             std::string sum_name() const{
                 return name()+"_sum";
@@ -294,10 +295,10 @@ namespace viennacl{
                 return res;
             }
 
-            virtual std::string generate() const {
+            virtual std::string generate(unsigned int i) const {
                 std::string res(expr_);
                 for(args_map_t::const_iterator it = args_map_.begin() ; it!= args_map_.end() ; ++it)
-                    replace_all_occurences(res,it->first,it->second->generate());
+                    replace_all_occurences(res,it->first,it->second->generate(i));
                 return res;
             }
 

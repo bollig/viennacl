@@ -15,9 +15,9 @@ namespace viennacl{
 
 
         template<class ArgumentsT>
-        void set_arguments(viennacl::ocl::kernel & k, ArgumentsT & args){
+        void set_arguments(viennacl::ocl::kernel & k, ArgumentsT const & args){
             unsigned int counter=0;
-            for(typename ArgumentsT::iterator iit = args.begin(); iit != args.end() ; ++iit){
+            for(typename ArgumentsT::const_iterator iit = args.begin(); iit != args.end() ; ++iit){
                 (*iit)->enqueue(counter,k);
             }
         }

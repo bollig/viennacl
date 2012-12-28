@@ -163,18 +163,18 @@ namespace viennacl{
                                                                               ,kss_(kss){
                     }
 
-                    void fetch_entries(std::string const & idx){
+                    void fetch_entries(unsigned int i, std::string const & idx){
                         for(typename std::set<T *, viennacl::generator::deref_less>::iterator it = expressions_read_.begin() ; it != expressions_read_.end() ; ++it){
                             T * p = *it;
-                            p->access_name(p->name()+"_val");
-                            kss_ << p->aligned_scalartype() << " " << p->generate() << " = " << p->name() << "[" << idx << "];" << std::endl;
+                            p->access_name(i,p->name()+"_val_"+to_string(i));
+                            kss_ << p->aligned_scalartype() << " " << p->generate(i) << " = " << p->name() << "[" << idx << "];" << std::endl;
                         }
                     }
 
-                    void writeback_entries(std::string const & idx){
+                    void writeback_entries(unsigned int i, std::string const & idx){
                         for(typename std::list<T * >::iterator it = expressions_write_.begin() ; it != expressions_write_.end() ; ++it){
                             T * p = *it;
-                            kss_<< p->name() << "[" << idx << "]"<< " = "  << p->generate() << ";" << std::endl;
+                            kss_<< p->name() << "[" << idx << "]"<< " = "  << p->generate(i) << ";" << std::endl;
                         }
                     }
 
