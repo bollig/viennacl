@@ -19,7 +19,7 @@ namespace viennacl{
                 class optimization_profile{
                     typedef unsigned int size_type;
                 public:
-                    optimization_profile() : alignment_(4), loop_unroll_(2){
+                    optimization_profile() : alignment_(4), loop_unroll_(8){
                         local_work_size_[0] = 128;
                         local_work_size_[1] = 0;
 

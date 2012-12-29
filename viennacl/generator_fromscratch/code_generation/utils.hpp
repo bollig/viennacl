@@ -226,13 +226,18 @@ namespace viennacl{
                 };
 
                 template<class VecExprT, class InProdExprT, class VectorCacheExpr>
-                static void unroll_gid_loop_contiguous_impl(kernel_generation_stream & kss
+                static void unroll_gid_loop_contiguous(kernel_generation_stream & kss
                                                        ,unsigned int n_unroll
                                                    , std::string upper_bound
                                                    ,VecExprT & vector_expressions
                                                    , InProdExprT & inner_prods_compute
                                                    , VectorCacheExpr & vector_cache ){
-                    kss << "for(; i <" << upper_bound  << " - " << n_unroll - 1 << " ; i += get_global_size(0)*" << n_unroll << "){" << std::endl;
+                    kss << "{" << std::endl;
+                    kss.inc_tab();
+                    kss << "unsigned int inc = get_global_size(0)*" << n_unroll << ";" << std::endl;
+                    kss << "unsigned int upper_bound = " << upper_bound << ";" << std::endl;
+                    kss << "unsigned int upper_unroll_bound= " << "select(" << "upper_bound, upper_bound/" << n_unroll << " * " << n_unroll << ",  upper_bound%" << n_unroll << ");" << std::endl;
+                    kss << "for(unsigned int i = get_global_id(0)*" << n_unroll << " ; i < upper_unroll_bound ; i +=  inc ){" << std::endl;
                     kss.inc_tab();
                     for(unsigned int j=0 ; j<n_unroll  ; ++j){
                         vector_cache.fetch_entries(j, "i + " + to_string(j));
@@ -250,68 +255,83 @@ namespace viennacl{
                     for(unsigned int j=0 ; j<n_unroll  ; ++j){
                         vector_cache.writeback_entries(j,"i + " + to_string(j));
                     }
-
                     kss.dec_tab();
                     kss << "}" << std::endl;
 
-                }
-
-
-
-                template<class VecExprT, class InProdExprT, class VectorCacheExpr>
-                static void unroll_gid_loop_parallel_impl(kernel_generation_stream & kss
-                                                       ,unsigned int n_unroll
-                                                   , std::string upper_bound
-                                                   ,VecExprT & vector_expressions
-                                                   , InProdExprT & inner_prods_compute
-                                                   , VectorCacheExpr & vector_cache ){
-                    kss << "for( ; i + get_global_size(0)*" << n_unroll - 1 << "<" << upper_bound   << " ; i += get_global_size(0)*" << n_unroll << "){" << std::endl;
-                    kss.inc_tab();
-                    std::list<std::string> indices;
-                    for(unsigned int j=0 ; j<n_unroll ; ++j){
-                        indices.push_back("ind"+to_string(j));
-                        kss << "unsigned int  " << indices.back() << " = i + get_global_size(0)*" << j << ";" << std::endl;
-                    }
-                    vector_cache.fetch_entries(indices);
-
-                    for(unsigned int j=0 ; j < n_unroll ; ++j){
+                    if(n_unroll>1){
+                        kss << "for(unsigned int i = upper_unroll_bound + get_global_id(0) ; i < upper_bound ; i +=  get_global_size(0) ){" << std::endl;
+                        kss.inc_tab();
+                        vector_cache.fetch_entries(0, "i");
                         for(typename VecExprT::iterator it=vector_expressions.begin() ; it!=vector_expressions.end();++it){
-                            kss << (*it)->generate(j) << ";" << std::endl;
+                            kss << (*it)->generate(0) << ";" << std::endl;
                         }
                         for(typename InProdExprT::iterator it=inner_prods_compute.begin() ; it!=inner_prods_compute.end();++it){
-                            kss << (*it)->generate(j) << ";" << std::endl;
+                            kss << (*it)->generate(0) << ";" << std::endl;
                         }
+                        vector_cache.writeback_entries(0, "i");
+                        kss.dec_tab();
+                        kss << "}" << std::endl;
                     }
-
-                    vector_cache.writeback_entries(indices);
-
                     kss.dec_tab();
                     kss << "}" << std::endl;
+
                 }
 
-                template<class VecExprT, class InProdExprT, class VectorCacheExpr>
-                static void unroll_gid_loop_parallel(kernel_generation_stream & kss
-                                                       ,unsigned int n_unroll
-                                                   , std::string upper_bound
-                                                   ,VecExprT & vector_expressions
-                                                   , InProdExprT & inner_prods_compute
-                                                   , VectorCacheExpr & vector_cache ){
-                    kss << " unsigned int i = get_global_id(0);" << std::endl;
-                    unroll_gid_loop_parallel_impl(kss,n_unroll,upper_bound,vector_expressions,inner_prods_compute,vector_cache);
-                    if(n_unroll > 1) unroll_gid_loop_parallel_impl(kss,1,upper_bound,vector_expressions,inner_prods_compute,vector_cache);
-                }
 
-                template<class VecExprT, class InProdExprT, class VectorCacheExpr>
-                static void unroll_gid_loop_contiguous(kernel_generation_stream & kss
-                                                       ,unsigned int n_unroll
-                                                   , std::string upper_bound
-                                                   ,VecExprT & vector_expressions
-                                                   , InProdExprT & inner_prods_compute
-                                                   , VectorCacheExpr & vector_cache ){
-                    kss << "unsigned int i = get_global_id(0)*" << n_unroll << ";" << std::endl;
-                    unroll_gid_loop_contiguous_impl(kss,n_unroll,upper_bound,vector_expressions,inner_prods_compute,vector_cache);
-                    if(n_unroll > 1) unroll_gid_loop_contiguous_impl(kss,1,upper_bound,vector_expressions,inner_prods_compute,vector_cache);
-                }
+
+//                template<class VecExprT, class InProdExprT, class VectorCacheExpr>
+//                static void unroll_gid_loop_parallel(kernel_generation_stream & kss
+//                                                       ,unsigned int n_unroll
+//                                                   , std::string upper_bound
+//                                                   ,VecExprT & vector_expressions
+//                                                   , InProdExprT & inner_prods_compute
+//                                                   , VectorCacheExpr & vector_cache ){
+//                    kss << "for( unsigned int i = get_global_id; i + get_global_size(0)*" << n_unroll - 1 << "<" << upper_bound   << " ; i += get_global_size(0)*" << n_unroll << "){" << std::endl;
+//                    kss.inc_tab();
+//                    std::list<std::string> indices;
+//                    for(unsigned int j=0 ; j<n_unroll ; ++j){
+//                        indices.push_back("ind"+to_string(j));
+//                        kss << "unsigned int  " << indices.back() << " = i + get_global_size(0)*" << j << ";" << std::endl;
+//                    }
+//                    vector_cache.fetch_entries(indices);
+
+//                    for(unsigned int j=0 ; j < n_unroll ; ++j){
+//                        for(typename VecExprT::iterator it=vector_expressions.begin() ; it!=vector_expressions.end();++it){
+//                            kss << (*it)->generate(j) << ";" << std::endl;
+//                        }
+//                        for(typename InProdExprT::iterator it=inner_prods_compute.begin() ; it!=inner_prods_compute.end();++it){
+//                            kss << (*it)->generate(j) << ";" << std::endl;
+//                        }
+//                    }
+
+//                    vector_cache.writeback_entries(indices);
+
+//                    kss.dec_tab();
+//                    kss << "}" << std::endl;
+//                }
+
+//                template<class VecExprT, class InProdExprT, class VectorCacheExpr>
+//                static void unroll_gid_loop_parallel(kernel_generation_stream & kss
+//                                                       ,unsigned int n_unroll
+//                                                   , std::string upper_bound
+//                                                   ,VecExprT & vector_expressions
+//                                                   , InProdExprT & inner_prods_compute
+//                                                   , VectorCacheExpr & vector_cache ){
+//                    kss << " unsigned int i = get_global_id(0);" << std::endl;
+//                    unroll_gid_loop_parallel_impl(kss,n_unroll,upper_bound,vector_expressions,inner_prods_compute,vector_cache);
+//                    if(n_unroll > 1) unroll_gid_loop_parallel_impl(kss,1,upper_bound,vector_expressions,inner_prods_compute,vector_cache);
+//                }
+
+//                template<class VecExprT, class InProdExprT, class VectorCacheExpr>
+//                static void unroll_gid_loop_contiguous(kernel_generation_stream & kss
+//                                                       ,unsigned int n_unroll
+//                                                   , std::string upper_bound
+//                                                   ,VecExprT & vector_expressions
+//                                                   , InProdExprT & inner_prods_compute
+//                                                   , VectorCacheExpr & vector_cache ){
+//                    kss << "unsigned int i = get_global_id(0)*" << n_unroll << ";" << std::endl;
+//                    unroll_gid_loop_contiguous_impl(kss,n_unroll,upper_bound,vector_expressions,inner_prods_compute,vector_cache);
+//                }
             }
 
         }

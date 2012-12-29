@@ -1,4 +1,4 @@
-//#define VIENNACL_DEBUG_ALL
+//#define VIENNACL_DEBUG_BUILD
 #define VIENNACL_WITH_OPENCL
 
 #include <iostream>
@@ -15,7 +15,7 @@ typedef std::vector< viennacl::ocl::platform > platforms_type;
 typedef std::vector<viennacl::ocl::device> devices_type;
 typedef std::vector<cl_device_id> cl_devices_type;
 
-static const unsigned int size = 10;
+static const unsigned int size = 230;
 
 std::pair<double, viennacl::generator::code_generation::optimization_profile> autotune(){
 std::vector<ScalarType> cpu_v1(size), cpu_v2(size), cpu_v3(size), cpu_v4(size);
@@ -36,6 +36,7 @@ viennacl::copy(cpu_v4,v4);
 typedef viennacl::generator::dummy_vector<ScalarType,16> dv;
 op.add(dv(v1) = inner_prod(dv(v2),dv(v3)) );
 op.init();
+std::cout << viennacl::linalg::inner_prod(v2,v3) << std::endl;
 std::cout << op.source_code() << std::endl;
 op.execute();
 viennacl::ocl::get_queue().finish();
