@@ -133,6 +133,12 @@ namespace viennacl
           void init() {
             std::ostringstream oss;
             code_generation::utils::kernel_generation_stream kss(oss);
+            kss << "#if defined(cl_khr_fp64)\n";
+            kss <<  "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n";
+            kss <<  "#elif defined(cl_amd_fp64)\n";
+            kss <<  "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n";
+            kss <<  "#endif\n";
+
             typedef std::vector<std::list<infos_base*> >  kernels_t;
             kernels_t kernels(operations_manager_.get_kernels_list());
             for(kernels_t::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){

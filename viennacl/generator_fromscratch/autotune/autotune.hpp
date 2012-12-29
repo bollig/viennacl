@@ -19,12 +19,12 @@ class config
     config(viennacl::ocl::device const & dev) : device_(dev){
         max_local_size_ = dev.max_work_group_size();
 
-        min_unroll_ = 1;
 
         // GPU specific test setup:
         if (dev.type() == CL_DEVICE_TYPE_GPU)
         {
-            max_unroll_ = 8;
+            min_unroll_ = 1;
+            max_unroll_ = 4;
             if(dev.vendor_id()==4318){
                 min_work_groups_ = 32;
             }
@@ -33,13 +33,14 @@ class config
                 do  units *= 2; while (2 * units < dev.compute_units());
                 min_work_groups_ = units;
             }
-            max_work_groups_ = 256; //reasonable upper limit on current GPUs
+            max_work_groups_ = 512; //reasonable upper limit on current GPUs
             min_local_size_ = 16; //less than 16 threads per work group is unlikely to have any impact
 
         }
         else if (dev.type() == CL_DEVICE_TYPE_CPU)// CPU specific test setup
         {
-            max_unroll_ = 8;
+            min_unroll_ = 4;
+            max_unroll_ = 64;
             min_work_groups_ = 1;
             max_work_groups_ = 2*dev.compute_units(); //reasonable upper limit on current CPUs - more experience needed here!
             min_local_size_ = 1;
@@ -119,6 +120,11 @@ std::pair<double, code_generation::optimization_profile> benchmark_timings(std::
         std::map<double, viennacl::generator::code_generation::optimization_profile> timings;
         std::ostringstream oss;
         code_generation::utils::kernel_generation_stream kss(oss);
+        kss << "#if defined(cl_khr_fp64)\n";
+        kss <<  "#pragma OPENCL EXTENSION cl_khr_fp64: enable\n";
+        kss <<  "#elif defined(cl_amd_fp64)\n";
+        kss <<  "#pragma OPENCL EXTENSION cl_amd_fp64: enable\n";
+        kss <<  "#endif\n";
         std::map<std::string, generator::code_generation::kernel_infos_t> kernels_infos;
         unsigned int n_kernels=0;
         for (unsigned int local_workers = config.min_local_size(); local_workers <= config.max_local_size(); local_workers *= 2){   //iterate over local thread number
@@ -176,9 +182,9 @@ std::pair<double, code_generation::optimization_profile> benchmark_timings(std::
 
 
         }
-        for(std::map<double, viennacl::generator::code_generation::optimization_profile>::iterator it = timings.begin() ; it!= timings.end() ; ++it){
-            std::cout << it->first << " <== " << it->second << std::endl;
-        }
+//        for(std::map<double, viennacl::generator::code_generation::optimization_profile>::iterator it = timings.begin() ; it!= timings.end() ; ++it){
+//            std::cout << it->first << " <== " << it->second << std::endl;
+//        }
         std::cout << std::endl;
         return *timings.begin();
     }

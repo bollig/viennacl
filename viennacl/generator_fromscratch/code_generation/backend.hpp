@@ -190,7 +190,7 @@ namespace viennacl{
                                 kss << (*it)->scalartype() << " " << (*it)->sum_name() << " = 0;" << std::endl;
                             }
 
-                            utils::unroll_gid_loop_parallel(kss,n_unroll,first_vector->size() + "/" +to_string(alignment) ,vector_expressions_,inner_prods_compute_,vector_cache);
+                            utils::unroll_gid_loop_contiguous(kss,n_unroll,first_vector->size() + "/" +to_string(alignment) ,vector_expressions_,inner_prods_compute_,vector_cache);
                         }
                         scalar_cache.writeback_entries(0,"0");
 
