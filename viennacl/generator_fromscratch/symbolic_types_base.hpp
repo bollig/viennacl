@@ -196,7 +196,7 @@ namespace viennacl{
             }
             std::string generate(unsigned int i) const{
                 if(*step_==compute){
-                    return sum_name() + " += " "(" + lhs_->generate(i) +  ")" " * " "(" + rhs_->generate(i) + ")" ;
+                    return sum_name() + " += " "dot((" + lhs_->generate(i) +  ")" " , " "(" + rhs_->generate(i) + "))" ;
                 }
                 return infos_->access_name(0);
             }
