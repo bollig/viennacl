@@ -157,36 +157,161 @@ namespace viennacl{
                 template<class T>
                 class cache_manager{
                 public:
-                    cache_manager( std::set<T *, viennacl::generator::deref_less>& expressions_read
-                                  ,std::list<T *> const & expressions_write
-                                  ,  utils::kernel_generation_stream & kss) : expressions_read_(expressions_read), expressions_write_(expressions_write)
+                    typedef std::set<T *, viennacl::generator::deref_less> expressions_read_t;
+                    typedef std::list<T *> expressions_write_t;
+                    cache_manager( expressions_read_t & expressions_read
+                                  ,expressions_write_t const & expressions_write
+                                  ,utils::kernel_generation_stream & kss) : expressions_read_(expressions_read), expressions_write_(expressions_write)
                                                                               ,kss_(kss){
                     }
 
                     void fetch_entries(unsigned int i, std::string const & idx){
-                        for(typename std::set<T *, viennacl::generator::deref_less>::iterator it = expressions_read_.begin() ; it != expressions_read_.end() ; ++it){
+                        for(typename expressions_read_t::iterator it = expressions_read_.begin() ; it != expressions_read_.end() ; ++it){
                             T * p = *it;
                             p->access_name(i,p->name()+"_val_"+to_string(i));
                             kss_ << p->aligned_scalartype() << " " << p->generate(i) << " = " << p->name() << "[" << idx << "];" << std::endl;
                         }
                     }
 
+                    void fetch_entries( std::list<std::string> const & indices){
+                        for(typename expressions_read_t::iterator it = expressions_read_.begin() ; it != expressions_read_.end() ; ++it){
+                            T * p = *it;
+                            unsigned int i=0;
+                            for(std::list<std::string>::const_iterator iit = indices.begin() ; iit!= indices.end() ; ++iit){
+                                p->access_name(i,p->name()+"_val_"+to_string(i));
+                                kss_ << p->aligned_scalartype() << " " << p->generate(i) << " = " << p->name() << "[" << *iit << "];" << std::endl;
+                                ++i;
+                            }
+
+                        }
+                    }
+
                     void writeback_entries(unsigned int i, std::string const & idx){
-                        for(typename std::list<T * >::iterator it = expressions_write_.begin() ; it != expressions_write_.end() ; ++it){
+                        for(typename expressions_write_t::iterator it = expressions_write_.begin() ; it != expressions_write_.end() ; ++it){
                             T * p = *it;
                             kss_<< p->name() << "[" << idx << "]"<< " = "  << p->generate(i) << ";" << std::endl;
                         }
                     }
 
+                    void writeback_entries( std::list<std::string> const & indices){
+                        for(typename expressions_write_t::iterator it = expressions_write_.begin() ; it != expressions_write_.end() ; ++it){
+                            T * p = *it;
+                            unsigned int i=0;
+                            for(std::list<std::string>::const_iterator iit = indices.begin() ; iit!= indices.end() ; ++iit){
+                               kss_<< p->name() << "[" << *iit << "]"<< " = "  << p->generate(i) << ";" << std::endl;
+                                ++i;
+                            }
+
+                        }
+                    }
+
                 private:
-                    std::list<T * > expressions_write_;
+                    expressions_read_t & expressions_read_;
+                    expressions_write_t expressions_write_;
                     utils::kernel_generation_stream & kss_;
-                    std::set<T *, viennacl::generator::deref_less> & expressions_read_;
 
                 };
 
+                class loop_unroller{
+                public:
+                    loop_unroller(unsigned int n_unroll) : n_unroll_(n_unroll){
+
+                    }
 
 
+
+                private:
+                    unsigned int n_unroll_;
+
+                };
+
+                template<class VecExprT, class InProdExprT, class VectorCacheExpr>
+                static void unroll_gid_loop_contiguous_impl(kernel_generation_stream & kss
+                                                       ,unsigned int n_unroll
+                                                   , std::string upper_bound
+                                                   ,VecExprT & vector_expressions
+                                                   , InProdExprT & inner_prods_compute
+                                                   , VectorCacheExpr & vector_cache ){
+                    kss << "for(; i <" << upper_bound  << " - " << n_unroll - 1 << " ; i += get_global_size(0)*" << n_unroll << "){" << std::endl;
+                    kss.inc_tab();
+                    for(unsigned int j=0 ; j<n_unroll  ; ++j){
+                        vector_cache.fetch_entries(j, "i + " + to_string(j));
+                    }
+
+                    for(unsigned int j=0 ; j < n_unroll ; ++j){
+                        for(typename VecExprT::iterator it=vector_expressions.begin() ; it!=vector_expressions.end();++it){
+                            kss << (*it)->generate(j) << ";" << std::endl;
+                        }
+                        for(typename InProdExprT::iterator it=inner_prods_compute.begin() ; it!=inner_prods_compute.end();++it){
+                            kss << (*it)->generate(j) << ";" << std::endl;
+                        }
+                    }
+
+                    for(unsigned int j=0 ; j<n_unroll  ; ++j){
+                        vector_cache.writeback_entries(j,"i + " + to_string(j));
+                    }
+
+                    kss.dec_tab();
+                    kss << "}" << std::endl;
+
+                }
+
+
+
+                template<class VecExprT, class InProdExprT, class VectorCacheExpr>
+                static void unroll_gid_loop_parallel_impl(kernel_generation_stream & kss
+                                                       ,unsigned int n_unroll
+                                                   , std::string upper_bound
+                                                   ,VecExprT & vector_expressions
+                                                   , InProdExprT & inner_prods_compute
+                                                   , VectorCacheExpr & vector_cache ){
+                    kss << "for( ; i + get_global_size(0)*" << n_unroll - 1 << "<" << upper_bound   << " ; i += get_global_size(0)*" << n_unroll << "){" << std::endl;
+                    kss.inc_tab();
+                    std::list<std::string> indices;
+                    for(unsigned int j=0 ; j<n_unroll ; ++j){
+                        indices.push_back("ind"+to_string(j));
+                        kss << "unsigned int  " << indices.back() << " = i + get_global_size(0)*" << j << ";" << std::endl;
+                    }
+                    vector_cache.fetch_entries(indices);
+
+                    for(unsigned int j=0 ; j < n_unroll ; ++j){
+                        for(typename VecExprT::iterator it=vector_expressions.begin() ; it!=vector_expressions.end();++it){
+                            kss << (*it)->generate(j) << ";" << std::endl;
+                        }
+                        for(typename InProdExprT::iterator it=inner_prods_compute.begin() ; it!=inner_prods_compute.end();++it){
+                            kss << (*it)->generate(j) << ";" << std::endl;
+                        }
+                    }
+
+                    vector_cache.writeback_entries(indices);
+
+                    kss.dec_tab();
+                    kss << "}" << std::endl;
+                }
+
+                template<class VecExprT, class InProdExprT, class VectorCacheExpr>
+                static void unroll_gid_loop_parallel(kernel_generation_stream & kss
+                                                       ,unsigned int n_unroll
+                                                   , std::string upper_bound
+                                                   ,VecExprT & vector_expressions
+                                                   , InProdExprT & inner_prods_compute
+                                                   , VectorCacheExpr & vector_cache ){
+                    kss << " unsigned int i = get_global_id(0);" << std::endl;
+                    unroll_gid_loop_parallel_impl(kss,n_unroll,upper_bound,vector_expressions,inner_prods_compute,vector_cache);
+                    if(n_unroll > 1) unroll_gid_loop_parallel_impl(kss,1,upper_bound,vector_expressions,inner_prods_compute,vector_cache);
+                }
+
+                template<class VecExprT, class InProdExprT, class VectorCacheExpr>
+                static void unroll_gid_loop_contiguous(kernel_generation_stream & kss
+                                                       ,unsigned int n_unroll
+                                                   , std::string upper_bound
+                                                   ,VecExprT & vector_expressions
+                                                   , InProdExprT & inner_prods_compute
+                                                   , VectorCacheExpr & vector_cache ){
+                    kss << "unsigned int i = get_global_id(0)*" << n_unroll << ";" << std::endl;
+                    unroll_gid_loop_contiguous_impl(kss,n_unroll,upper_bound,vector_expressions,inner_prods_compute,vector_cache);
+                    if(n_unroll > 1) unroll_gid_loop_contiguous_impl(kss,1,upper_bound,vector_expressions,inner_prods_compute,vector_cache);
+                }
             }
 
         }

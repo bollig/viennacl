@@ -148,6 +148,7 @@ namespace viennacl
               for(std::map<std::string, generator::code_generation::kernel_infos_t>::iterator it = kernels_infos_.begin() ; it != kernels_infos_.end() ; ++it){
                   viennacl::ocl::kernel& k = viennacl::ocl::get_kernel(operation_name_,it->first);
                   set_arguments(k,it->second.arguments());
+                  viennacl::ocl::enqueue(k);
               }
           }
 

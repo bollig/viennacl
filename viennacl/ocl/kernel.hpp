@@ -112,6 +112,15 @@ namespace viennacl
           return res;
       }
 
+      /** @brief Returns the prefered work group size multiple */
+      size_t prefered_work_group_size_multiple(cl_device_id device_id){
+          init();
+          size_t res;
+          int err = clGetKernelWorkGroupInfo(handle_.get(),device_id,CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,sizeof(size_t),(void*)&res,NULL);
+           VIENNACL_ERR_CHECK(err);
+          return res;
+      }
+
       /** @brief Sets an unsigned integer argument at the provided position */
       void arg(unsigned int pos, cl_uint val)
       {

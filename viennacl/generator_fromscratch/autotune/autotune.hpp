@@ -20,22 +20,26 @@ class config
         max_local_size_ = dev.max_work_group_size();
 
         min_unroll_ = 1;
-        max_unroll_ = 64;
 
         // GPU specific test setup:
         if (dev.type() == CL_DEVICE_TYPE_GPU)
         {
-            unsigned int units = 1;
-            do
-              units *= 2;
-            while (2 * units < dev.compute_units());
-            min_work_groups_ = units;
+            max_unroll_ = 8;
+            if(dev.vendor_id()==4318){
+                min_work_groups_ = 32;
+            }
+            else{
+                unsigned int units=1;
+                do  units *= 2; while (2 * units < dev.compute_units());
+                min_work_groups_ = units;
+            }
             max_work_groups_ = 256; //reasonable upper limit on current GPUs
             min_local_size_ = 16; //less than 16 threads per work group is unlikely to have any impact
 
         }
         else if (dev.type() == CL_DEVICE_TYPE_CPU)// CPU specific test setup
         {
+            max_unroll_ = 8;
             min_work_groups_ = 1;
             max_work_groups_ = 2*dev.compute_units(); //reasonable upper limit on current CPUs - more experience needed here!
             min_local_size_ = 1;
@@ -60,21 +64,24 @@ class config
         min_alignments_["short"] = static_cast<unsigned int>(std::max(cl_uint(1),vector_width_short/2));
         max_alignments_["short"] = static_cast<unsigned int>(std::min(cl_uint(16),vector_width_short*2));
 
-        min_alignments_["int"] = static_cast<unsigned int>(std::max(cl_uint(1),vector_width_int/2));
-        max_alignments_["int"] = static_cast<unsigned int>(std::min(cl_uint(16),vector_width_int*2));
+        min_alignments_["int"] = static_cast<unsigned int>(std::max(cl_uint(1),vector_width_int/4));
+        max_alignments_["int"] = static_cast<unsigned int>(std::min(cl_uint(16),vector_width_int*4));
 
-        min_alignments_["long"] = static_cast<unsigned int>(std::max(cl_uint(1),vector_width_long/2));
-        max_alignments_["long"] = static_cast<unsigned int>(std::min(cl_uint(16),vector_width_long*2));
+        min_alignments_["long"] = static_cast<unsigned int>(std::max(cl_uint(1),vector_width_long/4));
+        max_alignments_["long"] = static_cast<unsigned int>(std::min(cl_uint(16),vector_width_long*4));
 
-        min_alignments_["float"] = 1  ;//static_cast<unsigned int>(std::max(cl_uint(1),vector_width_float/2));
-        max_alignments_["float"] = 16 ;//static_cast<unsigned int>(std::min(cl_uint(16),vector_width_float*2));
+        min_alignments_["float"] = static_cast<unsigned int>(std::max(cl_uint(1),vector_width_float/4));
+        max_alignments_["float"] = static_cast<unsigned int>(std::min(cl_uint(16),vector_width_float*4));
+
+//        min_alignments_["float"] = static_cast<unsigned int>(std::max(cl_uint(1),vector_width_float/4));
+//        max_alignments_["float"] = static_cast<unsigned int>(std::min(cl_uint(16),vector_width_float*4));
 //        std::cout <<  min_alignments_["float"] << std::endl;
 //        std::cout <<  max_alignments_["float"] << std::endl;
-        min_alignments_["double"] = static_cast<unsigned int>(std::max(cl_uint(1),vector_width_double/2));
-        max_alignments_["double"] = static_cast<unsigned int>(std::min(cl_uint(16),vector_width_double*2));
+        min_alignments_["double"] = static_cast<unsigned int>(std::max(cl_uint(1),vector_width_double/4));
+        max_alignments_["double"] = static_cast<unsigned int>(std::min(cl_uint(16),vector_width_double*4));
 
-        min_alignments_["half"] = static_cast<unsigned int>(std::max(cl_uint(1),vector_width_half/2));
-        max_alignments_["half"] = static_cast<unsigned int>(std::min(cl_uint(16),vector_width_half*2));
+        min_alignments_["half"] = static_cast<unsigned int>(std::max(cl_uint(1),vector_width_half/4));
+        max_alignments_["half"] = static_cast<unsigned int>(std::min(cl_uint(16),vector_width_half*4));
     }
 
     unsigned int min_work_groups() const { return min_work_groups_; }
@@ -113,6 +120,7 @@ std::pair<double, code_generation::optimization_profile> benchmark_timings(std::
         std::ostringstream oss;
         code_generation::utils::kernel_generation_stream kss(oss);
         std::map<std::string, generator::code_generation::kernel_infos_t> kernels_infos;
+        unsigned int n_kernels=0;
         for (unsigned int local_workers = config.min_local_size(); local_workers <= config.max_local_size(); local_workers *= 2){   //iterate over local thread number
             for(unsigned int alignment = config.min_alignment("float") ; alignment <= config.max_alignment("float") ; alignment *= 2){
                 for(unsigned int unroll = config.min_unroll() ; unroll <= config.max_unroll() ; unroll *=2){
@@ -123,11 +131,13 @@ std::pair<double, code_generation::optimization_profile> benchmark_timings(std::
                     kernel_infos.profile().loop_unroll(unroll);
                     code_generation::kernel_generator kg(*it,kernel_name,kss,kernel_infos);
                     kg.generate();
+                    n_kernels++;
                 }
             }
-
         }
+        std::cout << "Compiling " << n_kernels << " kernels" << std::endl;
         viennacl::ocl::program & prog = viennacl::ocl::current_context().add_program(oss.str(),"benchmark_test");
+        std::cout << "Compiled !" << std::endl;
         for(std::map<std::string, generator::code_generation::kernel_infos_t>::iterator it = kernels_infos.begin() ; it != kernels_infos.end() ; ++it){
             viennacl::ocl::kernel & k = prog.add_kernel(it->first);
             code_generation::optimization_profile& profile = it->second.profile();
@@ -135,6 +145,11 @@ std::pair<double, code_generation::optimization_profile> benchmark_timings(std::
             //Anticipates kernel failure
             size_t max_workgroup_size = k.max_workgroup_size(config.device().id());
             if(profile.local_work_size(0) > max_workgroup_size || profile.local_work_size(1) > max_workgroup_size)
+                continue;
+
+            //Doesn't execute because it would likelily be a waste of time
+            size_t prefered_workgroup_size_multiple = k.prefered_work_group_size_multiple(config.device().id());
+            if(profile.local_work_size(0) < prefered_workgroup_size_multiple || ((0 < profile.local_work_size(1)) &&  (profile.local_work_size(1)< prefered_workgroup_size_multiple)))
                 continue;
 
             set_arguments(k,it->second.arguments());
@@ -161,10 +176,9 @@ std::pair<double, code_generation::optimization_profile> benchmark_timings(std::
 
 
         }
-
-//        for(std::map<double, viennacl::generator::code_generation::optimization_profile>::iterator it = timings.begin() ; it != timings.end() ; ++it){
-//            std::cout << it->first << " " << it->second << std::endl;
-//        }
+        for(std::map<double, viennacl::generator::code_generation::optimization_profile>::iterator it = timings.begin() ; it!= timings.end() ; ++it){
+            std::cout << it->first << " <== " << it->second << std::endl;
+        }
         std::cout << std::endl;
         return *timings.begin();
     }

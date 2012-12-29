@@ -114,6 +114,13 @@ namespace viennacl
           return ret;
         }
         
+        unsigned int vendor_id() const
+        {
+            cl_uint id;
+            clGetDeviceInfo(device_, CL_DEVICE_VENDOR_ID, sizeof(cl_uint),&id, NULL);
+            return static_cast<unsigned int>(id);
+        }
+
         std::string double_support_extension() const
         {
           char buffer[1024];

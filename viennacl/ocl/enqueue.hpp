@@ -65,7 +65,7 @@ namespace viennacl
 
         if (err != CL_SUCCESS)  //if not successful, try to start with smaller work size
         {
-          //std::cout << "FAIL: " << std::endl; exit(0);
+//          std::cout << "FAIL: " << std::endl; exit(0);
           while (err != CL_SUCCESS && tmp_local > 1)
           {
             //std::cout << "Flushing queue, then enqueuing again with half the size..." << std::endl;

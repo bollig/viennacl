@@ -19,7 +19,7 @@ namespace viennacl{
                 class optimization_profile{
                     typedef unsigned int size_type;
                 public:
-                    optimization_profile() : alignment_(1), loop_unroll_(1){ }
+                    optimization_profile() : alignment_(4), loop_unroll_(2){ }
 
                     void load(viennacl::ocl::device const & d){
 
@@ -189,27 +189,8 @@ namespace viennacl{
                             for(std::set<inprod_infos_base *, viennacl::generator::deref_less>::iterator it=inner_prods_compute_.begin() ; it!=inner_prods_compute_.end();++it){
                                 kss << (*it)->scalartype() << " " << (*it)->sum_name() << " = 0;" << std::endl;
                             }
-                            kss << "for(unsigned int i = get_global_id(0)*" << n_unroll << "; i <" << first_vector->size() << "/" << alignment  << " - " << n_unroll << "+ 1 " << " ; i += get_global_size(0)*" << n_unroll << "){" << std::endl;
-                            kss.inc_tab();
-                            for(unsigned int j=0 ; j<n_unroll  ; ++j){
-                                vector_cache.fetch_entries(j, "i + " + to_string(j));
-                            }
 
-                            for(unsigned int j=0 ; j < n_unroll ; ++j){
-                                for(std::list<infos_base *>::iterator it=vector_expressions_.begin() ; it!=vector_expressions_.end();++it){
-                                    kss << (*it)->generate(j) << ";" << std::endl;
-                                }
-                                for(std::set<inprod_infos_base *, viennacl::generator::deref_less>::iterator it=inner_prods_compute_.begin() ; it!=inner_prods_compute_.end();++it){
-                                    kss << (*it)->generate(j) << ";" << std::endl;
-                                }
-                            }
-
-                            for(unsigned int j=0 ; j<n_unroll  ; ++j){
-                                vector_cache.writeback_entries(j,"i + " + to_string(j));
-                            }
-
-                            kss.dec_tab();
-                            kss << "}" << std::endl;
+                            utils::unroll_gid_loop_parallel(kss,n_unroll,first_vector->size() + "/" +to_string(alignment) ,vector_expressions_,inner_prods_compute_,vector_cache);
                         }
                         scalar_cache.writeback_entries(0,"0");
 
