@@ -31,48 +31,7 @@ namespace viennacl
 
 
 
-      class assign_type : public op_infos_base{
-      public:
-          assign_type() : op_infos_base(" = ", "eq",true,0){ }
-      };
 
-      class add_type : public op_infos_base{
-      public:
-        add_type() : op_infos_base(" + ", "p",false,1){ }
-      };
-
-      class inplace_add_type : public op_infos_base{
-      public:
-        inplace_add_type() : op_infos_base(" += ", "p_eq",true,2){ }
-      };
-
-      class sub_type : public op_infos_base{
-      public:
-        sub_type() : op_infos_base(" - ", "m",false,3){ }
-      };
-
-      class inplace_sub_type : public op_infos_base{
-      public:
-        inplace_sub_type() : op_infos_base(" -= ", "m_eq",true,4){ }
-      };
-
-      class scal_mul_type : public op_infos_base{
-      public:
-        scal_mul_type() : op_infos_base(" * ", "mu",false,5){ }
-      };
-
-      class inplace_scal_mul_type : public op_infos_base{
-          inplace_scal_mul_type() : op_infos_base(" *= ", "mu_eq",true,6){ }
-      };
-
-
-      class scal_div_type : public op_infos_base{
-        scal_div_type() : op_infos_base(" / ", "div", false,7){ }
-      };
-
-      class inplace_scal_div_type :  public op_infos_base{
-          inplace_scal_div_type() : op_infos_base(" /= ", "div_eq", true,8){ }
-      };
 
       template<class LHS, class OP, class RHS>
       class vector_expression : public vector_expression_infos_base{
@@ -172,10 +131,6 @@ namespace viennacl
         }
 
     };
-
-    template<class T>
-    struct get_id;
-
 
       template<class ScalarType>
       struct get_vector_id;

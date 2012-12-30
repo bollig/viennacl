@@ -60,27 +60,13 @@ namespace viennacl{
 
 
 
-        class binary_tree_infos_base{
-        public:
-            infos_base & lhs() const{ return *lhs_; }
-            infos_base & rhs() const{ return *rhs_; }
-
-
-        protected:
-            binary_tree_infos_base(infos_base * lhs, infos_base * rhs) : lhs_(lhs), rhs_(rhs){        }
-            viennacl::tools::shared_ptr<infos_base> lhs_;
-            viennacl::tools::shared_ptr<infos_base> rhs_;
-        };
 
         class kernel_argument;
 
         class infos_base{
-        protected:
-            typedef std::pair<unsigned long, unsigned int> id_res_t;
-
         public:
-            virtual std::string generate(unsigned int i) const = 0;
-            virtual std::string name() const = 0;
+            typedef std::pair<unsigned long, unsigned int> id_res_t;
+            virtual std::string generate(unsigned int i) const { return ""; }
             virtual id_res_t id() const = 0;
             virtual ~infos_base(){ }
         };
@@ -88,18 +74,97 @@ namespace viennacl{
 
         class op_infos_base : public infos_base{
         public:
-            std::string generate(unsigned int i) const{ return expr_; }
-            std::string name() const { return name_; }
-            bool is_assignment() const { return is_assignment_; }
             id_res_t id() const { return std::make_pair(id_,4); }
+            bool is_assignment() const { return is_assignment_; }
         protected:
-            op_infos_base( std::string const & expr, std::string const & name, bool is_assignment, unsigned long id) :  expr_(expr), name_(name), is_assignment_(is_assignment), id_(id){ }
+            op_infos_base(unsigned long id, bool is_assignment) : id_(id), is_assignment_(is_assignment){ }
+        private:
+            unsigned long id_;
+            bool is_assignment_;
+        };
+
+        class nonarithmetic_op_infos_base : public op_infos_base{
+        public:
+            nonarithmetic_op_infos_base(unsigned int id) : op_infos_base(id,false){ }
+        };
+
+        class arithmetic_op_infos_base : public op_infos_base{
+        public:
+            std::string generate(unsigned int i) const{ return expr_; }
+        protected:
+            arithmetic_op_infos_base( std::string const & expr, std::string const & name, bool is_assignment, unsigned long id) :  op_infos_base(id,is_assignment), expr_(expr), name_(name){ }
         private:
             std::string expr_;
             std::string name_;
-            bool is_assignment_;
-            unsigned long id_;
         };
+
+        class assign_type : public arithmetic_op_infos_base{
+        public:
+            assign_type() : arithmetic_op_infos_base(" = ", "eq",true,0){ }
+        };
+
+        class add_type : public arithmetic_op_infos_base{
+        public:
+          add_type() : arithmetic_op_infos_base(" + ", "p",false,1){ }
+        };
+
+        class inplace_add_type : public arithmetic_op_infos_base{
+        public:
+          inplace_add_type() : arithmetic_op_infos_base(" += ", "p_eq",true,2){ }
+        };
+
+        class sub_type : public arithmetic_op_infos_base{
+        public:
+          sub_type() : arithmetic_op_infos_base(" - ", "m",false,3){ }
+        };
+
+        class inplace_sub_type : public arithmetic_op_infos_base{
+        public:
+          inplace_sub_type() : arithmetic_op_infos_base(" -= ", "m_eq",true,4){ }
+        };
+
+        class scal_mul_type : public arithmetic_op_infos_base{
+        public:
+          scal_mul_type() : arithmetic_op_infos_base(" * ", "mu",false,5){ }
+        };
+
+        class inplace_scal_mul_type : public arithmetic_op_infos_base{
+            inplace_scal_mul_type() : arithmetic_op_infos_base(" *= ", "mu_eq",true,6){ }
+        };
+
+
+        class scal_div_type : public arithmetic_op_infos_base{
+          scal_div_type() : arithmetic_op_infos_base(" / ", "div", false,7){ }
+        };
+
+        class inplace_scal_div_type :  public arithmetic_op_infos_base{
+            inplace_scal_div_type() : arithmetic_op_infos_base(" /= ", "div_eq", true,8){ }
+        };
+
+        class inner_prod_type : public nonarithmetic_op_infos_base{
+        public:
+            inner_prod_type() : nonarithmetic_op_infos_base(9){ }
+        };
+
+        class binary_tree_infos_base{
+        public:
+            infos_base & lhs() const{ return *lhs_; }
+            infos_base & rhs() const{ return *rhs_; }
+            op_infos_base & op() { return *op_; }
+            infos_base::id_res_t id() const {
+               infos_base::id_res_t lhs_res = lhs_->id();
+               infos_base::id_res_t op_res = op_->id();
+               infos_base::id_res_t rhs_res = rhs_->id();
+               return std::make_pair(lhs_res.first | op_res.first<<lhs_res.second | rhs_res.first << (lhs_res.second + op_res.second)
+                                                   ,lhs_res.second+op_res.second+rhs_res.second);
+            }
+        protected:
+            binary_tree_infos_base(infos_base * lhs, op_infos_base * op, infos_base * rhs) : lhs_(lhs), op_(op), rhs_(rhs){        }
+            viennacl::tools::shared_ptr<infos_base> lhs_;
+            viennacl::tools::shared_ptr<op_infos_base> op_;
+            viennacl::tools::shared_ptr<infos_base> rhs_;
+        };
+
 
         class unary_tree_infos_base{
         public:
@@ -117,34 +182,25 @@ namespace viennacl{
 
         class arithmetic_tree_infos_base :  public infos_base,public binary_tree_infos_base{
         public:
-            op_infos_base & op() { return *op_; }
             std::string generate(unsigned int i) const { return "(" + lhs_->generate(i) + op_->generate(i) + rhs_->generate(i) + ")"; }
-            std::string name() const { return lhs_->name() + op_->name() + rhs_->name(); }
-            arithmetic_tree_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) :  binary_tree_infos_base(lhs,rhs), op_(op){        }
-            virtual id_res_t id() const {
-                 id_res_t lhs_res = lhs_->id();
-                 id_res_t op_res = op_->id();
-                 id_res_t rhs_res = rhs_->id();
-                 return std::make_pair(lhs_res.first | op_res.first<<lhs_res.second | rhs_res.first << (lhs_res.second + op_res.second)
-                                        ,lhs_res.second+op_res.second+rhs_res.second);
-            }
+            arithmetic_tree_infos_base( infos_base * lhs, arithmetic_op_infos_base* op, infos_base * rhs) :  binary_tree_infos_base(lhs,op,rhs){        }
+            virtual id_res_t id() const { return binary_tree_infos_base::id(); }
         private:
-            viennacl::tools::shared_ptr<op_infos_base> op_;
         };
 
         class vector_expression_infos_base : public arithmetic_tree_infos_base{
         public:
-            vector_expression_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
+            vector_expression_infos_base( infos_base * lhs, arithmetic_op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
         };
 
         class scalar_expression_infos_base : public arithmetic_tree_infos_base{
         public:
-            scalar_expression_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
+            scalar_expression_infos_base( infos_base * lhs, arithmetic_op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
         };
 
         class matrix_expression_infos_base : public arithmetic_tree_infos_base{
         public:
-            matrix_expression_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
+            matrix_expression_infos_base( infos_base * lhs, arithmetic_op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
         };
 
         class kernel_argument : public infos_base{
@@ -154,7 +210,7 @@ namespace viennacl{
             void access_name(unsigned int i, std::string const & new_name) { infos_->access_name(i,new_name); }
             virtual ~kernel_argument(){ }
             virtual std::string generate(unsigned int i) const { return infos_->access_name(i); }
-            virtual std::string name() const { return infos_->name(); }
+            std::string name() const { return infos_->name(); }
             std::string const & scalartype() const { return infos_->scalartype(); }
             std::string aligned_scalartype() const {
                 unsigned int alignment = infos_->alignment();
@@ -229,7 +285,7 @@ namespace viennacl{
         protected:
             inprod_infos_base(infos_base * lhs
                               , infos_base * rhs
-                              ,step_t * step): binary_tree_infos_base(lhs,rhs),step_(step){
+                              ,step_t * step): binary_tree_infos_base(lhs,new inner_prod_type(),rhs),step_(step){
 
             }
 
