@@ -97,6 +97,19 @@ namespace viennacl{
             class operations_manager{
             private:
                 typedef std::list<viennacl::tools::shared_ptr<infos_base> > operations_t;
+
+                static std::string encode_to_kernel_name(unsigned long id){
+                    const char *digs = "01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabzdefghijklmnopqrstuvwxyz_";
+                    unsigned int n = strlen(digs);
+                    char buffer[16];
+                    int i = 0;
+                    do  buffer[i++] = digs[id%n];  while((id /= n)>0);
+                    buffer[i] = 0;
+                    return std::string(buffer);
+                }
+
+
+
             public:
                 template<class T>
                 void add(T const & op){
@@ -118,9 +131,29 @@ namespace viennacl{
                             res.push_back(std::list<infos_base*>());
                         }
                         res.back().push_back(p);
-
                     }
                     return res;
+                }
+
+                std::string get_source_code( std::map<std::string, generator::code_generation::kernel_infos_t> & kernels_infos) const{
+                    std::ostringstream oss;
+                    code_generation::utils::kernel_generation_stream kss(oss);
+                    kss << "#if defined(cl_khr_fp64)\n";
+                    kss <<  "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n";
+                    kss <<  "#elif defined(cl_amd_fp64)\n";
+                    kss <<  "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n";
+                    kss <<  "#endif\n";
+                    typedef std::vector<std::list<infos_base*> >  kernels_t;
+                    kernels_t kernels(get_kernels_list());
+                    for(kernels_t::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
+                        std::string name;
+                        for(std::list<infos_base*>::iterator iit = it->begin() ; iit != it->end() ; ++iit){
+                            name += encode_to_kernel_name((*iit)->id().first) + "_";
+                        }
+                        code_generation::kernel_generator kg(*it,name,kss, kernels_infos[name]);
+                        kg.generate() ;
+                    }
+                    return oss.str();
                 }
 
             private:

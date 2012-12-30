@@ -97,8 +97,8 @@ namespace viennacl{
         private:
             std::string expr_;
             std::string name_;
-            unsigned long id_;
             bool is_assignment_;
+            unsigned long id_;
         };
 
         class unary_tree_infos_base{
@@ -163,7 +163,7 @@ namespace viennacl{
                     return scalartype;
                 }
                 else{
-                    assert(alignment==2 || alignment==4 || alignment==8 || alignment==16 && "Invalid alignment");
+                    assert( (alignment==2 || alignment==4 || alignment==8 || alignment==16) && "Invalid alignment");
                     return scalartype + to_string(alignment);
                 }
             }
@@ -262,7 +262,7 @@ namespace viennacl{
             std::string  row_start() const{ return name() +"row_start_";}
             std::string  col_start() const{ return name() +"col_start_";}
             std::string arguments_string() const{
-                " __global " + aligned_scalartype() + "*"  + " " + name()
+                return " __global " + aligned_scalartype() + "*"  + " " + name()
                                                             + ", unsigned int " + row_start()
                                                             + ", unsigned int " + col_start()
                                                             + ", unsigned int " + row_inc()
@@ -385,10 +385,7 @@ namespace viennacl{
 
         template<class T, class Pred>
         void extract_as(infos_base* root, std::set<T*, deref_less> & args, Pred pred){
-            if(user_kernel_argument* p = dynamic_cast<user_kernel_argument*>(root)){
-
-            }
-            else if(arithmetic_tree_infos_base* p = dynamic_cast<arithmetic_tree_infos_base*>(root)){
+            if(arithmetic_tree_infos_base* p = dynamic_cast<arithmetic_tree_infos_base*>(root)){
                 extract_as(&p->lhs(), args,pred);
                 extract_as(&p->rhs(),args,pred);
             }
