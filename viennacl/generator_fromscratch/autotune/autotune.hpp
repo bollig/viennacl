@@ -11,7 +11,7 @@ namespace generator{
 
 namespace autotune{
 
-static const int BENCHMARK_RUNS = 10;
+static const int BENCHMARK_RUNS = 1;
 
 class config
 {
@@ -40,7 +40,7 @@ class config
         else if (dev.type() == CL_DEVICE_TYPE_CPU)// CPU specific test setup
         {
             min_unroll_ = 4;
-            max_unroll_ = 64;
+            max_unroll_ = 256;
             min_work_groups_ = 1;
             max_work_groups_ = 2*dev.compute_units(); //reasonable upper limit on current CPUs - more experience needed here!
             min_local_size_ = 1;
@@ -171,12 +171,13 @@ std::pair<double, code_generation::optimization_profile> benchmark_timings(std::
                 Timer t;
                 viennacl::ocl::enqueue(k);
                 viennacl::ocl::get_queue().finish();
-                t.start();
+                double execution_time = 0;
                 for(unsigned int i = 0 ; i < BENCHMARK_RUNS ; ++i){
+                    t.start();
                     viennacl::ocl::enqueue(k);
                     viennacl::ocl::get_queue().finish();
+                    execution_time += t.get();
                 }
-                double execution_time = t.get();
                 timings[execution_time] = profile;
             }
 

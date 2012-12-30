@@ -15,15 +15,15 @@ typedef std::vector< viennacl::ocl::platform > platforms_type;
 typedef std::vector<viennacl::ocl::device> devices_type;
 typedef std::vector<cl_device_id> cl_devices_type;
 
-static const unsigned int size = 230;
+static const unsigned int size = 10000000;
 
 std::pair<double, viennacl::generator::code_generation::optimization_profile> autotune(){
 std::vector<ScalarType> cpu_v1(size), cpu_v2(size), cpu_v3(size), cpu_v4(size);
 for(unsigned int i=0; i<size; ++i){
-    cpu_v1[i]=i;
-    cpu_v2[i]=2*i;
-    cpu_v3[i]=3*i;
-    cpu_v4[i]=4*i;
+    cpu_v1[i]=(float)rand()/RAND_MAX;
+    cpu_v2[i]=2*(float)rand()/RAND_MAX;
+    cpu_v3[i]=3*(float)rand()/RAND_MAX;
+    cpu_v4[i]=4*(float)rand()/RAND_MAX;
 }
 
 viennacl::generator::custom_operation op("test");
@@ -34,14 +34,12 @@ viennacl::copy(cpu_v3,v3);
 viennacl::copy(cpu_v4,v4);
 
 typedef viennacl::generator::dummy_vector<ScalarType,16> dv;
-op.add(dv(v1) = inner_prod(dv(v2),dv(v3)) );
+op.add(dv(v1) = dv(v2) + dv(v3) );
 op.init();
-std::cout << viennacl::linalg::inner_prod(v2,v3) << std::endl;
-std::cout << op.source_code() << std::endl;
-op.execute();
-viennacl::ocl::get_queue().finish();
-std::cout << v1[0] << std::endl;
 //std::cout << viennacl::linalg::inner_prod(v2,v3) << std::endl;
+//op.execute();
+//viennacl::ocl::get_queue().finish();
+//std::cout << v1[0] << std::endl;
 
 viennacl::generator::autotune::config conf(viennacl::ocl::current_device());
 return viennacl::generator::autotune::benchmark_timings(op,conf);

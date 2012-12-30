@@ -4,6 +4,7 @@
 #include "viennacl/meta/enable_if.hpp"
 #include "viennacl/generator_fromscratch/forwards.h"
 #include "viennacl/vector.hpp"
+#include <set>
 
 namespace viennacl{
 
@@ -47,26 +48,31 @@ public: inner_prod_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beas
 };
 
 
-template<class T1, class T2=void, class T3=void, class T4=void, class T5=void>
+template<class T1, class T2=void, class T3=void>
 struct function_wrapper_impl{
-    function_wrapper_impl(std::string const & _name, std::string const & _expr) : name(_name), expr(_expr), t1(NULL), t2(NULL), t3(NULL), t4(NULL), t5(NULL){ }
+    function_wrapper_impl(unsigned int _func_id, std::string const & _name, std::string const & _expr) : func_id(_func_id), name(_name), expr(_expr), t1(NULL), t2(NULL), t3(NULL){ }
+    unsigned int func_id;
     std::string name;
     std::string expr;
     T1 const * t1;
     T2 const * t2;
     T3 const * t3;
-    T4 const * t4;
-    T5 const * t5;
 };
 
 
 
 
 class function_wrapper{
+private:
+    static unsigned int create_func_id(){
+        static unsigned long i = 0;
+        return i++;
+    }
 public:
     function_wrapper(std::string const & name
-                    ,std::string const & expr) : name_(name), expr_(expr){
+                     ,std::string const & expr) : name_(name), func_id_(create_func_id()), expr_(expr){
         n_args_ = 0;
+        std::cout << func_id_ << std::endl;
         bool keep_going = true;
         while(keep_going){
             std::string current_arg = "_"+to_string(n_args_+1)+"_";
@@ -84,7 +90,7 @@ public:
     template<class T1>
     function_wrapper_impl<T1> operator()(T1 const & t1){
         assert(n_args_==1);
-        function_wrapper_impl<T1> res(name_,expr_);
+        function_wrapper_impl<T1> res(func_id_,name_,expr_);
         res.t1 = &t1;
         return res;
     }
@@ -92,7 +98,7 @@ public:
     template<class T1, class T2>
     function_wrapper_impl<T1,T2> operator()(T1 const & t1, T2 const & t2){
         assert(n_args_==2);
-        function_wrapper_impl<T1, T2> res(name_,expr_);
+        function_wrapper_impl<T1, T2> res(func_id_,name_,expr_);
         res.t1 = &t1; res.t2 = &t2;
         return res;
     }
@@ -100,31 +106,22 @@ public:
     template<class T1, class T2, class T3>
     function_wrapper_impl<T1,T2, T3> operator()(T1 const & t1, T2 const & t2, T3 const & t3){
         assert(n_args_==3);
-        function_wrapper_impl<T1, T2,T3> res(name_,expr_);
+        function_wrapper_impl<T1, T2,T3> res(func_id_,name_,expr_);
         res.t1 = &t1; res.t2 = &t2; res.t3 = &t3;
         return res;
     }
 
-    template<class T1, class T2, class T3, class T4>
-    function_wrapper_impl<T1,T2, T3, T4> operator()(T1 const & t1, T2 const & t2, T3 const & t3, T4 const & t4){
-        assert(n_args_==4);
-        function_wrapper_impl<T1, T2,T3, T4> res(name_,expr_);
-        res.t1 = &t1; res.t2 = &t2; res.t3 = &t3; res.t4=&t4;
-        return res;
-    }
-
-
-
 private:
     std::string name_;
+    unsigned int func_id_;
     std::string expr_;
     unsigned int n_args_;
 };
 
-template<typename ScalarType, unsigned int Alignment=1>
+template<typename SCALARTYPE, unsigned int Alignment=1>
 class dummy_vector{
-    typedef dummy_vector self_type;
-    typedef viennacl::vector<ScalarType,Alignment> vcl_vec_t;
+    typedef dummy_vector<SCALARTYPE> self_type;
+    typedef viennacl::vector<SCALARTYPE,Alignment> vcl_vec_t;
     vcl_vec_t const & vec_;
 public:
 
@@ -163,8 +160,9 @@ public:
     }
 };
 
+template<class ScalarType>
 class dummy_scalar{
-    typedef dummy_scalar self_type;
+    typedef dummy_scalar<ScalarType> self_type;
 public:
     template<typename RHS_TYPE>
     scalar_expression_wrapper<self_type, assign_type, RHS_TYPE >
@@ -197,8 +195,10 @@ public:
     }
 };
 
+
+template<class ScalarType>
 class dummy_matrix{
-    typedef dummy_matrix self_type;
+    typedef dummy_matrix<ScalarType> self_type;
 public:
     template<typename RHS_TYPE>
     matrix_expression_wrapper<self_type, assign_type, RHS_TYPE >
@@ -241,20 +241,20 @@ struct is_vector_expression_t<vector_expression_wrapper<LHS,OP,RHS> >{ enum { va
 
 template<class T>
 struct is_scalar_expression_t{ enum { value = 0 }; };
-template<>
-struct is_scalar_expression_t<dummy_scalar>{ enum { value = 1}; };
+template<class ScalarType>
+struct is_scalar_expression_t<dummy_scalar<ScalarType> >{ enum { value = 1}; };
 template<class LHS, class OP, class RHS>
 struct is_scalar_expression_t<scalar_expression_wrapper<LHS,OP,RHS> >{ enum { value = 1}; };
 template<class LHS, class RHS>
 struct is_scalar_expression_t<inner_prod_wrapper<LHS,RHS> >{ enum { value = 1}; };
-template<class T1, class T2, class T3, class T4, class T5>
-struct is_scalar_expression_t<function_wrapper_impl<T1,T2,T3,T4,T5> >{ enum { value = 1}; };
+template<class T1, class T2, class T3>
+struct is_scalar_expression_t<function_wrapper_impl<T1,T2,T3> >{ enum { value = 1}; };
 
 
 template<class T>
 struct is_matrix_expression_t{ enum { value = 0 }; };
-template<>
-struct is_matrix_expression_t<dummy_matrix>{ enum { value = 1}; };
+template<class ScalarType>
+struct is_matrix_expression_t<dummy_matrix<ScalarType> >{ enum { value = 1}; };
 template<class LHS, class OP, class RHS>
 struct is_matrix_expression_t<matrix_expression_wrapper<LHS,OP,RHS> >{ enum { value = 1}; };
 
@@ -267,7 +267,23 @@ struct convert_to_expr<LHS,OP,RHS,false,true,false>{ typedef scalar_expression_w
 template<class LHS, class OP, class RHS>
 struct convert_to_expr<LHS,OP,RHS,false,false,true>{ typedef matrix_expression_wrapper<LHS,OP,RHS> type; };
 
+template<class T>
+struct is_operator{ enum{ value = 0}; };
+template<> struct is_operator<assign_type>{ enum { value = 1}; };
+template<> struct is_operator<add_type>{ enum { value = 1}; };
+template<> struct is_operator<inplace_add_type>{ enum { value = 1}; };
+template<> struct is_operator<sub_type>{ enum { value = 1}; };
+template<> struct is_operator<inplace_sub_type>{ enum { value = 1}; };
+template<> struct is_operator<scal_mul_type>{ enum { value = 1}; };
+template<> struct is_operator<inplace_scal_mul_type>{ enum { value = 1}; };
+template<> struct is_operator<scal_div_type>{ enum { value = 1}; };
+template<> struct is_operator<inplace_scal_div_type>{ enum { value = 1}; };
 
+template<class T>
+struct is_leaf{ enum{ value = 0}; };
+template<class ScalarType> struct is_leaf<dummy_vector<ScalarType> >{ enum { value = 1 }; };
+template<class ScalarType> struct is_leaf<dummy_scalar<ScalarType> >{ enum { value = 1 }; };
+template<class ScalarType> struct is_leaf<dummy_matrix<ScalarType> >{ enum { value = 1 }; };
 
 //template<class T>
 //unary_minus<T> operator -(T const &)
@@ -357,6 +373,85 @@ operator/(LHS const & lhs, RHS const & rhs){
             ,is_matrix_expression_t<LHS>::value || is_matrix_expression_t<RHS>::value>::type(lhs,rhs);
 }
 
+//static const unsigned int N_BITS_LEAF = 6;
+//static const unsigned int N_BITS_OP = 4;
+
+//template<class T, class Enable=void> struct n_bits;
+//template<class T> struct n_bits<T, typename enable_if<is_operator<T>::value>::type> { enum{ value = N_BITS_OP}; };
+//template<class T> struct n_bits<T, typename enable_if<is_leaf<T>::value>::type> { enum{ value = N_BITS_LEAF}; };
+//template<class T1> struct n_bits<function_wrapper_impl<T1> >{ enum { value = N_BITS_LEAF*2}; };
+//template<class T1, class T2> struct n_bits<function_wrapper_impl<T1, T2> >{ enum { value = N_BITS_LEAF*3}; };
+//template<class T1, class T2, class T3> struct n_bits<function_wrapper_impl<T1, T2, T3> >{ enum { value = N_BITS_LEAF*4}; };
+
+//template<class TREE_T>
+//struct get_operation_id{
+//    typedef typename TREE_T::Lhs Lhs;
+//    typedef typename TREE_T::Rhs Rhs;
+//    typedef typename TREE_T::Op Op;
+//    static unsigned long value(TREE_T const & tree){
+//        return get_operation_id<Lhs>::value(tree.lhs())
+//                | get_operation_id<Op>::value(tree.op()) << (n_bits<Lhs>::value)
+//                | get_operation_id<Rhs>::value(tree.rhs())<< (n_bits<Lhs>::value + n_bits<Op>::value);
+//    }
+//};
+
+//#define DEFINE_ID_FOR(TYPE, VALUE) \
+//    struct get_operation_id< TYPE >{\
+//        static unsigned long value(TYPE const & t){ return VALUE; }\
+//    }
+
+////Defines Operators id
+//template<> DEFINE_ID_FOR(assign_type, 0);
+//template<> DEFINE_ID_FOR(add_type, 1);
+//template<> DEFINE_ID_FOR(inplace_add_type,2);
+
+
+//template<> DEFINE_ID_FOR(dummy_vector<float>, 0);
+//template<> DEFINE_ID_FOR(dummy_vector<double>, 1);
+//template<class T1>
+//struct get_operation_id<function_wrapper_impl<T1> >{
+//    static unsigned long value(function_wrapper_impl<T1> const & t){
+//        return 2 | get_operation_id<T1>::value(*t.t1) << N_BITS_LEAF;
+//    }
+//};
+//template<class T1, class T2>
+//struct get_operation_id<function_wrapper_impl<T1, T2> >{
+//    static unsigned long value(function_wrapper_impl<T1,T2> const & t){
+//        return 3
+//                | get_operation_id<T1>::value(*t.t1) << N_BITS_LEAF
+//                | get_operation_id<T2>::value(*t.t2) << N_BITS_LEAF*2;
+//    }
+//};
+//template<class T1, class T2, class T3>
+//struct get_operation_id<function_wrapper_impl<T1, T2, T3> >{
+//    static unsigned long value(function_wrapper_impl<T1,T2, T3> const & t){
+//        return 4
+//                | get_operation_id<T1>::value(*t.t1) << N_BITS_LEAF
+//                | get_operation_id<T2>::value(*t.t2) << N_BITS_LEAF*2
+//                | get_operation_id<T2>::value(*t.t3) << N_BITS_LEAF*3;
+//    }
+//};
+
+std::string encode_to_kernel_name(unsigned long id){
+    const char *digs = "01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabzdefghijklmnopqrstuvwxyz_";
+    unsigned int n = strlen(digs);
+    char buffer[16];
+    int i = 0;
+    do  buffer[i++] = digs[id%n];  while((id /= n)>0);
+    buffer[i] = 0;
+    return std::string(buffer);
+}
+
+/*
+template<> static unsigned long get_operation_id<assign_type>(assign_type const &){ return 0; }
+template<> static unsigned long get_operation_id<add_type>(add_type const &){ return 1; }
+
+
+template<> static unsigned long get_operation_id<dummy_vector<float> >(dummy_vector<float> const &){ return 0; }
+template<> static unsigned long get_operation_id<dummy_matrix<float> >(dummy_matrix<float> const &){ return 1; }
+template<> static unsigned long get_operation_id<dummy_scalar<float> >(dummy_scalar<float> const &){ return 2; }
+template<class T1> static unsigned long get_operation_id<function_wrapper_impl<T1> >(function_wrapper_impl<T1> const &){ return 3; }
+*/
 
 
 #define MAKE_BUILTIN_FUNCTION1(name) static function_wrapper name = function_wrapper(#name,#name "(_1_)")

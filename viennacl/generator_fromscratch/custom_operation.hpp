@@ -4,6 +4,7 @@
 #include "viennacl/generator_fromscratch/code_generation/frontend.hpp"
 #include "viennacl/generator_fromscratch/symbolic_types.hpp"
 #include "viennacl/tools/shared_ptr.hpp"
+#include <bitset>
 
 namespace viennacl
 {
@@ -63,37 +64,46 @@ namespace viennacl
 
 
 
-      template<class T1, class T2, class T3, class T4, class T5>
-      struct dummy2exptree_impl<function_wrapper_impl<T1,T2,T3,T4,T5> >{
+      template<class T1>
+      struct dummy2exptree_impl<function_wrapper_impl<T1> >{
       private:
-          template<class U>
-          static void handle_function_arg(symbolic_function & fun, U const * t, std::string name
-                              , shared_infos_map_t & shared_infos
-                              , temporaries_map_t & temporaries)
-          {
-
-              fun.add_arg(name, dummy2exptree_impl<U>::execute(shared_infos,temporaries,*t));
+          typedef symbolic_function<typename dummy2exptree_impl<T1>::result_type> result_type;
+      public:
+          static result_type execute(shared_infos_map_t & shared_infos,temporaries_map_t & temporaries,function_wrapper_impl<T1> func){
+              result_type res(func.name,func.expr);
+              res.add_arg("_1_", dummy2exptree_impl<T1>::execute(shared_infos,temporaries,*func.t1));
+              return res;
           }
+      };
 
-          static void handle_function_arg(symbolic_function & fun, void const* t, std::string name
-                              , shared_infos_map_t & shared_infos
-                              , temporaries_map_t & temporaries)
-          { }
+      template<class T1, class T2>
+      struct dummy2exptree_impl<function_wrapper_impl<T1,T2> >{
+      private:
+          typedef symbolic_function<typename dummy2exptree_impl<T1>::result_type
+                                    ,typename dummy2exptree_impl<T2>::result_type> result_type;
+      public:
+          static result_type execute(shared_infos_map_t & shared_infos,temporaries_map_t & temporaries,function_wrapper_impl<T1,T2> func){
+              result_type res(func.name,func.expr);
+              res.add_arg("_1_", dummy2exptree_impl<T1>::execute(shared_infos,temporaries,*func.t1));
+              res.add_arg("_2_", dummy2exptree_impl<T2>::execute(shared_infos,temporaries,*func.t2));
+              return res;
+          }
+      };
+
+      template<class T1, class T2, class T3>
+      struct dummy2exptree_impl<function_wrapper_impl<T1,T2, T3> >{
+      private:
+          typedef symbolic_function<typename dummy2exptree_impl<T1>::result_type
+                                    ,typename dummy2exptree_impl<T2>::result_type
+                                    ,typename dummy2exptree_impl<T3>::result_type> result_type;
 
       public:
-          typedef symbolic_function result_type;
-          static result_type execute(shared_infos_map_t & shared_infos,
-                                     temporaries_map_t & temporaries,
-                                     function_wrapper_impl<T1,T2,T3,T4,T5> func){
+          static result_type execute(shared_infos_map_t & shared_infos,temporaries_map_t & temporaries,function_wrapper_impl<T1,T2,T3> func){
               result_type res(func.name,func.expr);
-              handle_function_arg(res,func.t1,"_1_",shared_infos,temporaries);
-              handle_function_arg(res,func.t2,"_2_",shared_infos,temporaries);
-              handle_function_arg(res,func.t3,"_3_",shared_infos,temporaries);
-              handle_function_arg(res,func.t4,"_4_",shared_infos,temporaries);
-              handle_function_arg(res,func.t5,"_5_",shared_infos,temporaries);
+              res.add_arg("_1_", dummy2exptree_impl<T1>::execute(shared_infos,temporaries,*func.t1));
+              res.add_arg("_2_", dummy2exptree_impl<T2>::execute(shared_infos,temporaries,*func.t2));
+              res.add_arg("_3_", dummy2exptree_impl<T3>::execute(shared_infos,temporaries,*func.t3));
               return res;
-
-
           }
       };
 
@@ -123,6 +133,8 @@ namespace viennacl
 
           template<class T>
           void add(T const & op){
+//              std::cout << std::bitset<64>(get_operation_id<T>::value(op)).to_string() << std::endl;
+//              std::cout << encode_to_kernel_name(get_operation_id<T>::value(op)) << std::endl;
               operations_manager_.add(dummy2exptree(shared_infos_,temporaries_,op));
           }
 
@@ -154,6 +166,12 @@ namespace viennacl
               for(std::map<std::string, generator::code_generation::kernel_infos_t>::iterator it = kernels_infos_.begin() ; it != kernels_infos_.end() ; ++it){
                   viennacl::ocl::kernel& k = viennacl::ocl::get_kernel(operation_name_,it->first);
                   set_arguments(k,it->second.arguments());
+                  k.local_work_size(0,it->second.profile().local_work_size(0));
+                  k.local_work_size(1,it->second.profile().local_work_size(1));
+
+                  k.global_work_size(0,it->second.profile().global_work_size(0));
+                  k.global_work_size(1,it->second.profile().global_work_size(1));
+
                   viennacl::ocl::enqueue(k);
               }
           }
