@@ -155,8 +155,8 @@ namespace viennacl{
                infos_base::id_res_t lhs_res = lhs_->id();
                infos_base::id_res_t op_res = op_->id();
                infos_base::id_res_t rhs_res = rhs_->id();
-               return std::make_pair(lhs_res.first | op_res.first<<lhs_res.second | rhs_res.first << (lhs_res.second + op_res.second)
-                                                   ,lhs_res.second+op_res.second+rhs_res.second);
+               return std::make_pair(lhs_res.first | (op_res.first<<lhs_res.second) | (rhs_res.first << (lhs_res.second + op_res.second))
+                                     ,lhs_res.second+op_res.second+rhs_res.second);
             }
         protected:
             binary_tree_infos_base(infos_base * lhs, op_infos_base * op, infos_base * rhs) : lhs_(lhs), op_(op), rhs_(rhs){        }
@@ -234,7 +234,7 @@ namespace viennacl{
         class user_kernel_argument : public kernel_argument{
         public:
             user_kernel_argument(typename id_res_t::second_type id) : id_(id){ }
-            id_res_t id() const { return std::make_pair(6,id_); }
+            id_res_t id() const { return std::make_pair(id_,6); }
         private:
             typename id_res_t::second_type id_;
         };
@@ -357,7 +357,8 @@ namespace viennacl{
                     argres1 |=  current_res.first << argres2;
                     argres2 += current_res.second;
                 }
-                return std::make_pair(0 | id_<<6 | argres1<<10
+                std::cout << argres2 << std::endl;
+                return std::make_pair(0 | id_<<6 | argres1<<16
                                       ,6 + 10 + argres2);
             }
 

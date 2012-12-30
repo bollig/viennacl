@@ -8,6 +8,7 @@
 #include <algorithm>
 
 #include <typeinfo>
+#include <bitset>
 
 namespace viennacl{
 
@@ -148,6 +149,7 @@ namespace viennacl{
                     for(kernels_t::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
                         std::string name;
                         for(std::list<infos_base*>::iterator iit = it->begin() ; iit != it->end() ; ++iit){
+                            std::cout << std::bitset<64>((*iit)->id().first).to_string() << std::endl;
                             name += encode_to_kernel_name((*iit)->id().first) + "_";
                         }
                         code_generation::kernel_generator kg(*it,name,kss, kernels_infos[name]);
