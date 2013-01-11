@@ -306,10 +306,10 @@ namespace viennacl{
             std::string  col_start() const{ return name() +"col_start_";}
             std::string arguments_string() const{
                 return " __global " + aligned_scalartype() + "*"  + " " + name()
-                                                            + ", unsigned int " + row_start()
-                                                            + ", unsigned int " + col_start()
-                                                            + ", unsigned int " + row_inc()
-                                                            + ", unsigned int " + col_inc()
+//                                                            + ", unsigned int " + row_start()
+//                                                            + ", unsigned int " + col_start()
+//                                                            + ", unsigned int " + row_inc()
+//                                                            + ", unsigned int " + col_inc()
                                                             + ", unsigned int " + size1()
                                                             + ", unsigned int " + size2();
             }

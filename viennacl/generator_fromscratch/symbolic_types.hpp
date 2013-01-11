@@ -147,6 +147,7 @@ namespace viennacl
         public:
           typedef viennacl::vector<SCALARTYPE,ALIGNMENT> vcl_vec_t;
           typedef SCALARTYPE ScalarType;
+
           template<class SharedInfosMapT>
           symbolic_vector(SharedInfosMapT & map
                           ,vcl_vec_t const & vcl_vec) : vcl_vec_(vcl_vec){
@@ -174,18 +175,37 @@ namespace viennacl
       * @tparam F The Layout of the matrix in the generated code
       * @tparam ALIGNMENT The Alignment of the matrix in the generated code
       */
-      template<typename SCALARTYPE, class F, unsigned int ALIGNMENT=1>
+      template<typename SCALARTYPE, class F, unsigned int ALIGNMENT>
       class symbolic_matrix : public mat_infos_base
       {
           typedef symbolic_matrix<SCALARTYPE, F, ALIGNMENT> self_type;
 
         public:
-          symbolic_matrix() : mat_infos_base( print_type<SCALARTYPE>::value()
-                                        ,true
-                                        ,false){ }
+          typedef viennacl::matrix<SCALARTYPE,F, ALIGNMENT> vcl_mat_t;
+
+          template<class SharedInfosMapT>
+          symbolic_matrix(SharedInfosMapT & map
+                          ,vcl_mat_t const & vcl_mat) : mat_infos_base(false,false), vcl_mat_(vcl_mat){
+            infos_= &map.insert(std::make_pair(vcl_mat_.handle(),shared_infos_t(map.size(),print_type<ScalarType>::value()))).first->second;
+          }
+
+          void enqueue(unsigned int & n_arg, viennacl::ocl::kernel & k) const{
+              k.arg(n_arg++,vcl_mat_);
+              k.arg(n_arg++,cl_uint(vcl_mat_.internal_size1()));
+              k.arg(n_arg++,cl_uint(vcl_mat_.internal_size2()));
+          }
 
           typedef viennacl::matrix<SCALARTYPE,F,ALIGNMENT> runtime_type;
           typedef SCALARTYPE ScalarType;
+
+          viennacl::backend::mem_handle const & handle() const{ return vcl_mat_.handle(); }
+
+          repr_t repr() const{
+              return "m"+repr_of<SCALARTYPE>::value();
+          }
+      private:
+          vcl_mat_t const & vcl_mat_;
+
       };
 
       template<class Model, class LHS, class RHS>

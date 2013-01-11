@@ -1,7 +1,7 @@
 include_directories(${PROJECT_SOURCE_DIR}/external)
 
 if (ENABLE_OPENCL)
-  foreach(par vector_tuning)
+  foreach(par vector_tuning matrix_tuning)
     set(n ${par}params)
     if(par STREQUAL parameter_reader)
       set(n ${par})

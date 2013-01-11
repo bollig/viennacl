@@ -110,10 +110,10 @@ private:
     unsigned int n_args_;
 };
 
-template<typename SCALARTYPE, unsigned int Alignment=16>
+template<typename SCALARTYPE>
 class dummy_vector{
     typedef dummy_vector<SCALARTYPE> self_type;
-    typedef viennacl::vector<SCALARTYPE,Alignment> vcl_vec_t;
+    typedef viennacl::vector<SCALARTYPE,16> vcl_vec_t;
     vcl_vec_t const & vec_;
 public:
 
@@ -188,10 +188,19 @@ public:
 };
 
 
-template<class ScalarType>
+template<class ScalarType, class Layout>
 class dummy_matrix{
-    typedef dummy_matrix<ScalarType> self_type;
+    typedef dummy_matrix<ScalarType, Layout> self_type;
+    typedef viennacl::matrix<ScalarType,Layout,16> vcl_mat_t;
+    vcl_mat_t const & mat_;
 public:
+
+    dummy_matrix(vcl_mat_t const & mat) : mat_(mat){ }
+
+    vcl_mat_t const & mat() const{
+        return mat_;
+    }
+
     template<typename RHS_TYPE>
     matrix_expression_wrapper<self_type, assign_type, RHS_TYPE >
     operator= ( RHS_TYPE const & rhs ){
@@ -226,8 +235,8 @@ public:
 
 template<class T>
 struct is_vector_expression_t{ enum { value = 0 }; };
-template<typename ScalarType, unsigned int Alignment>
-struct is_vector_expression_t<dummy_vector<ScalarType,Alignment> >{ enum { value = 1}; };
+template<typename ScalarType>
+struct is_vector_expression_t<dummy_vector<ScalarType> >{ enum { value = 1}; };
 template<class LHS, class OP, class RHS>
 struct is_vector_expression_t<vector_expression_wrapper<LHS,OP,RHS> >{ enum { value = 1}; };
 
@@ -245,8 +254,8 @@ struct is_scalar_expression_t<function_wrapper_impl<T1,T2,T3> >{ enum { value = 
 
 template<class T>
 struct is_matrix_expression_t{ enum { value = 0 }; };
-template<class ScalarType>
-struct is_matrix_expression_t<dummy_matrix<ScalarType> >{ enum { value = 1}; };
+template<class ScalarType, class Layout>
+struct is_matrix_expression_t<dummy_matrix<ScalarType, Layout> >{ enum { value = 1}; };
 template<class LHS, class OP, class RHS>
 struct is_matrix_expression_t<matrix_expression_wrapper<LHS,OP,RHS> >{ enum { value = 1}; };
 
@@ -275,7 +284,7 @@ template<class T>
 struct is_leaf{ enum{ value = 0}; };
 template<class ScalarType> struct is_leaf<dummy_vector<ScalarType> >{ enum { value = 1 }; };
 template<class ScalarType> struct is_leaf<dummy_scalar<ScalarType> >{ enum { value = 1 }; };
-template<class ScalarType> struct is_leaf<dummy_matrix<ScalarType> >{ enum { value = 1 }; };
+template<class ScalarType, class Layout> struct is_leaf<dummy_matrix<ScalarType,Layout> >{ enum { value = 1 }; };
 
 //template<class T>
 //unary_minus<T> operator -(T const &)

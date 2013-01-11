@@ -27,6 +27,7 @@ for(unsigned int i=0; i<size; ++i){
 }
 
 viennacl::generator::custom_operation op;
+
 viennacl::vector<ScalarType,16> res(size), v1(size), v2(size), v3(size), v4(size);
 viennacl::copy(cpu_v1,v1);
 viennacl::copy(cpu_v2,v2);
@@ -38,8 +39,9 @@ op.add(dv(v1) = dv(v2) + dv(v3) + dv(v4) );
 op.add(dv(v1) = dv(v2) + dv(v3) + dv(v4) );
 op.add(dv(v1) = dv(v2) + dv(v3) + dv(v4) );
 op.add(dv(v1) = dv(v2) + dv(v3) + dv(v4) );
-
 op.init();
+
+
 std::cout << op.source_code() << std::endl;
 //std::cout << viennacl::linalg::inner_prod(v2,v3) << std::endl;
 //op.execute();

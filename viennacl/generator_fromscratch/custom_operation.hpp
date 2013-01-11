@@ -35,15 +35,26 @@ namespace viennacl
           }
       };
 
-      template<class ScalarType, unsigned int Alignment>
-      struct dummy2exptree_impl<dummy_vector<ScalarType, Alignment> >{
-          typedef symbolic_vector<ScalarType, Alignment> result_type;
+      template<class ScalarType>
+      struct dummy2exptree_impl<dummy_vector<ScalarType> >{
+          typedef symbolic_vector<ScalarType, 16> result_type;
           static result_type execute(shared_infos_map_t & shared_infos,
                                      temporaries_map_t & temporaries_,
-                                     dummy_vector<ScalarType,Alignment> const & v){
+                                     dummy_vector<ScalarType> const & v){
               return result_type(shared_infos, v.vec());
           }
       };
+
+      template<class ScalarType, class Layout>
+      struct dummy2exptree_impl<dummy_matrix<ScalarType, Layout> >{
+          typedef symbolic_matrix<ScalarType,Layout, 16> result_type;
+          static result_type execute(shared_infos_map_t & shared_infos,
+                                     temporaries_map_t & temporaries_,
+                                     dummy_matrix<ScalarType,Layout> const & m){
+              return result_type(shared_infos, m.mat());
+          }
+      };
+
 
       template<class LHS, class RHS>
       struct dummy2exptree_impl<inner_prod_wrapper<LHS,RHS> >{
@@ -147,9 +158,12 @@ namespace viennacl
           }
 
           void execute(){
-              compile_program();
+              if(!viennacl::ocl::current_context().has_program(operations_manager_.repr()));
+                compile_program();
+              viennacl::ocl::program & pgm = viennacl::ocl::current_context().get_program(operations_manager_.repr());
+
               for(std::map<std::string, generator::code_generation::kernel_infos_t>::iterator it = kernels_infos_.begin() ; it != kernels_infos_.end() ; ++it){
-                  viennacl::ocl::kernel& k = viennacl::ocl::get_kernel(operations_manager_.repr(),it->first);
+                  viennacl::ocl::kernel& k = pgm.get_kernel(it->first);
                   set_arguments(k,it->second.arguments());
                   k.local_work_size(0,it->second.profile().local_work_size(0));
                   k.local_work_size(1,it->second.profile().local_work_size(1));

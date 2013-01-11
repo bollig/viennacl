@@ -22,13 +22,13 @@ class elementwise_div_type;
 template<class LHS, class OP, class RHS>
 class compile_time_beast;
 
-template<typename ScalarType, unsigned int Alignment>
+template<typename ScalarType>
 class dummy_vector;
 
 template<typename ScalarType>
 class dummy_scalar;
 
-template<typename ScalarType>
+template<typename ScalarType, class Layout>
 class dummy_matrix;
 
 }
