@@ -22,6 +22,8 @@ namespace viennacl{
             }
         }
 
+
+
         namespace code_generation{
 
             class kernel_infos_t{
@@ -34,12 +36,24 @@ namespace viennacl{
                 code_generation::optimization_profile optimization_profile_;
             };
 
+            struct kernel_representation_t{
+                enum type_t{
+                    UNDEFINED,
+                    BLAS1_TYPE,
+                    BLAS2_TYPE,
+                    BLAS3_TYPE
+                };
+
+                std::list<infos_base*> trees;
+                type_t type;
+            };
+
             class kernel_generator{
             private:
 
                 void generate_headers(){
                     kss_ << "__kernel void " + kernel_name_ + "(";
-                    for(std::list<infos_base*>::iterator it = trees_.begin() ; it!= trees_.end() ; ++it){
+                    for(std::list<infos_base*>::iterator it = representation_.trees.begin() ; it!= representation_.trees.end() ; ++it){
                         extract_as(*it,kernel_infos_.arguments(),utils::is_type<kernel_argument>());
                     }
                     for(std::set<kernel_argument*, deref_less>::iterator it=kernel_infos_.arguments().begin(); it!=kernel_infos_.arguments().end();++it){
@@ -55,7 +69,7 @@ namespace viennacl{
                     std::list<infos_base *> vec_exprs;
                     std::list<infos_base *> scal_exprs;
                     std::list<infos_base *> mat_exprs;
-                    for(std::list<infos_base*>::const_iterator it = trees_.begin(); it!=trees_.end();++it){
+                    for(std::list<infos_base*>::const_iterator it = representation_.trees.begin(); it!=representation_.trees.end();++it){
                         if(utils::is_type<vector_expression_infos_base>()(*it))
                             vec_exprs.push_back(*it);
                         else if(utils::is_type<scalar_expression_infos_base>()(*it)
@@ -72,13 +86,13 @@ namespace viennacl{
                 }
 
             public:
-                kernel_generator(std::list<infos_base*> & trees
+                kernel_generator(kernel_representation_t const & representation
                                  , std::string const & kernel_name
                                  , code_generation::utils::kernel_generation_stream & kss
-                                 , kernel_infos_t & kernel_infos) : trees_(trees)
+                                 , kernel_infos_t & kernel_infos) : representation_(representation)
                                                                      , kernel_name_(kernel_name)
                                                                      , kss_(kss) ,kernel_infos_(kernel_infos){
-                    kernel_infos_.profile().apply(trees);
+                    kernel_infos_.profile().apply(representation_.trees);
                 }
 
                 void generate(){
@@ -88,29 +102,20 @@ namespace viennacl{
 
 
             private:
-                std::list<infos_base*> trees_;
+                kernel_representation_t representation_;
                 std::string kernel_name_;
                 utils::kernel_generation_stream & kss_;
                 kernel_infos_t & kernel_infos_;
             };
 
+
+
             class operations_manager{
             private:
                 typedef std::list<viennacl::tools::shared_ptr<infos_base> > operations_t;
-
-                static std::string encode_to_kernel_name(unsigned long id){
-                    const char *digs = "01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabzdefghijklmnopqrstuvwxyz_";
-                    unsigned int n = strlen(digs);
-                    char buffer[16];
-                    int i = 0;
-                    do  buffer[i++] = digs[id%n];  while((id /= n)>0);
-                    buffer[i] = 0;
-                    return std::string(buffer);
-                }
-
-
-
             public:
+
+
                 template<class T>
                 void add(T const & op){
                     operations_.push_back(viennacl::tools::shared_ptr<infos_base>(new T(op)));
@@ -120,28 +125,41 @@ namespace viennacl{
                     operations_.clear();
                 }
 
-                std::vector<std::list<infos_base*> > get_kernels_list() const{
-                    typedef std::vector<std::list<infos_base*> > res_t;
-                    res_t res(1);
+                std::vector<kernel_representation_t> get_kernels_list() const{
+                    std::vector<kernel_representation_t> res(1);
                     for(typename operations_t::const_iterator it = operations_.begin() ; it!=operations_.end() ; ++it){
                         infos_base* p = it->get();
                         std::list<infos_base*> inprods(utils::filter<utils::EXTRACT_IF>(p,utils::is_type<inprod_infos_base>()));
+                        std::list<infos_base*> matmatprods(utils::filter<utils::EXTRACT_IF>(p,utils::is_type<matmat_prod_infos_base>()));
                         if(inprods.size()){
-                            res.back().merge(inprods);
-                            res.push_back(std::list<infos_base*>());
+                            if(res.back().type != kernel_representation_t::UNDEFINED && res.back().type != kernel_representation_t::BLAS1_TYPE)
+                                res.push_back(kernel_representation_t());
+                            res.back().trees.merge(inprods);
+                            res.back().type = kernel_representation_t::BLAS1_TYPE;
                         }
-                        res.back().push_back(p);
+                        else if(matmatprods.size()){
+                            if(res.back().type != kernel_representation_t::UNDEFINED && res.back().type != kernel_representation_t::BLAS3_TYPE){
+                                res.push_back(kernel_representation_t());
+                            }
+                            res.back().trees.merge(matmatprods);
+                            res.back().type = kernel_representation_t::BLAS3_TYPE;
+                        }
+                        else{
+                            if(res.back().type != kernel_representation_t::UNDEFINED && res.back().type != kernel_representation_t::BLAS1_TYPE)
+                                res.push_back(kernel_representation_t());
+                            res.back().trees.push_back(p);
+                            res.back().type = kernel_representation_t::BLAS1_TYPE;
+                        }
                     }
                     return res;
                 }
 
                 std::string repr() const{
                     std::string res;
-                    typedef std::vector<std::list<infos_base*> >  kernels_t;
-                    kernels_t kernels(get_kernels_list());
-                    for(kernels_t::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
+                    std::vector<kernel_representation_t> kernels(get_kernels_list());
+                    for(std::vector<kernel_representation_t>::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
                         std::string name;
-                        for(std::list<infos_base*>::iterator iit = it->begin() ; iit != it->end() ; ++iit){
+                        for(std::list<infos_base*>::iterator iit = it->trees.begin() ; iit != it->trees.end() ; ++iit){
                             res += (*iit)->repr();
                         }
                     }
@@ -156,9 +174,8 @@ namespace viennacl{
                     kss <<  "#elif defined(cl_amd_fp64)\n";
                     kss <<  "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n";
                     kss <<  "#endif\n";
-                    typedef std::vector<std::list<infos_base*> >  kernels_t;
-                    kernels_t kernels(get_kernels_list());
-                    for(kernels_t::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
+                    std::vector<kernel_representation_t> kernels(get_kernels_list());
+                    for(std::vector<kernel_representation_t>::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
                         std::string name("_k"+to_string(std::distance(kernels.begin(),it)));
                         code_generation::kernel_generator kg(*it,name,kss, kernels_infos[name]);
                         kg.generate() ;

@@ -144,6 +144,11 @@ namespace viennacl{
             inner_prod_type() : nonarithmetic_op_infos_base("inprod"){ }
         };
 
+        class matmat_prod_type : public nonarithmetic_op_infos_base{
+        public:
+            matmat_prod_type() : nonarithmetic_op_infos_base("prod"){ }
+        };
+
         class binary_tree_infos_base{
         public:
             infos_base & lhs() const{ return *lhs_; }
@@ -174,6 +179,8 @@ namespace viennacl{
         };
 
 
+
+
         class arithmetic_tree_infos_base :  public infos_base,public binary_tree_infos_base{
         public:
             std::string generate(unsigned int i) const { return "(" + lhs_->generate(i) + op_->generate(i) + rhs_->generate(i) + ")"; }
@@ -196,6 +203,7 @@ namespace viennacl{
         public:
             matrix_expression_infos_base( infos_base * lhs, arithmetic_op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
         };
+
 
         class kernel_argument : public infos_base{
         public:
@@ -244,6 +252,13 @@ namespace viennacl{
             }
         };
 
+        class matmat_prod_infos_base : public infos_base, public binary_tree_infos_base{
+        public:
+            matmat_prod_infos_base( infos_base * lhs, infos_base * rhs) : binary_tree_infos_base( lhs,new matmat_prod_type(),rhs){ }
+            std::string generate(unsigned int i) const { return ""; }
+            repr_t repr() const{ return binary_tree_infos_base::repr(); }
+        };
+
         class inprod_infos_base : public binary_tree_infos_base,public temporary_kernel_argument{
         public:
             enum step_t{compute,reduce};
@@ -280,6 +295,7 @@ namespace viennacl{
         private:
             viennacl::tools::shared_ptr<step_t> step_;
         };
+
 
         class vec_infos_base : public user_kernel_argument{
         public:

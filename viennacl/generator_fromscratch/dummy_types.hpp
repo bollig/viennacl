@@ -28,7 +28,7 @@ private:
 };
 
 struct inprod_type{ };
-
+struct matmat_prod_type_wrapper{ };
 
 template<class LHS, class OP, class RHS>
 class vector_expression_wrapper : public compile_time_beast<LHS,OP,RHS>{
@@ -45,6 +45,10 @@ public: matrix_expression_wrapper(LHS const & lhs, RHS const & rhs) : compile_ti
 template<class LHS, class RHS>
 class inner_prod_wrapper : public compile_time_beast<LHS,inprod_type,RHS>{
 public: inner_prod_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,inprod_type, RHS>(lhs,rhs){ }
+};
+template<class LHS, class RHS>
+class matmat_prod_wrapper : public compile_time_beast<LHS,matmat_prod_type_wrapper,RHS>{
+public: matmat_prod_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,matmat_prod_type_wrapper, RHS>(lhs,rhs){ }
 };
 
 
@@ -258,6 +262,8 @@ template<class ScalarType, class Layout>
 struct is_matrix_expression_t<dummy_matrix<ScalarType, Layout> >{ enum { value = 1}; };
 template<class LHS, class OP, class RHS>
 struct is_matrix_expression_t<matrix_expression_wrapper<LHS,OP,RHS> >{ enum { value = 1}; };
+template<class LHS, class RHS>
+struct is_matrix_expression_t<matmat_prod_wrapper<LHS,RHS> >{ enum { value = 1}; };
 
 template<class LHS, class OP, class RHS, bool create_vector, bool create_scalar, bool create_matrix>
 struct convert_to_expr;
@@ -317,6 +323,14 @@ typename viennacl::enable_if<is_vector_expression_t<LHS>::value && is_vector_exp
 inner_prod(LHS const & lhs, RHS const & rhs)
 {
     return inner_prod_wrapper<LHS,RHS>(lhs,rhs);
+}
+
+template<class LHS, class RHS>
+typename viennacl::enable_if<is_matrix_expression_t<LHS>::value && is_matrix_expression_t<RHS>::value
+                            ,matmat_prod_wrapper<LHS,RHS> >::type
+prod(LHS const & lhs, RHS const & rhs)
+{
+    return matmat_prod_wrapper<LHS,RHS>(lhs,rhs);
 }
 
 template<class LHS, class RHS>

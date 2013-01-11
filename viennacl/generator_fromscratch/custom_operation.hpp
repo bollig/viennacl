@@ -72,6 +72,21 @@ namespace viennacl
           }
       };
 
+      template<class LHS, class RHS>
+      struct dummy2exptree_impl<matmat_prod_wrapper<LHS,RHS> >{
+      private:
+          typedef typename dummy2exptree_impl<LHS>::result_type LhsResult;
+          typedef typename dummy2exptree_impl<RHS>::result_type RhsResult;
+      public:
+          typedef inprod_infos<LhsResult,RhsResult> result_type;
+          static result_type execute(shared_infos_map_t & shared_infos,
+                                     temporaries_map_t & temporaries,
+                                     matmat_prod_wrapper<LHS,RHS> const & v){
+              return result_type(shared_infos, temporaries,
+                                 dummy2exptree_impl<LHS>::execute(shared_infos,temporaries,v.lhs()),
+                                 dummy2exptree_impl<RHS>::execute(shared_infos,temporaries,v.rhs()));
+          }
+      };
 
 
 
@@ -149,7 +164,7 @@ namespace viennacl
               operations_manager_.add(dummy2exptree(shared_infos_,temporaries_,op));
           }
 
-          std::vector<std::list<infos_base*> > kernels_list(){
+          std::vector<code_generation::kernel_representation_t> kernels_list(){
               return operations_manager_.get_kernels_list();
           }
 
