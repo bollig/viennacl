@@ -43,7 +43,6 @@ namespace viennacl{
             std::string const & access_name(unsigned int i){ return access_names_.at(i); }
             void  access_name(unsigned int i, std::string const & name_){ access_names_[i] = name_; }
             std::string const & name() const{ return name_; }
-            unsigned int id() const{ return id_; }
             std::string const & scalartype() const{ return scalartype_; }
             unsigned int alignment() const{ return alignment_; }
             void alignment(unsigned int val) { alignment_ = val; }
@@ -65,85 +64,84 @@ namespace viennacl{
 
         class infos_base{
         public:
-            typedef std::pair<unsigned long, unsigned int> id_res_t;
+            typedef std::string repr_t;
             virtual std::string generate(unsigned int i) const { return ""; }
-            virtual id_res_t id() const = 0;
+            virtual repr_t repr() const = 0;
             virtual ~infos_base(){ }
         };
 
 
         class op_infos_base : public infos_base{
         public:
-            id_res_t id() const { return std::make_pair(id_,4); }
             bool is_assignment() const { return is_assignment_; }
+            repr_t repr() const{ return name_;}
         protected:
-            op_infos_base(unsigned long id, bool is_assignment) : id_(id), is_assignment_(is_assignment){ }
+            op_infos_base(std::string const & name, bool is_assignment) : name_(name), is_assignment_(is_assignment){ }
         private:
-            unsigned long id_;
             bool is_assignment_;
+            std::string name_;
         };
 
         class nonarithmetic_op_infos_base : public op_infos_base{
         public:
-            nonarithmetic_op_infos_base(unsigned int id) : op_infos_base(id,false){ }
+            nonarithmetic_op_infos_base(std::string name) : op_infos_base(name,false){ }
         };
 
         class arithmetic_op_infos_base : public op_infos_base{
         public:
             std::string generate(unsigned int i) const{ return expr_; }
         protected:
-            arithmetic_op_infos_base( std::string const & expr, std::string const & name, bool is_assignment, unsigned long id) :  op_infos_base(id,is_assignment), expr_(expr), name_(name){ }
+            arithmetic_op_infos_base( std::string const & expr, std::string const & name, bool is_assignment) :  op_infos_base(name,is_assignment), expr_(expr){ }
         private:
             std::string expr_;
-            std::string name_;
         };
 
         class assign_type : public arithmetic_op_infos_base{
         public:
-            assign_type() : arithmetic_op_infos_base(" = ", "eq",true,0){ }
+            assign_type() : arithmetic_op_infos_base(" = ", "eq",true){ }
         };
 
         class add_type : public arithmetic_op_infos_base{
         public:
-          add_type() : arithmetic_op_infos_base(" + ", "p",false,1){ }
+          add_type() : arithmetic_op_infos_base(" + ", "p",false){ }
         };
 
         class inplace_add_type : public arithmetic_op_infos_base{
         public:
-          inplace_add_type() : arithmetic_op_infos_base(" += ", "p_eq",true,2){ }
+          inplace_add_type() : arithmetic_op_infos_base(" += ", "p_eq",true){ }
         };
 
         class sub_type : public arithmetic_op_infos_base{
         public:
-          sub_type() : arithmetic_op_infos_base(" - ", "m",false,3){ }
+          sub_type() : arithmetic_op_infos_base(" - ", "m",false){ }
         };
 
         class inplace_sub_type : public arithmetic_op_infos_base{
         public:
-          inplace_sub_type() : arithmetic_op_infos_base(" -= ", "m_eq",true,4){ }
+          inplace_sub_type() : arithmetic_op_infos_base(" -= ", "m_eq",true){ }
         };
 
         class scal_mul_type : public arithmetic_op_infos_base{
         public:
-          scal_mul_type() : arithmetic_op_infos_base(" * ", "mu",false,5){ }
+          scal_mul_type() : arithmetic_op_infos_base(" * ", "mu",false){ }
         };
 
         class inplace_scal_mul_type : public arithmetic_op_infos_base{
-            inplace_scal_mul_type() : arithmetic_op_infos_base(" *= ", "mu_eq",true,6){ }
+            inplace_scal_mul_type() : arithmetic_op_infos_base(" *= ", "mu_eq",true){ }
         };
 
 
         class scal_div_type : public arithmetic_op_infos_base{
-          scal_div_type() : arithmetic_op_infos_base(" / ", "div", false,7){ }
+          scal_div_type() : arithmetic_op_infos_base(" / ", "div", false){ }
         };
 
         class inplace_scal_div_type :  public arithmetic_op_infos_base{
-            inplace_scal_div_type() : arithmetic_op_infos_base(" /= ", "div_eq", true,8){ }
+            inplace_scal_div_type() : arithmetic_op_infos_base(" /= ", "div_eq", true){ }
         };
 
         class inner_prod_type : public nonarithmetic_op_infos_base{
         public:
-            inner_prod_type() : nonarithmetic_op_infos_base(9){ }
+            inner_prod_type() : nonarithmetic_op_infos_base("inprod"){ }
         };
 
         class binary_tree_infos_base{
@@ -151,12 +149,8 @@ namespace viennacl{
             infos_base & lhs() const{ return *lhs_; }
             infos_base & rhs() const{ return *rhs_; }
             op_infos_base & op() { return *op_; }
-            infos_base::id_res_t id() const {
-               infos_base::id_res_t lhs_res = lhs_->id();
-               infos_base::id_res_t op_res = op_->id();
-               infos_base::id_res_t rhs_res = rhs_->id();
-               return std::make_pair(lhs_res.first | op_res.first<<lhs_res.second | rhs_res.first << (lhs_res.second + op_res.second)
-                                                   ,lhs_res.second+op_res.second+rhs_res.second);
+            infos_base::repr_t repr() const {
+                return "("+lhs_->repr() + op_->repr() + rhs_->repr()+")";
             }
         protected:
             binary_tree_infos_base(infos_base * lhs, op_infos_base * op, infos_base * rhs) : lhs_(lhs), op_(op), rhs_(rhs){        }
@@ -183,8 +177,8 @@ namespace viennacl{
         class arithmetic_tree_infos_base :  public infos_base,public binary_tree_infos_base{
         public:
             std::string generate(unsigned int i) const { return "(" + lhs_->generate(i) + op_->generate(i) + rhs_->generate(i) + ")"; }
+            repr_t repr() const{ return binary_tree_infos_base::repr(); }
             arithmetic_tree_infos_base( infos_base * lhs, arithmetic_op_infos_base* op, infos_base * rhs) :  binary_tree_infos_base(lhs,op,rhs){        }
-            virtual id_res_t id() const { return binary_tree_infos_base::id(); }
         private:
         };
 
@@ -232,18 +226,11 @@ namespace viennacl{
         };
 
         class user_kernel_argument : public kernel_argument{
-        public:
-            user_kernel_argument(typename id_res_t::second_type id) : id_(id){ }
-            id_res_t id() const { return std::make_pair(6,id_); }
-        private:
-            typename id_res_t::second_type id_;
         };
 
         class temporary_kernel_argument : public kernel_argument{ };
 
         class cpu_scal_infos_base : public user_kernel_argument{
-        protected:
-            cpu_scal_infos_base(unsigned int id) : user_kernel_argument(id) { }
         public:
             virtual std::string arguments_string() const{
                 return scalartype() + " " + name();
@@ -251,8 +238,6 @@ namespace viennacl{
         };
 
         class gpu_scal_infos_base : public user_kernel_argument{
-        protected:
-            gpu_scal_infos_base(unsigned int id) : user_kernel_argument(id) { }
         public:
             virtual std::string arguments_string() const{
                 return  "__global " + scalartype() + "*"  + " " + name();
@@ -280,6 +265,8 @@ namespace viennacl{
                 return name()+"_sum";
             }
 
+            repr_t repr() const{ return binary_tree_infos_base::repr(); }
+
             unsigned int n_groupsize_used_for_compute(){ return 0; }
 
         protected:
@@ -305,7 +292,7 @@ namespace viennacl{
                                                 }
             virtual ~vec_infos_base(){ }
         protected:
-            vec_infos_base(unsigned int id) : user_kernel_argument(id) { }
+            vec_infos_base() : user_kernel_argument() { }
         };
 
 
@@ -330,9 +317,8 @@ namespace viennacl{
             bool const is_transposed() const { return is_transposed_; }
             virtual ~mat_infos_base() { }
         protected:
-            mat_infos_base(unsigned int id
-                           ,bool is_rowmajor
-                           ,bool is_transposed) : user_kernel_argument(id)
+            mat_infos_base(bool is_rowmajor
+                           ,bool is_transposed) : user_kernel_argument()
                                                   ,is_rowmajor_(is_rowmajor)
                                                   ,is_transposed_(is_transposed){ }
         private:
@@ -344,21 +330,18 @@ namespace viennacl{
         protected:
             typedef std::map<std::string,viennacl::tools::shared_ptr<infos_base> > args_map_t;
         public:
-            function_base(std::string const & name) : name_(name), id_(2){ }
+            function_base(std::string const & name) : name_(name){ }
             virtual std::string name() const {
                 return name_;
             }
 
-            id_res_t id() const{
-                typename id_res_t::first_type argres1=0;
-                typename id_res_t::second_type argres2=0;
+            repr_t repr() const{
+                repr_t res;
                 for(args_map_t::const_iterator it = args_map_.begin() ; it != args_map_.end() ; ++it){
-                    id_res_t current_res = it->second->id();
-                    argres1 |=  current_res.first << argres2;
-                    argres2 += current_res.second;
+                    res += it->second->repr();
+
                 }
-                return std::make_pair(0 | id_<<6 | argres1<<10
-                                      ,6 + 10 + argres2);
+                return res;
             }
 
             std::list<infos_base*> args() const{
@@ -371,7 +354,6 @@ namespace viennacl{
         protected:
             std::string name_;
             args_map_t args_map_;
-            unsigned int id_;
         };
 
         template<class T1, class T2=void, class T3=void>

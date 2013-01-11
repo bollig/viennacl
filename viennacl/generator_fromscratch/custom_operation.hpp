@@ -121,7 +121,7 @@ namespace viennacl
       private:
           void compile_program() const{
               assert(!source_code_.empty() && " Custom Operation not initialized ");
-              viennacl::ocl::program& program = viennacl::ocl::current_context().add_program(source_code_, operation_name_);
+              viennacl::ocl::program& program = viennacl::ocl::current_context().add_program(source_code_, operations_manager_.repr());
               for(std::map<std::string, generator::code_generation::kernel_infos_t>::const_iterator it = kernels_infos_.begin() ; it !=kernels_infos_.end() ; ++it){
                 program.add_kernel(it->first);
               }
@@ -129,7 +129,7 @@ namespace viennacl
 
       public :
 
-        custom_operation(std::string const & operation_name) : operation_name_(operation_name){ }
+        custom_operation() { }
 
           template<class T>
           void add(T const & op){
@@ -149,7 +149,7 @@ namespace viennacl
           void execute(){
               compile_program();
               for(std::map<std::string, generator::code_generation::kernel_infos_t>::iterator it = kernels_infos_.begin() ; it != kernels_infos_.end() ; ++it){
-                  viennacl::ocl::kernel& k = viennacl::ocl::get_kernel(operation_name_,it->first);
+                  viennacl::ocl::kernel& k = viennacl::ocl::get_kernel(operations_manager_.repr(),it->first);
                   set_arguments(k,it->second.arguments());
                   k.local_work_size(0,it->second.profile().local_work_size(0));
                   k.local_work_size(1,it->second.profile().local_work_size(1));
@@ -167,7 +167,6 @@ namespace viennacl
           }
 
         private:
-          std::string operation_name_;
           code_generation::operations_manager operations_manager_;
           shared_infos_map_t shared_infos_;
           temporaries_map_t temporaries_;

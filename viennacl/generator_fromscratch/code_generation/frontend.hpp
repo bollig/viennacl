@@ -135,6 +135,19 @@ namespace viennacl{
                     return res;
                 }
 
+                std::string repr() const{
+                    std::string res;
+                    typedef std::vector<std::list<infos_base*> >  kernels_t;
+                    kernels_t kernels(get_kernels_list());
+                    for(kernels_t::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
+                        std::string name;
+                        for(std::list<infos_base*>::iterator iit = it->begin() ; iit != it->end() ; ++iit){
+                            res += (*iit)->repr();
+                        }
+                    }
+                    return res;
+                }
+
                 std::string get_source_code( std::map<std::string, generator::code_generation::kernel_infos_t> & kernels_infos) const{
                     std::ostringstream oss;
                     code_generation::utils::kernel_generation_stream kss(oss);
@@ -146,10 +159,7 @@ namespace viennacl{
                     typedef std::vector<std::list<infos_base*> >  kernels_t;
                     kernels_t kernels(get_kernels_list());
                     for(kernels_t::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
-                        std::string name;
-                        for(std::list<infos_base*>::iterator iit = it->begin() ; iit != it->end() ; ++iit){
-                            name += encode_to_kernel_name((*iit)->id().first) + "_";
-                        }
+                        std::string name("_k"+to_string(std::distance(kernels.begin(),it)));
                         code_generation::kernel_generator kg(*it,name,kss, kernels_infos[name]);
                         kg.generate() ;
                     }

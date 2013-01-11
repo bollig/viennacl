@@ -30,7 +30,8 @@ namespace viennacl
   {
 
 
-
+      template<class T> struct repr_of;
+      template<> struct repr_of<float>{ static const infos_base::repr_t value(){ return "f"; } };
 
 
       template<class LHS, class OP, class RHS>
@@ -132,12 +133,8 @@ namespace viennacl
 
     };
 
-      template<class ScalarType>
-      struct get_vector_id;
 
-      template<> struct get_vector_id<float>{ enum { value = 1}; };
-      template<> struct get_vector_id<double>{ enum { value = 2}; };
-      /**
+    /**
       * @brief Symbolic vector type
       *
       * @tparam SCALARTYPE The Scalartype of the vector in the generated code
@@ -152,7 +149,7 @@ namespace viennacl
           typedef SCALARTYPE ScalarType;
           template<class SharedInfosMapT>
           symbolic_vector(SharedInfosMapT & map
-                          ,vcl_vec_t const & vcl_vec) : vec_infos_base(get_vector_id<SCALARTYPE>::value), vcl_vec_(vcl_vec){
+                          ,vcl_vec_t const & vcl_vec) : vcl_vec_(vcl_vec){
             infos_= &map.insert(std::make_pair(vcl_vec_.handle(),shared_infos_t(map.size(),print_type<ScalarType>::value()))).first->second;
           }
           virtual viennacl::backend::mem_handle const & handle() const{ return vcl_vec_.handle(); }
@@ -160,6 +157,11 @@ namespace viennacl
               k.arg(n_arg++,vcl_vec_);
               k.arg(n_arg++,cl_uint(vcl_vec_.internal_size()));
           }
+
+          repr_t repr() const{
+              return "v"+repr_of<SCALARTYPE>::value();
+          }
+
         private:
           vcl_vec_t const & vcl_vec_;
       };

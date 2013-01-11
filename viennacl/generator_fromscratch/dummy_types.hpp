@@ -50,8 +50,7 @@ public: inner_prod_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beas
 
 template<class T1, class T2=void, class T3=void>
 struct function_wrapper_impl{
-    function_wrapper_impl(unsigned int _func_id, std::string const & _name, std::string const & _expr) : func_id(_func_id), name(_name), expr(_expr), t1(NULL), t2(NULL), t3(NULL){ }
-    unsigned int func_id;
+    function_wrapper_impl(std::string const & _name, std::string const & _expr) : name(_name), expr(_expr), t1(NULL), t2(NULL), t3(NULL){ }
     std::string name;
     std::string expr;
     T1 const * t1;
@@ -63,16 +62,10 @@ struct function_wrapper_impl{
 
 
 class function_wrapper{
-private:
-    static unsigned int create_func_id(){
-        static unsigned long i = 0;
-        return i++;
-    }
 public:
     function_wrapper(std::string const & name
-                     ,std::string const & expr) : name_(name), func_id_(create_func_id()), expr_(expr){
+                     ,std::string const & expr) : name_(name), expr_(expr){
         n_args_ = 0;
-        std::cout << func_id_ << std::endl;
         bool keep_going = true;
         while(keep_going){
             std::string current_arg = "_"+to_string(n_args_+1)+"_";
@@ -90,7 +83,7 @@ public:
     template<class T1>
     function_wrapper_impl<T1> operator()(T1 const & t1){
         assert(n_args_==1);
-        function_wrapper_impl<T1> res(func_id_,name_,expr_);
+        function_wrapper_impl<T1> res(name_,expr_);
         res.t1 = &t1;
         return res;
     }
@@ -98,7 +91,7 @@ public:
     template<class T1, class T2>
     function_wrapper_impl<T1,T2> operator()(T1 const & t1, T2 const & t2){
         assert(n_args_==2);
-        function_wrapper_impl<T1, T2> res(func_id_,name_,expr_);
+        function_wrapper_impl<T1, T2> res(name_,expr_);
         res.t1 = &t1; res.t2 = &t2;
         return res;
     }
@@ -106,19 +99,18 @@ public:
     template<class T1, class T2, class T3>
     function_wrapper_impl<T1,T2, T3> operator()(T1 const & t1, T2 const & t2, T3 const & t3){
         assert(n_args_==3);
-        function_wrapper_impl<T1, T2,T3> res(func_id_,name_,expr_);
+        function_wrapper_impl<T1, T2,T3> res(name_,expr_);
         res.t1 = &t1; res.t2 = &t2; res.t3 = &t3;
         return res;
     }
 
 private:
     std::string name_;
-    unsigned int func_id_;
     std::string expr_;
     unsigned int n_args_;
 };
 
-template<typename SCALARTYPE, unsigned int Alignment=1>
+template<typename SCALARTYPE, unsigned int Alignment=16>
 class dummy_vector{
     typedef dummy_vector<SCALARTYPE> self_type;
     typedef viennacl::vector<SCALARTYPE,Alignment> vcl_vec_t;
