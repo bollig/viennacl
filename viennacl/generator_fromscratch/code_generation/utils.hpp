@@ -225,13 +225,12 @@ namespace viennacl{
 
                 };
 
-                template<class VecExprT, class InProdExprT, class VectorCacheExpr>
+                template<class ExprT, class CacheExpr>
                 static void unroll_gid_loop_contiguous(kernel_generation_stream & kss
                                                        ,unsigned int n_unroll
                                                    , std::string upper_bound
-                                                   ,VecExprT & vector_expressions
-                                                   , InProdExprT & inner_prods_compute
-                                                   , VectorCacheExpr & vector_cache ){
+                                                   ,ExprT & expressions
+                                                   , CacheExpr & cache ){
                     kss << "{" << std::endl;
                     kss.inc_tab();
                     kss << "unsigned int inc = get_global_size(0)*" << n_unroll << ";" << std::endl;
@@ -240,20 +239,17 @@ namespace viennacl{
                     kss << "for(unsigned int i = get_global_id(0)*" << n_unroll << " ; i < upper_unroll_bound ; i +=  inc ){" << std::endl;
                     kss.inc_tab();
                     for(unsigned int j=0 ; j<n_unroll  ; ++j){
-                        vector_cache.fetch_entries(j, "i + " + to_string(j));
+                        cache.fetch_entries(j, "i + " + to_string(j));
                     }
 
                     for(unsigned int j=0 ; j < n_unroll ; ++j){
-                        for(typename VecExprT::iterator it=vector_expressions.begin() ; it!=vector_expressions.end();++it){
-                            kss << (*it)->generate(j) << ";" << std::endl;
-                        }
-                        for(typename InProdExprT::iterator it=inner_prods_compute.begin() ; it!=inner_prods_compute.end();++it){
+                        for(typename ExprT::iterator it=expressions.begin() ; it!=expressions.end();++it){
                             kss << (*it)->generate(j) << ";" << std::endl;
                         }
                     }
 
                     for(unsigned int j=0 ; j<n_unroll  ; ++j){
-                        vector_cache.writeback_entries(j,"i + " + to_string(j));
+                        cache.writeback_entries(j,"i + " + to_string(j));
                     }
                     kss.dec_tab();
                     kss << "}" << std::endl;
@@ -261,14 +257,11 @@ namespace viennacl{
                     if(n_unroll>1){
                         kss << "for(unsigned int i = upper_unroll_bound + get_global_id(0) ; i < upper_bound ; i +=  get_global_size(0) ){" << std::endl;
                         kss.inc_tab();
-                        vector_cache.fetch_entries(0, "i");
-                        for(typename VecExprT::iterator it=vector_expressions.begin() ; it!=vector_expressions.end();++it){
+                        cache.fetch_entries(0, "i");
+                        for(typename ExprT::iterator it=expressions.begin() ; it!=expressions.end();++it){
                             kss << (*it)->generate(0) << ";" << std::endl;
                         }
-                        for(typename InProdExprT::iterator it=inner_prods_compute.begin() ; it!=inner_prods_compute.end();++it){
-                            kss << (*it)->generate(0) << ";" << std::endl;
-                        }
-                        vector_cache.writeback_entries(0, "i");
+                        cache.writeback_entries(0, "i");
                         kss.dec_tab();
                         kss << "}" << std::endl;
                     }

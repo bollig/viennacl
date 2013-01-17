@@ -78,12 +78,11 @@ namespace viennacl
           typedef typename dummy2exptree_impl<LHS>::result_type LhsResult;
           typedef typename dummy2exptree_impl<RHS>::result_type RhsResult;
       public:
-          typedef inprod_infos<LhsResult,RhsResult> result_type;
+          typedef matmat_prod_infos<LhsResult,RhsResult> result_type;
           static result_type execute(shared_infos_map_t & shared_infos,
                                      temporaries_map_t & temporaries,
                                      matmat_prod_wrapper<LHS,RHS> const & v){
-              return result_type(shared_infos, temporaries,
-                                 dummy2exptree_impl<LHS>::execute(shared_infos,temporaries,v.lhs()),
+              return result_type(dummy2exptree_impl<LHS>::execute(shared_infos,temporaries,v.lhs()),
                                  dummy2exptree_impl<RHS>::execute(shared_infos,temporaries,v.rhs()));
           }
       };

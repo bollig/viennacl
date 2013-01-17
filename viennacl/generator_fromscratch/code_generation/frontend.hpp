@@ -79,8 +79,13 @@ namespace viennacl{
                             mat_exprs.push_back(*it);
                     }
                     kernel_infos_.profile().load(viennacl::ocl::current_device());
-                    code_generation::blas1_generator gen(vec_exprs,scal_exprs,kernel_infos_.profile());
-                    gen(kss_);
+                    if(representation_.type==kernel_representation_t::BLAS1_TYPE){
+                        code_generation::blas1_generator gen(vec_exprs,mat_exprs,scal_exprs,kernel_infos_.profile());
+                        gen(kss_);
+                    }
+                    else if(representation_.type==kernel_representation_t::BLAS3_TYPE){
+                        kss_ << "LOLOLO" << std::endl;
+                    }
                     kss_.dec_tab();
                     kss_<<"}"<< std::endl;
                 }

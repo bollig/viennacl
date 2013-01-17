@@ -19,7 +19,7 @@ namespace viennacl{
                 class optimization_profile{
                     typedef unsigned int size_type;
                 public:
-                    optimization_profile() : alignment_(4), loop_unroll_(8){
+                    optimization_profile() : alignment_(1), loop_unroll_(1){
                         local_work_size_[0] = 128;
                         local_work_size_[1] = 0;
 
@@ -118,8 +118,9 @@ namespace viennacl{
 
                 public:
                     blas1_generator(std::list<infos_base * > const & vector_expressions
+                                    , std::list<infos_base * > const & matrix_expressions
                                     , std::list<infos_base * > const & scalar_expressions
-                                    , optimization_profile const & kernel_config): vector_expressions_(vector_expressions), scalar_expressions_(scalar_expressions), optimization_profile_(kernel_config)
+                                    , optimization_profile const & kernel_config): vector_expressions_(vector_expressions), matrix_expressions_(matrix_expressions), scalar_expressions_(scalar_expressions), optimization_profile_(kernel_config)
                     {
                         std::set<inprod_infos_base*> inprods;
                         for(std::list<infos_base*>::const_iterator it=vector_expressions.begin() ; it!= vector_expressions.end() ; ++it){
@@ -127,8 +128,14 @@ namespace viennacl{
                             extract_as(*it,inner_prods_compute_,is_compute());
                             extract_as(*it,inner_prods_reduce_,is_reduce());
                         }
+                        for(std::list<infos_base*>::const_iterator it=matrix_expressions.begin() ; it!= matrix_expressions.end() ; ++it){
+                            extract_as(*it,matrices_,utils::is_type<mat_infos_base>());
+                            extract_as(*it,inner_prods_compute_,is_compute());
+                            extract_as(*it,inner_prods_reduce_,is_reduce());
+                        }
                         for(std::list<infos_base*>::const_iterator it=scalar_expressions.begin() ; it!= scalar_expressions.end() ; ++it){
                             extract_as(*it,vectors_,utils::is_type<vec_infos_base>());
+                            extract_as(*it,matrices_,utils::is_type<mat_infos_base>());
                             extract_as(*it,gpu_scalars_,utils::is_type<gpu_scal_infos_base>());
                             extract_as(*it,inner_prods_compute_,is_compute());
                             extract_as(*it,inner_prods_reduce_,is_reduce());
@@ -142,12 +149,16 @@ namespace viennacl{
                         unsigned int alignment = optimization_profile_.alignment();
                         unsigned int n_unroll = optimization_profile_.loop_unroll();
                         std::list<vec_infos_base *> assigned_vec;
-
                         for(std::list<infos_base*>::iterator it=vector_expressions_.begin(); it!= vector_expressions_.end();++it){
                             vector_expression_infos_base* p=static_cast<vector_expression_infos_base*>(*it);
                             if(p->op().is_assignment()==true) assigned_vec.push_back(dynamic_cast<vec_infos_base*>(&p->lhs()));
                         }
 
+                        std::list<mat_infos_base *> assigned_mat;
+                        for(std::list<infos_base*>::iterator it=matrix_expressions_.begin(); it!= matrix_expressions_.end();++it){
+                            matrix_expression_infos_base* p=static_cast<matrix_expression_infos_base*>(*it);
+                            if(p->op().is_assignment()==true) assigned_mat.push_back(dynamic_cast<mat_infos_base*>(&p->lhs()));
+                        }
 
                         std::list<gpu_scal_infos_base *> assigned_scal;
                         for(std::list<infos_base*>::iterator it=scalar_expressions_.begin(); it!= scalar_expressions_.end();++it){
@@ -159,10 +170,14 @@ namespace viennacl{
                         }
 
                         code_generation::utils::cache_manager<vec_infos_base> vector_cache(vectors_,assigned_vec,kss);
+                        code_generation::utils::cache_manager<mat_infos_base> matrix_cache(matrices_,assigned_mat,kss);
                         code_generation::utils::cache_manager<gpu_scal_infos_base> scalar_cache(gpu_scalars_,assigned_scal,kss);
                         vec_infos_base * first_vector =  NULL;
+                        mat_infos_base * first_matrix = NULL;
                         if(vectors_.size())
                             first_vector = *vectors_.begin();
+                        if(matrices_.size())
+                            first_matrix = *matrices_.begin();
 //                        //Assumes same size...
 
                         if(inner_prods_reduce_.size()){
@@ -195,8 +210,14 @@ namespace viennacl{
                             for(std::set<inprod_infos_base *, viennacl::generator::deref_less>::iterator it=inner_prods_compute_.begin() ; it!=inner_prods_compute_.end();++it){
                                 kss << (*it)->scalartype() << " " << (*it)->sum_name() << " = 0;" << std::endl;
                             }
+                            std::list<infos_base*> expressions;
+                            std::transform(inner_prods_compute_.begin(), inner_prods_compute_.end(),std::back_inserter(expressions),UnsafeBase2Target<inprod_infos_base,infos_base>());
+                            std::copy(vector_expressions_.begin(),vector_expressions_.end(),std::back_inserter(expressions));
+                            utils::unroll_gid_loop_contiguous(kss,n_unroll,first_vector->size() + "/" +to_string(alignment) ,expressions,vector_cache);
+                        }
 
-                            utils::unroll_gid_loop_contiguous(kss,n_unroll,first_vector->size() + "/" +to_string(alignment) ,vector_expressions_,inner_prods_compute_,vector_cache);
+                        if(first_matrix){
+                            utils::unroll_gid_loop_contiguous(kss,n_unroll,first_matrix->size1()+"*"+first_matrix->size2()+ "/" +to_string(alignment) , matrix_expressions_, matrix_cache);
                         }
                         scalar_cache.writeback_entries(0,"0");
 
@@ -217,8 +238,10 @@ namespace viennacl{
 
                 private:
                     std::list<infos_base * >  vector_expressions_;
+                    std::list<infos_base * >  matrix_expressions_;
                     std::list<infos_base* > scalar_expressions_;
                     std::set<vec_infos_base *, viennacl::generator::deref_less >  vectors_;
+                    std::set<mat_infos_base *, viennacl::generator::deref_less >  matrices_;
                     std::set<gpu_scal_infos_base *, viennacl::generator::deref_less > gpu_scalars_;
                     std::set<inprod_infos_base *, viennacl::generator::deref_less > inner_prods_compute_;
                     std::set<inprod_infos_base *, viennacl::generator::deref_less > inner_prods_reduce_;

@@ -149,20 +149,6 @@ namespace viennacl{
             matmat_prod_type() : nonarithmetic_op_infos_base("prod"){ }
         };
 
-        class binary_tree_infos_base{
-        public:
-            infos_base & lhs() const{ return *lhs_; }
-            infos_base & rhs() const{ return *rhs_; }
-            op_infos_base & op() { return *op_; }
-            infos_base::repr_t repr() const {
-                return "("+lhs_->repr() + op_->repr() + rhs_->repr()+")";
-            }
-        protected:
-            binary_tree_infos_base(infos_base * lhs, op_infos_base * op, infos_base * rhs) : lhs_(lhs), op_(op), rhs_(rhs){        }
-            viennacl::tools::shared_ptr<infos_base> lhs_;
-            viennacl::tools::shared_ptr<op_infos_base> op_;
-            viennacl::tools::shared_ptr<infos_base> rhs_;
-        };
 
 
         class unary_tree_infos_base{
@@ -180,28 +166,43 @@ namespace viennacl{
 
 
 
+        class binary_tree_infos_base{
+        public:
+            infos_base & lhs() const{ return *lhs_; }
+            infos_base & rhs() const{ return *rhs_; }
+            op_infos_base & op() { return *op_; }
+            infos_base::repr_t repr() const {
+                return "("+lhs_->repr() + op_->repr() + rhs_->repr()+")";
+            }
+        protected:
+            binary_tree_infos_base(infos_base * lhs, op_infos_base * op, infos_base * rhs) : lhs_(lhs), op_(op), rhs_(rhs){        }
+            viennacl::tools::shared_ptr<infos_base> lhs_;
+            viennacl::tools::shared_ptr<op_infos_base> op_;
+            viennacl::tools::shared_ptr<infos_base> rhs_;
+        };
+
 
         class arithmetic_tree_infos_base :  public infos_base,public binary_tree_infos_base{
         public:
             std::string generate(unsigned int i) const { return "(" + lhs_->generate(i) + op_->generate(i) + rhs_->generate(i) + ")"; }
             repr_t repr() const{ return binary_tree_infos_base::repr(); }
-            arithmetic_tree_infos_base( infos_base * lhs, arithmetic_op_infos_base* op, infos_base * rhs) :  binary_tree_infos_base(lhs,op,rhs){        }
+            arithmetic_tree_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) :  binary_tree_infos_base(lhs,op,rhs){        }
         private:
         };
 
         class vector_expression_infos_base : public arithmetic_tree_infos_base{
         public:
-            vector_expression_infos_base( infos_base * lhs, arithmetic_op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
+            vector_expression_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
         };
 
         class scalar_expression_infos_base : public arithmetic_tree_infos_base{
         public:
-            scalar_expression_infos_base( infos_base * lhs, arithmetic_op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
+            scalar_expression_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
         };
 
         class matrix_expression_infos_base : public arithmetic_tree_infos_base{
         public:
-            matrix_expression_infos_base( infos_base * lhs, arithmetic_op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
+            matrix_expression_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
         };
 
 
@@ -252,11 +253,10 @@ namespace viennacl{
             }
         };
 
-        class matmat_prod_infos_base : public infos_base, public binary_tree_infos_base{
+        class matmat_prod_infos_base : public matrix_expression_infos_base{
         public:
-            matmat_prod_infos_base( infos_base * lhs, infos_base * rhs) : binary_tree_infos_base( lhs,new matmat_prod_type(),rhs){ }
+            matmat_prod_infos_base( infos_base * lhs, infos_base * rhs) : matrix_expression_infos_base(lhs,new matmat_prod_type(),rhs){ }
             std::string generate(unsigned int i) const { return ""; }
-            repr_t repr() const{ return binary_tree_infos_base::repr(); }
         };
 
         class inprod_infos_base : public binary_tree_infos_base,public temporary_kernel_argument{

@@ -34,6 +34,13 @@ namespace viennacl
       template<> struct repr_of<float>{ static const infos_base::repr_t value(){ return "f"; } };
 
 
+      template<class LHS, class RHS>
+      class matmat_prod_infos : public matmat_prod_infos_base{
+      public:
+          typedef typename LHS::ScalarType ScalarType;
+          matmat_prod_infos(LHS const & lhs, RHS const & rhs) : matmat_prod_infos_base(new LHS(lhs), new RHS(rhs)){ }
+      };
+
       template<class LHS, class OP, class RHS>
       class vector_expression : public vector_expression_infos_base{
       public:
