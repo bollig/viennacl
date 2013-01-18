@@ -19,6 +19,7 @@ namespace viennacl{
                 class optimization_profile{
                     typedef unsigned int size_type;
                 public:
+
                     optimization_profile() : alignment_(1), loop_unroll_(1){
                         local_work_size_[0] = 16;
                         local_work_size_[1] = 16;
@@ -85,6 +86,41 @@ namespace viennacl{
                     unsigned int loop_unroll_;
                 };
 
+                class blas1_optimization_profile : public optimization_profile{
+
+                };
+
+                class blas3_optimization_profile : public optimization_profile{
+                public:
+
+                    unsigned int ml() const{ return ml_ ; }
+                    void ml(unsigned int v) { ml_ = v; }
+
+                    unsigned int kl() const{ return kl_ ; }
+                    void kl(unsigned int v) { kl_ = v; }
+
+                    unsigned int nl() const{ return nl_ ; }
+                    void nl(unsigned int v) { nl_ = v; }
+
+                    unsigned int ms() const{ return ms_ ; }
+                    void ms(unsigned int v) { ms_ = v; }
+
+                    unsigned int ks() const{ return ks_ ; }
+                    void ks(unsigned int v) { ks_ = v; }
+
+                    unsigned int ns() const{ return ns_ ; }
+                    void ns(unsigned int v) { ns_ = v; }
+
+
+                private:
+                    unsigned int ml_;
+                    unsigned int kl_;
+                    unsigned int nl_;
+
+                    unsigned int ms_;
+                    unsigned int ks_;
+                    unsigned int ns_;
+                };
 
                 std::ostream& operator<<(std::ostream& os, optimization_profile const & prof){
                     os << " Alignment : " << prof.alignment_ << " | "
@@ -255,7 +291,7 @@ namespace viennacl{
                     typedef std::set<matmat_prod_infos_base*,viennacl::generator::deref_less> matmat_prods_t;
                 public:
                     blas3_generator(std::list<infos_base * > const & blas3_expressions
-                                    , optimization_profile const & kernel_config): blas3_expressions_(blas3_expressions), optimization_profile_(kernel_config)
+                                    , optimization_profile & kernel_config): blas3_expressions_(blas3_expressions), optimization_profile_(kernel_config)
                     {
                         for(std::list<infos_base*>::const_iterator it=blas3_expressions_.begin() ; it!= blas3_expressions_.end() ; ++it){
                             extract_as(*it, matmat_prods_, utils::is_type<matmat_prod_infos_base>());
@@ -276,8 +312,8 @@ namespace viennacl{
 
                         optimization_profile_.local_work_size(0,ml/ms);
                         optimization_profile_.local_work_size(1,nl/ns);
-                        optimization_profile_.global_work_size(0,256);
-                        optimization_profile_.global_work_size(1,256);
+                        optimization_profile_.global_work_size(0,32);
+                        optimization_profile_.global_work_size(1,64);
 
                         std::list<mat_infos_base*> assigned;
                         std::set<mat_infos_base*,viennacl::generator::deref_less> lhss;
@@ -338,27 +374,29 @@ namespace viennacl{
                         kss << "unsigned int lid_j = get_local_id(1);" << std::endl;
                         kss << "unsigned int gpid_i = get_group_id(0);" << std::endl;
                         kss << "unsigned int gpid_j = get_group_id(1);" << std::endl;
+                        kss << "unsigned int offset_m = get_local_id(0)*" << ms << ";" << std::endl;
+                        kss << "unsigned int offset_n = get_local_id(1)*" << ns << ";" << std::endl;
                         kss << "size_t block_num = ( " << first_lhs->size2() << " + " << kl -1 << ")/" << kl << ";" << std::endl;
                         kss << "for(unsigned int bl=0 ; bl<block_num ; ++bl){" << std::endl;
                         kss.inc_tab();
                         kss << "unsigned int offsetLHS = gpid_i*" << first_lhs->internal_size2() << "*" << ml << "+ bl*" << kl << ";" << std::endl;
                         kss << "unsigned int offsetRHS = bl*" << first_rhs->internal_size2() << "*" << kl << "+ gpid_j*" << nl << ";" << std::endl;
-                        kss << "unsigned int n_subblock = min(" << kl/ks << ", (int)(" << first_lhs->internal_size2() << " - offsetLHS)/ " << ns << ");" << std::endl;
+                        kss << "unsigned int n_subblock = min(" << kl/ks << ", (int)(" << first_lhs->internal_size2() << " - bl*" << kl << ")/ " << ns << ");" << std::endl;
 
 
                         kss << "for(unsigned int bs=0 ; bs < n_subblock ; ++bs){" << std::endl;
                         kss.inc_tab();
 
-                        kss << "for(unsigned int m = get_local_id(0)*" << ms << " ; m < (get_local_id(0)+1)*" << ms << "; ++m){" << std::endl;
+                        kss << "for(unsigned int m = 0 ; m < " << ms << "; ++m){" << std::endl;
                         kss.inc_tab();
-                        kss << "unsigned int smallOffsetLHS = offsetLHS + bs*" << ns << "+ m*" << first_lhs->internal_size2() << ";" << std::endl;
-                        kss << "for(unsigned int n = get_local_id(1)*" << ns << " ; n < (get_local_id(1)+1)*" << ns << "; ++n){" << std::endl;
+                        kss << "unsigned int smallOffsetLHS = offsetLHS + bs*" << ns << "+ (get_local_id(0)+offset_m+m)*" << first_lhs->internal_size2() << ";" << std::endl;
+                        kss << "for(unsigned int n = 0 ; n < " << ns << " ; ++n){" << std::endl;
                         kss.inc_tab();
-                        kss << "unsigned int smallOffsetRHS = offsetRHS + bs*" << first_rhs->internal_size2() << "+ n;" << std::endl;
+                        kss << "unsigned int smallOffsetRHS = offsetRHS + bs*" << first_rhs->internal_size2() << "+ offset_n+n + get_local_id(1);" << std::endl;
                        for(unsigned int k = 0 ; k < ks ; ++k){
                          for(std::list<mat_infos_base*>::iterator it=assigned.begin(); it!=assigned.end(); ++it){
                              std::string lmem_name( (*it)->name() + "_block");
-                             kss << lmem_name << "[m][n] += " << first_lhs->name() << "[smallOffsetLHS + " << k << "]"
+                             kss << lmem_name << "[offset_m + m][offset_n + n] += " << first_lhs->name() << "[smallOffsetLHS + " << k << "]"
                                               << "*"
                                               << first_rhs->name() << "[smallOffsetRHS + " << k << "*" << first_rhs->internal_size2() << "];" << std::endl;
                          }
@@ -382,7 +420,6 @@ namespace viennacl{
                         for(std::list<mat_infos_base*>::iterator it=assigned.begin(); it!=assigned.end(); ++it){
                             std::string lmem_name( (*it)->name() + "_block");
                             kss << (*it)->name() << "[offsetRes + m*" << first_assigned->internal_size2() << "+ n] =" << lmem_name << "[m][n];" << std::endl;
-//                            kss << (*it)->name() << "[offsetRes + m*" << first_assigned->internal_size2() << "+ n] = 1;" << std::endl;
 
                         }
                         kss.dec_tab();
@@ -397,7 +434,7 @@ namespace viennacl{
                     matmat_prods_t matmat_prods_;
                     std::set<mat_infos_base *, viennacl::generator::deref_less >  matrices_;
                     std::set<gpu_scal_infos_base *, viennacl::generator::deref_less > gpu_scalars_;
-                    optimization_profile optimization_profile_;
+                    optimization_profile & optimization_profile_;
                 };
 
         }
