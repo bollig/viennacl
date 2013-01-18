@@ -84,7 +84,8 @@ namespace viennacl{
                         gen(kss_);
                     }
                     else if(representation_.type==kernel_representation_t::BLAS3_TYPE){
-                        kss_ << "LOLOLO" << std::endl;
+                        code_generation::blas3_generator gen(mat_exprs,kernel_infos_.profile());
+                        gen(kss_);
                     }
                     kss_.dec_tab();
                     kss_<<"}"<< std::endl;
@@ -137,6 +138,7 @@ namespace viennacl{
                         std::list<infos_base*> inprods(utils::filter<utils::EXTRACT_IF>(p,utils::is_type<inprod_infos_base>()));
                         std::list<infos_base*> matmatprods(utils::filter<utils::EXTRACT_IF>(p,utils::is_type<matmat_prod_infos_base>()));
                         if(inprods.size()){
+                            assert(matmatprods.size()==0 && "INVALID KERNEL !");
                             if(res.back().type != kernel_representation_t::UNDEFINED && res.back().type != kernel_representation_t::BLAS1_TYPE)
                                 res.push_back(kernel_representation_t());
                             res.back().trees.merge(inprods);
@@ -146,7 +148,7 @@ namespace viennacl{
                             if(res.back().type != kernel_representation_t::UNDEFINED && res.back().type != kernel_representation_t::BLAS3_TYPE){
                                 res.push_back(kernel_representation_t());
                             }
-                            res.back().trees.merge(matmatprods);
+                            res.back().trees.push_back(p);
                             res.back().type = kernel_representation_t::BLAS3_TYPE;
                         }
                         else{

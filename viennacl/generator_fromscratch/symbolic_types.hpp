@@ -194,10 +194,17 @@ namespace viennacl
           symbolic_matrix(SharedInfosMapT & map
                           ,vcl_mat_t const & vcl_mat) : mat_infos_base(false,false), vcl_mat_(vcl_mat){
             infos_= &map.insert(std::make_pair(vcl_mat_.handle(),shared_infos_t(map.size(),print_type<ScalarType>::value()))).first->second;
+
           }
 
           void enqueue(unsigned int & n_arg, viennacl::ocl::kernel & k) const{
               k.arg(n_arg++,vcl_mat_);
+              k.arg(n_arg++,cl_uint(0));
+              k.arg(n_arg++,cl_uint(1));
+              k.arg(n_arg++,cl_uint(0));
+              k.arg(n_arg++,cl_uint(1));
+              k.arg(n_arg++,cl_uint(vcl_mat_.size1()));
+              k.arg(n_arg++,cl_uint(vcl_mat_.size2()));
               k.arg(n_arg++,cl_uint(vcl_mat_.internal_size1()));
               k.arg(n_arg++,cl_uint(vcl_mat_.internal_size2()));
           }

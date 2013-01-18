@@ -316,18 +316,22 @@ namespace viennacl{
         public:
             std::string  size1() const{ return name() +"size1_"; }
             std::string  size2() const{ return name() +"size2_"; }
+            std::string  internal_size1() const{ return name() +"internal_size1_"; }
+            std::string  internal_size2() const{ return name() +"internal_size2_"; }
             std::string  row_inc() const{ return name() +"row_inc_"; }
             std::string  col_inc() const{ return name() +"col_inc_";}
             std::string  row_start() const{ return name() +"row_start_";}
             std::string  col_start() const{ return name() +"col_start_";}
             std::string arguments_string() const{
                 return " __global " + aligned_scalartype() + "*"  + " " + name()
-//                                                            + ", unsigned int " + row_start()
-//                                                            + ", unsigned int " + col_start()
-//                                                            + ", unsigned int " + row_inc()
-//                                                            + ", unsigned int " + col_inc()
+                                                            + ", unsigned int " + row_start()
+                                                            + ", unsigned int " + col_start()
+                                                            + ", unsigned int " + row_inc()
+                                                            + ", unsigned int " + col_inc()
                                                             + ", unsigned int " + size1()
-                                                            + ", unsigned int " + size2();
+                                                            + ", unsigned int " + size2()
+                                                            + ", unsigned int " + internal_size1()
+                                                            + ", unsigned int " + internal_size2();
             }
             bool const is_rowmajor() const { return is_rowmajor_; }
             bool const is_transposed() const { return is_transposed_; }
