@@ -312,8 +312,8 @@ namespace viennacl{
 
                         optimization_profile_.local_work_size(0,ml/ms);
                         optimization_profile_.local_work_size(1,nl/ns);
-                        optimization_profile_.global_work_size(0,32);
-                        optimization_profile_.global_work_size(1,64);
+                        optimization_profile_.global_work_size(0,16);
+                        optimization_profile_.global_work_size(1,16);
 
                         std::list<mat_infos_base*> assigned;
                         std::set<mat_infos_base*,viennacl::generator::deref_less> lhss;
@@ -389,10 +389,10 @@ namespace viennacl{
 
                         kss << "for(unsigned int m = 0 ; m < " << ms << "; ++m){" << std::endl;
                         kss.inc_tab();
-                        kss << "unsigned int smallOffsetLHS = offsetLHS + bs*" << ns << "+ (get_local_id(0)+offset_m+m)*" << first_lhs->internal_size2() << ";" << std::endl;
+                        kss << "unsigned int smallOffsetLHS = offsetLHS + bs*" << ns << "+ (offset_m+m)*" << first_lhs->internal_size2() << ";" << std::endl;
                         kss << "for(unsigned int n = 0 ; n < " << ns << " ; ++n){" << std::endl;
                         kss.inc_tab();
-                        kss << "unsigned int smallOffsetRHS = offsetRHS + bs*" << first_rhs->internal_size2() << "+ offset_n+n + get_local_id(1);" << std::endl;
+                        kss << "unsigned int smallOffsetRHS = offsetRHS + bs*" << ks << "*" << first_rhs->internal_size2()<< "+ offset_n+n ;" << std::endl;
                        for(unsigned int k = 0 ; k < ks ; ++k){
                          for(std::list<mat_infos_base*>::iterator it=assigned.begin(); it!=assigned.end(); ++it){
                              std::string lmem_name( (*it)->name() + "_block");
@@ -413,13 +413,14 @@ namespace viennacl{
 
                         kss << "unsigned int offsetRes = gpid_i*" << first_assigned->internal_size2() << "*" << ml << " + gpid_j*" << nl << ";" << std::endl;
 
-                        kss << "for(unsigned int m = get_local_id(0)*" << ms << " ; m < (get_local_id(0)+1)*" << ms << "; ++m){" << std::endl;
+
+                        kss << "for(unsigned int m = 0 ; m < " << ms << "; ++m){" << std::endl;
                         kss.inc_tab();
-                        kss << "for(unsigned int n = get_local_id(1)*" << ns << " ; n < (get_local_id(1)+1)*" << ns << "; ++n){" << std::endl;
+                        kss << "for(unsigned int n = 0 ; n < " << ns << "; ++n){" << std::endl;
                         kss.inc_tab();
                         for(std::list<mat_infos_base*>::iterator it=assigned.begin(); it!=assigned.end(); ++it){
                             std::string lmem_name( (*it)->name() + "_block");
-                            kss << (*it)->name() << "[offsetRes + m*" << first_assigned->internal_size2() << "+ n] =" << lmem_name << "[m][n];" << std::endl;
+                            kss << "if (offset_n+n < " << (*it)->internal_size2() << " && offset_m + m < " << (*it)->internal_size1() << " )" << (*it)->name() << "[offsetRes + (offset_m+m)*" << first_assigned->internal_size2() << "+ offset_n+n] =" << lmem_name << "[offset_m+m][offset_n+n];" << std::endl;
 
                         }
                         kss.dec_tab();
