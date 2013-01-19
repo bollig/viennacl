@@ -182,6 +182,8 @@ namespace viennacl
                   k.local_work_size(0,it->second.profile()->local_work_size(0));
                   k.local_work_size(1,it->second.profile()->local_work_size(1));
 
+                  std::cout << "SIZE 0 " << k.local_work_size(0) << std::endl;
+                  std::cout << "SIZE 1 " << k.local_work_size(1) << std::endl;
                   k.global_work_size(0,it->second.profile()->global_work_size(0));
                   k.global_work_size(1,it->second.profile()->global_work_size(1));
 
