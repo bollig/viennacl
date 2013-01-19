@@ -172,18 +172,18 @@ namespace viennacl
           }
 
           void execute(){
-              if(!viennacl::ocl::current_context().has_program(operations_manager_.repr()));
+              if(!viennacl::ocl::current_context().has_program(operations_manager_.repr()))
                 compile_program();
               viennacl::ocl::program & pgm = viennacl::ocl::current_context().get_program(operations_manager_.repr());
 
               for(std::map<std::string, generator::code_generation::kernel_infos_t>::iterator it = kernels_infos_.begin() ; it != kernels_infos_.end() ; ++it){
                   viennacl::ocl::kernel& k = pgm.get_kernel(it->first);
                   set_arguments(k,it->second.arguments());
-                  k.local_work_size(0,it->second.profile().local_work_size(0));
-                  k.local_work_size(1,it->second.profile().local_work_size(1));
+                  k.local_work_size(0,it->second.profile()->local_work_size(0));
+                  k.local_work_size(1,it->second.profile()->local_work_size(1));
 
-                  k.global_work_size(0,it->second.profile().global_work_size(0));
-                  k.global_work_size(1,it->second.profile().global_work_size(1));
+                  k.global_work_size(0,it->second.profile()->global_work_size(0));
+                  k.global_work_size(1,it->second.profile()->global_work_size(1));
 
                   viennacl::ocl::enqueue(k);
               }

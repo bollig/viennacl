@@ -29,11 +29,12 @@ namespace viennacl{
             class kernel_infos_t{
             public:
                 typedef std::set<kernel_argument*, deref_less> arguments_t;
+                kernel_infos_t(code_generation::optimization_profile* prof) : optimization_profile_(prof){ }
                 arguments_t & arguments(){ return arguments_; }
-                code_generation::optimization_profile & profile() { return optimization_profile_; }
+                code_generation::optimization_profile* profile() { return optimization_profile_.get(); }
             private:
                 arguments_t arguments_;
-                code_generation::optimization_profile optimization_profile_;
+                viennacl::tools::shared_ptr<code_generation::optimization_profile> optimization_profile_;
             };
 
             struct kernel_representation_t{
@@ -78,13 +79,13 @@ namespace viennacl{
                         else
                             mat_exprs.push_back(*it);
                     }
-                    kernel_infos_.profile().load(viennacl::ocl::current_device());
+                    kernel_infos_.profile()->load(viennacl::ocl::current_device());
                     if(representation_.type==kernel_representation_t::BLAS1_TYPE){
                         code_generation::blas1_generator gen(vec_exprs,mat_exprs,scal_exprs,kernel_infos_.profile());
                         gen(kss_);
                     }
                     else if(representation_.type==kernel_representation_t::BLAS3_TYPE){
-                        code_generation::blas3_generator gen(mat_exprs,kernel_infos_.profile());
+                        code_generation::blas3_generator gen(mat_exprs,static_cast<blas3_optimization_profile*>(kernel_infos_.profile()));
                         gen(kss_);
                     }
                     kss_.dec_tab();
@@ -98,7 +99,7 @@ namespace viennacl{
                                  , kernel_infos_t & kernel_infos) : representation_(representation)
                                                                      , kernel_name_(kernel_name)
                                                                      , kss_(kss) ,kernel_infos_(kernel_infos){
-                    kernel_infos_.profile().apply(representation_.trees);
+                    kernel_infos_.profile()->apply(representation_.trees);
                 }
 
                 void generate(){
@@ -184,7 +185,14 @@ namespace viennacl{
                     std::vector<kernel_representation_t> kernels(get_kernels_list());
                     for(std::vector<kernel_representation_t>::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
                         std::string name("_k"+to_string(std::distance(kernels.begin(),it)));
-                        code_generation::kernel_generator kg(*it,name,kss, kernels_infos[name]);
+
+                        if(it->type == kernel_representation_t::BLAS3_TYPE){
+                            kernels_infos.insert(std::make_pair(name,kernel_infos_t(new blas3_optimization_profile(64,32,64,4,4,4))));
+                        }
+                        else{
+                            kernels_infos.insert(std::make_pair(name,kernel_infos_t(new optimization_profile())));
+                        }
+                        code_generation::kernel_generator kg(*it,name,kss, kernels_infos.at(name));
                         kg.generate() ;
                     }
                     return oss.str();

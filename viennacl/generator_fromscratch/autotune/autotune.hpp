@@ -183,9 +183,6 @@ std::pair<double, code_generation::optimization_profile> benchmark_timings(std::
 
 
         }
-//        for(std::map<double, viennacl::generator::code_generation::optimization_profile>::iterator it = timings.begin() ; it!= timings.end() ; ++it){
-//            std::cout << it->first << " <== " << it->second << std::endl;
-//        }
         std::cout << std::endl;
         return *timings.begin();
     }
