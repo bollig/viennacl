@@ -78,6 +78,8 @@ namespace viennacl{
                 public:
 
                     blas3_optimization_profile(unsigned int ml, unsigned int kl, unsigned int nl, unsigned int ms, unsigned int ks, unsigned int ns) : ml_(ml), kl_(kl), nl_(nl), ms_(ms), ks_(ks), ns_(ns) {
+                        alignment_=4;
+
                         local_work_size_[0] =ml_/ms_;
                         local_work_size_[1] = nl_/ns_;
 
@@ -283,13 +285,15 @@ namespace viennacl{
 
                     void operator()(utils::kernel_generation_stream& kss){
 
+                        unsigned int alignment = optimization_profile_->alignment();
+
                         unsigned int ml = optimization_profile_->ml();
-                        unsigned int kl = optimization_profile_->kl();
-                        unsigned int nl = optimization_profile_->nl();
+                        unsigned int kl = optimization_profile_->kl()/alignment;
+                        unsigned int nl = optimization_profile_->nl()/alignment;
 
                         unsigned int ms = optimization_profile_->ms();
-                        unsigned int ks = optimization_profile_->ks();
-                        unsigned int ns = optimization_profile_->ns();
+                        unsigned int ks = optimization_profile_->ks()/alignment;
+                        unsigned int ns = optimization_profile_->ns()/alignment;
 
                         bool use_LHS_shared = true;
 
@@ -317,41 +321,42 @@ namespace viennacl{
                         if(use_LHS_shared){
                             for(std::set<mat_infos_base*,viennacl::generator::deref_less>::iterator itm=lhss.begin() ; itm!=lhss.end(); ++itm){
                                 std::string lmem_name("local_"+(*itm)->name());
-                                kss << "__local " << (*itm)->scalartype()
+                                kss << "__local " << (*itm)->aligned_scalartype()
                                     << " " << lmem_name << "[" << ml << "]" << "[" << kl << "];"
                                     << std::endl;
                             }
                         }
 
                         std::string res_table_name(first_assigned->name() + "_res");
-                        std::string rhs_table_name(first_rhs->name() + "_vals");
-                        std::string lhs_table_name(first_lhs->name() + "_vals");
+//                        std::string rhs_table_name(first_rhs->name() + "_vals");
 
-                        kss << first_assigned->scalartype() << " " << res_table_name << "[" << ms << "][" << ns << "] = {0};" << std::endl;
-                        kss << first_rhs->scalartype() << " " << rhs_table_name << "[" << ns << "] = {0};" << std::endl;
-                        kss << first_lhs->scalartype() << " " << lhs_table_name << "[" << ms << "] = {0};" << std::endl;
+                        kss << first_assigned->aligned_scalartype() << " " << res_table_name << "[" << ms << "][" << ns << "];" << std::endl;
+//                        kss << first_rhs->aligned_scalartype() << " " << rhs_table_name << "[" << ns << "];" << std::endl;
 
 
                         //Helper variables
+                        kss << "unsigned int aligned_size2_lhs = " << first_lhs->internal_size2() << "/" << alignment<< ";" << std::endl;
+                        kss << "unsigned int aligned_size2_rhs = " << first_rhs->internal_size2() << "/" << alignment<< ";" << std::endl;
                         kss << "unsigned int offset_m = get_local_id(0)*" << ms << ";" << std::endl;
                         kss << "unsigned int offset_n = get_local_id(1)*" << ns << ";" << std::endl;
-                        kss << "size_t block_num = ( " << first_lhs->size2() << " + " << kl -1 << ")/" << kl << ";" << std::endl;
+                        kss << "unsigned int block_num = ( " << "aligned_size2_lhs" << " + " << kl -1 << ")/" << kl << ";" << std::endl;
                         kss << "for(unsigned int bl=0 ; bl<block_num ; ++bl){" << std::endl;
                         kss.inc_tab();
-                        kss << "unsigned int offsetLHS = get_group_id(0)*" << first_lhs->internal_size2() << "*" << ml << "+ bl*" << kl << ";" << std::endl;
-                        kss << "unsigned int offsetRHS = bl*" << first_rhs->internal_size2() << "*" << kl << "+ get_group_id(1)*" << nl << ";" << std::endl;
-                        kss << "unsigned int n_subblock = min(" << kl/ks << ", (int)(" << first_lhs->internal_size2() << " - bl*" << kl << ")/ " << ns << ");" << std::endl;
+                        kss << "unsigned int offsetLHS = get_group_id(0)*" << "aligned_size2_lhs" << "*" << ml << "+ bl*" << kl << ";" << std::endl;
+                        kss << "unsigned int offsetRHS = bl*" << "aligned_size2_rhs" << "*" << kl << "+ get_group_id(1)*" << nl << ";" << std::endl;
+                        kss << "unsigned int n_subblock = min(" << kl/ks << ", (int)(" << "aligned_size2_lhs" << " - bl*" << kl << ")/ " << ns << ");" << std::endl;
                         std::string local_lhs_name("local_" + first_lhs->name());
                         kss << "for(unsigned int j = get_local_id(1)*" << ks << " ; j < " << kl << "; j+=" << ks << "*get_local_size(1)){" << std::endl;
                         kss.inc_tab();
+                        kss << "unsigned int idx = offsetLHS + j + offset_m*" << "aligned_size2_lhs" << ";" << std::endl;
                         for(unsigned int m=0 ; m < ms ; ++m){
                             for(unsigned int k = 0 ; k < ks ; ++k){
-
-                                kss << local_lhs_name << "[j +" << k << "][offset_m+" << m << "]"
+                                kss << local_lhs_name << "[offset_m+" << m << "][j +" << k << "]"
                                      << "="
-                                     << first_lhs->name() <<  "[offsetLHS + (offset_m+" << m << ")*" << first_lhs->internal_size2() << " + j +" << k << "];"
+                                     << first_lhs->name() <<  "[idx  + aligned_size2_lhs*" <<  m << "+" << k << "];"
                                      << std::endl;
                             }
+//                            kss << "idx += " <<  "aligned_size2_lhs" << ";" << std::endl;
                         }
                         kss.dec_tab();
                         kss << "}" << std::endl;
@@ -359,54 +364,35 @@ namespace viennacl{
                         kss << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
                         kss << "for(unsigned int bs=0 ; bs < n_subblock ; ++bs){" << std::endl;
                         kss.inc_tab();
-                        kss << "for(unsigned int j = get_local_id(1)*" << ks << " ; j < " << kl << "; j+=" << ks << "*get_local_size(1)){" << std::endl;
-                        kss.inc_tab();
-//                        kss << "unsigned int smallOffsetLHS = offsetLHS + bs*" << ns << "+ offset_m*" << first_lhs->internal_size2() << ";" << std::endl;
-                        kss << "__global " << first_rhs->scalartype() << "*  smallOffsetRHS = " << first_rhs->name() << " + offsetRHS + bs*" << ks << "*" << first_rhs->internal_size2()<< "+ offset_n" << ";" << std::endl;
+
+                        kss << "unsigned int smallOffsetRHS = offsetRHS + bs*" << ks << "*" << "aligned_size2_rhs" << "+ offset_n" << ";" << std::endl;
 
 
-
+                        kss << first_lhs->aligned_scalartype() << " val_lhs;" << std::endl;
+                        kss << first_lhs->aligned_scalartype() << " val_rhs;" << std::endl;
                         for(unsigned int k = 0 ; k < ks ; ++k){
-
-                            for(unsigned int n=0 ; n< ns; ++n){
-                                kss <<  rhs_table_name << "[" << n << "]"
-                                     << "="
-                                     << "*smallOffsetRHS++;"
-                                     << std::endl;
-                            }
-                            for(unsigned int m=0 ; m < ms ; ++m){
-                                kss << lhs_table_name << "[" << m << "]"
-                                    << "="
-                                   <<  local_lhs_name << "[bs*" << ks << "+" << k << "]""[offset_m + " << m << "];"
-                                   << std::endl;
-                            }
                             for(unsigned int n=0 ; n < ns ; ++n){
                                 for(unsigned int m=0 ; m < ms ; ++m){
-                                         for(std::list<mat_infos_base*>::iterator it=assigned.begin(); it!=assigned.end(); ++it){
-                                             kss << res_table_name<< "["<<m<<"][" << n << "] += " << lhs_table_name << "[" << m << "]"
-                                                              << "*"
-                                                              << rhs_table_name << "[" << n << "];" << std::endl;
-                                         }
+                                    for(unsigned int a=0; a<alignment; ++a){
+                                                     kss << res_table_name<< "["<<m<<"][" << n << "] +=  " << local_lhs_name << "[offset_m + " << m << "][bs*" << ks << "+" << k << "].s" << a
+                                                                      << "*"
+                                                                      << first_rhs->name() << "[smallOffsetRHS  + aligned_size2_rhs*" << k << " + " << n << "];" << std::endl;
+                                    }
                                 }
-                            }
-                            kss << "smallOffsetRHS += " << first_rhs->internal_size2() << " - " << ns << ";" << std::endl;
-                            kss.dec_tab();
-                            kss << "}" << std::endl;
-                            //                            kss << "smallOffsetLHS +=" << first_lhs->internal_size2() << ";" << std::endl;
+                           }
+    //                            kss << "smallOffsetRHS += " << "aligned_size2_rhs" << ";" << std::endl;
                         }
                         kss.dec_tab();
                         kss << "}" << std::endl;
                         kss.dec_tab();
                         kss << "}" << std::endl;
 
-                        kss << "unsigned int offsetRes = get_group_id(0)*" << first_assigned->internal_size2() << "*" << ml << " + get_group_id(1)*" << nl << ";" << std::endl;
-                        kss << "__global " << first_assigned->scalartype() << "* ptr_res = " << first_assigned->name() << "+ offsetRes + offset_m*" << first_assigned->internal_size2() << "+ offset_n ;" << std::endl;
+                        kss << "unsigned int offsetRes = get_group_id(0)*aligned_size2_rhs*" << ml << " + get_group_id(1)*" << nl << " + offset_m*aligned_size2_rhs + offset_n ;"  << std::endl;
                         for(unsigned int m=0 ; m < ms ; ++m){
                             for(unsigned int n=0 ; n < ns ; ++n){
-//                                kss << "if (offset_n+" << n << " < " << first_assigned->internal_size2() << " && offset_m + " << m << " < " << first_assigned->internal_size1() << " )" << std::endl;
-                                kss << "*ptr_res++=" << res_table_name << "[" << m << "][" << n << "];" << std::endl;
+                                kss << first_assigned->name() << "[offsetRes + " << n << "]" << "=" << res_table_name << "[" << m << "][" << n << "];" << std::endl;
                             }
-                            kss << "ptr_res += " << first_assigned->internal_size2() << " - " << ns << ";" << std::endl;
+                            kss << "offsetRes += " << "aligned_size2_rhs" << ";" << std::endl;
                         }
 
                     }
