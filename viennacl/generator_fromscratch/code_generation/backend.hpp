@@ -385,29 +385,27 @@ namespace viennacl{
                         kss.inc_tab();
 
                         kss << "unsigned int smallOffsetRHS = offsetRHS + bs*" << ks*alignment << "*" << "aligned_size2_rhs" << "+ offset_n" << ";" << std::endl;
-                        kss << first_lhs->scalartype() << " val_lhs[" << ms << "][" << ks*alignment << "];" << std::endl;
-                        kss << first_lhs->aligned_scalartype() << " val_rhs[" << ks*alignment << "];" << std::endl;
+//                        kss << first_lhs->scalartype() << " val_lhs[" << ms << "][" << ks*alignment << "];" << std::endl;
+                        kss << first_rhs->aligned_scalartype() << " val_rhs[" << ks*alignment << "];" << std::endl;
 
                         kss << "//Fetches small block into register" << std::endl;
-                        for(unsigned int k = 0 ; k < ks ; ++k){
-                            for(unsigned int m=0 ; m < ms ; ++m){
-                                for(unsigned int a = 0 ; a < alignment ; ++a){
-                                    kss << "val_lhs[" << m << "][" << k + a << "]= " << local_lhs_name << "[bs*" << ks*alignment << "+" << k + a << "][offset_m + " << m << "];" << std::endl;
-                                }
-                            }
-                            for(unsigned int n=0 ; n < ns ; ++n){
-                                for(unsigned int a = 0 ; a < alignment ; ++a){
-                                    kss << "val_rhs[" << k+a << "] = " << first_rhs->name() << "[smallOffsetRHS  + aligned_size2_rhs*" << k+a<< " + " << n << "];" << std::endl;
-                                }
-                            }
-                        }
+//                        for(unsigned int k = 0 ; k < ks ; ++k){
+//                            for(unsigned int m=0 ; m < ms ; ++m){
+//                                for(unsigned int a = 0 ; a < alignment ; ++a){
+//                                    kss << "val_lhs[" << m << "][" << k + a << "]= " <<
+//                            }
+//                        }
 
                         kss << "//Compute Matrix-Matrix Product" << std::endl;
                         for(unsigned int k = 0 ; k < ks ; ++k){
                             for(unsigned int n=0 ; n < ns ; ++n){
                                 for(unsigned int a=0; a<alignment; ++a){
+                                    kss << "val_rhs[" << k+a << "] = " << first_rhs->name() << "[smallOffsetRHS  + aligned_size2_rhs*" << k*alignment+a<< " + " << n << "];" << std::endl;
+                                }
+                                for(unsigned int a=0; a<alignment; ++a){
                                     for(unsigned int m=0 ; m < ms ; ++m){
-                                        kss << res_table_name<< "["<<m<<"][" << n << "] += " << "val_lhs[" << m << "][" << k + a<< "]"
+                                        kss << res_table_name<< "["<<m<<"][" << n << "] += " << local_lhs_name << "[bs*" << ks*alignment << "+" << k + a << "][offset_m + " << m << "]"
+
                                                                       << "*"
                                                                       << "val_rhs[" << k+a << "];" << std::endl;
                                             }
