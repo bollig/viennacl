@@ -355,30 +355,22 @@ namespace viennacl{
                         kss << "unsigned int n_subblock = min(" << kl/ks << ", (int)(" << "aligned_size2_lhs" << " - bl*" << kl << ")/ " << ks << ");" << std::endl;
                         std::string local_lhs_name("local_" + first_lhs->name());
                         if(use_LHS_shared){
-                            kss << "for(unsigned int j = get_local_id(1)*" << ks << " ; j < " << kl << "; j+=" << ks << "*get_local_size(1)){" << std::endl;
+                            kss << "for(unsigned int i = get_local_id(0)" << " ; i < " << ml << "; i+= get_local_size(0)){" << std::endl;
                             kss.inc_tab();
-                            kss << first_lhs->aligned_scalartype() << " val_lhs[" << ms << "][" << ks << "];" << std::endl;
-                            kss << "unsigned int idx = offsetLHS + j + offset_m*" << "aligned_size2_lhs" << ";" << std::endl;
-                            for(unsigned int m=0 ; m < ms ; ++m){
-                                for(unsigned int k = 0 ; k < ks ; ++k){
-                                      kss << " val_lhs[" << m << "][" << k << "] = " << first_lhs->name() <<  "[idx  + aligned_size2_lhs*" <<  m << "+" << k << "];" << std::endl;
-                                }
+                            kss << "for(unsigned int j = get_local_id(1)" << " ; j < " << kl << "; j+= get_local_size(1)){" << std::endl;
+                            kss.inc_tab();
+                            kss << first_lhs->aligned_scalartype() << " val_lhs;" << std::endl;
+                             kss << "val_lhs = " << first_lhs->name() <<  "[offsetLHS + j  + aligned_size2_lhs*i];" << std::endl;
+                           for(unsigned int a = 0 ; a < alignment ; ++a){
+                                   kss << local_lhs_name << "[j*" << alignment << " +" <<a << "]" << "[i] =  val_lhs.s" << a << ";" << std::endl;
                             }
-                            for(unsigned int k = 0 ; k < ks ; ++k){
-                                 for(unsigned int m=0 ; m < ms ; ++m){
-                                    for(unsigned int a = 0 ; a < alignment ; ++a){
-                                        kss << local_lhs_name << "[j*" << alignment << " +" << k + a << "]" << "[offset_m+" << m << "] =  val_lhs[" << m << "][" << k <<"].s" << a << ";" << std::endl;
-                                    }
-                                }
-                                //                                    kss << local_lhs_name << "[offset_m+" << m << "][j +" << k << "]"
-                                //                                         << "="
-                                //                                         << first_lhs->name() <<  "[idx  + aligned_size2_lhs*" <<  m << "+" << k << "];"
-                                //                                         << std::endl;
-    //                            kss << "idx += " <<  "aligned_size2_lhs" << ";" << std::endl;
-                            }
+
                             kss.dec_tab();
+                            kss << "}" << std::endl;
+                            kss.dec_tab();
+                            kss << "}" << std::endl;
+
                         }
-                        kss << "}" << std::endl;
 
                         kss << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
                         kss << "for(unsigned int bs=0 ; bs < n_subblock ; ++bs){" << std::endl;
@@ -400,7 +392,7 @@ namespace viennacl{
                             for(unsigned int a=0; a<alignment; ++a){
 
                             for(unsigned int n=0 ; n < ns ; ++n){
-                                     kss << "val_rhs[" << k+a << "][" << n << "] = " << first_rhs->name() << "[smallOffsetRHS  + aligned_size2_rhs*" << k*alignment+a<< " + " << n << "];" << std::endl;
+                                     kss << "val_rhs[" << k*alignment+a << "][" << n << "] = " << first_rhs->name() << "[smallOffsetRHS  + aligned_size2_rhs*" << k*alignment+a<< " + " << n << "];" << std::endl;
                                  }
                             }
                         }
@@ -411,10 +403,10 @@ namespace viennacl{
                             for(unsigned int m=0 ; m < ms ; ++m){
 
                             for(unsigned int n=0 ; n < ns ; ++n){
-                                        kss << res_table_name<< "["<<m<<"][" << n << "] += " << local_lhs_name << "[bs*" << ks*alignment << "+" << k + a << "][offset_m + " << m << "]"
+                                        kss << res_table_name<< "["<<m<<"][" << n << "] += " << local_lhs_name << "[bs*" << ks*alignment << "+" << k*alignment + a << "][offset_m + " << m << "]"
 
                                                                       << "*"
-                                                                      << "val_rhs[" << k+a << "][" << n << "];" << std::endl;
+                                                                      << "val_rhs[" << k*alignment+a << "][" << n << "];" << std::endl;
                                             }
 
                                 }

@@ -187,7 +187,7 @@ namespace viennacl{
                         std::string name("_k"+to_string(std::distance(kernels.begin(),it)));
 
                         if(it->type == kernel_representation_t::BLAS3_TYPE){
-                            kernels_infos.insert(std::make_pair(name,kernel_infos_t(new blas3_optimization_profile(32,32,32,4,4,8,true))));
+                            kernels_infos.insert(std::make_pair(name,kernel_infos_t(new blas3_optimization_profile(64,64,64,4,8,4,true))));
                         }
                         else{
                             kernels_infos.insert(std::make_pair(name,kernel_infos_t(new optimization_profile())));
