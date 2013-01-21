@@ -368,18 +368,23 @@ namespace viennacl{
                         kss << "unsigned int smallOffsetRHS = offsetRHS + bs*" << ks << "*" << "aligned_size2_rhs" << "+ offset_n" << ";" << std::endl;
 
 
-                        kss << first_lhs->aligned_scalartype() << " val_lhs;" << std::endl;
+                        kss << first_lhs->aligned_scalartype() << " val_lhs[" << ms << "];" << std::endl;
                         kss << first_lhs->aligned_scalartype() << " val_rhs;" << std::endl;
                         for(unsigned int k = 0 ; k < ks ; ++k){
+                            for(unsigned int m=0 ; m < ms ; ++m){
+                                kss << "val_lhs[" << m << "] = " << local_lhs_name << "[offset_m + " << m << "][bs*" << ks << "+" << k << "];" << std::endl;
+                            }
                             for(unsigned int n=0 ; n < ns ; ++n){
-                                for(unsigned int m=0 ; m < ms ; ++m){
-                                    for(unsigned int a=0; a<alignment; ++a){
-                                                     kss << res_table_name<< "["<<m<<"][" << n << "] +=  " << local_lhs_name << "[offset_m + " << m << "][bs*" << ks << "+" << k << "].s" << a
+                                kss << "val_rhs = " << first_rhs->name() << "[smallOffsetRHS  + aligned_size2_rhs*" << k << " + " << n << "];" << std::endl;
+                                for(unsigned int a=0; a<alignment; ++a){
+                                    for(unsigned int m=0 ; m < ms ; ++m){
+                                                     kss << res_table_name<< "["<<m<<"][" << n << "] += val_lhs[" << m << "].s" << a
                                                                       << "*"
-                                                                      << first_rhs->name() << "[smallOffsetRHS  + aligned_size2_rhs*" << k << " + " << n << "];" << std::endl;
+                                                                      << "val_rhs;" << std::endl;
+                                            }
+
                                     }
                                 }
-                           }
     //                            kss << "smallOffsetRHS += " << "aligned_size2_rhs" << ";" << std::endl;
                         }
                         kss.dec_tab();
@@ -390,11 +395,9 @@ namespace viennacl{
                         kss << "unsigned int offsetRes = get_group_id(0)*aligned_size2_rhs*" << ml << " + get_group_id(1)*" << nl << " + offset_m*aligned_size2_rhs + offset_n ;"  << std::endl;
                         for(unsigned int m=0 ; m < ms ; ++m){
                             for(unsigned int n=0 ; n < ns ; ++n){
-                                kss << first_assigned->name() << "[offsetRes + " << n << "]" << "=" << res_table_name << "[" << m << "][" << n << "];" << std::endl;
+                                kss << first_assigned->name() << "[offsetRes + aligned_size2_rhs*" << m << " + " << n << "]" << "=" << res_table_name << "[" << m << "][" << n << "];" << std::endl;
                             }
-                            kss << "offsetRes += " << "aligned_size2_rhs" << ";" << std::endl;
                         }
-
                     }
 
                 private:
