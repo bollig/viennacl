@@ -393,7 +393,7 @@ namespace viennacl{
                         kss << "for(unsigned int bs=0 ; bs < " << kl/ks << " ; ++bs){" << std::endl;
                         kss.inc_tab();
                         if(use_LHS_shared){
-                            kss << "__local " << first_lhs->scalartype() << "*lhs_ptr = " << local_lhs_name << "+ bs*" << ks*alignment << "*" << ml << ";" << std::endl;
+                            kss << "__local " << first_lhs->scalartype() << "*lhs_ptr = " << local_lhs_name << "+ bs*" << ks*alignment << "*" << ml << "+ offset_m;" << std::endl;
                         }
                         kss << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
                         if(!use_RHS_shared){
