@@ -104,7 +104,6 @@ const char * my_compute_program =
 "\n"
 "                //parallel subtraction:\n"
 "                for (unsigned int j=k+1 + get_global_id(0); j<_sten_size; j += get_global_size(0)) {\n"
-" //                   if (j < _sten_size)\n"
 "                    _elements[offset + i + j*_sten_size] -= temp * _elements[offset + k + j*_sten_size];\n"
 "                }\n"
 "            }\n"
@@ -113,6 +112,7 @@ const char * my_compute_program =
 "        b++;\n"
 "    }\n"
 "};\n";
+
 
 using namespace boost::numeric;
 
@@ -145,15 +145,15 @@ int main()
   B_host(2) = 1;
 
 #if 1
-  A_host(3, 3) = 3;
+  A_host(3, 3) = 1;
   A_host(3, 4) = 2;
-  A_host(3, 5) = 1;
+  A_host(3, 5) = 3;
   A_host(4, 3) = 2;
-  A_host(4, 4) = 3;
+  A_host(4, 4) = 1;
   A_host(4, 5) = 2;
-  A_host(5, 3) = 1;
+  A_host(5, 3) = 3;
   A_host(5, 4) = 2;
-  A_host(5, 5) = 3;
+  A_host(5, 5) = 1;
 
   B_host(3) = 1;
   B_host(4) = 1;
