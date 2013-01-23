@@ -180,6 +180,7 @@ namespace viennacl
 
               for(std::map<std::string, generator::code_generation::kernel_infos_t>::iterator it = kernels_infos_.begin() ; it != kernels_infos_.end() ; ++it){
                   viennacl::ocl::kernel& k = pgm.get_kernel(it->first);
+                  std::cout << "size 1 = " << k.local_work_size(0) << " , size 2 = " << k.local_work_size(1) << std::endl;
                   set_arguments(k,it->second.arguments());
                   k.local_work_size(0,it->second.profile()->local_work_size(0));
                   k.local_work_size(1,it->second.profile()->local_work_size(1));
