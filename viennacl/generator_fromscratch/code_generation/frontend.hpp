@@ -189,7 +189,7 @@ namespace viennacl{
 
                         optimization_profile* prof;
                         if(it->type == kernel_representation_t::BLAS3_TYPE){
-                            prof = kernels_infos.insert(std::make_pair(name,kernel_infos_t(new blas3_optimization_profile(16,32,64,4,4,4,true,false,4)))).first->second.profile();
+                            prof = kernels_infos.insert(std::make_pair(name,kernel_infos_t(new blas3_optimization_profile(16,256,256,4,4,4,true,false,4)))).first->second.profile();
                         }
                         else{
                             prof = kernels_infos.insert(std::make_pair(name,kernel_infos_t(new optimization_profile()))).first->second.profile();
