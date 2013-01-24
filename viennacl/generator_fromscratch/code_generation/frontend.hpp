@@ -182,16 +182,21 @@ namespace viennacl{
                     kss <<  "#elif defined(cl_amd_fp64)\n";
                     kss <<  "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n";
                     kss <<  "#endif\n";
+
                     std::vector<kernel_representation_t> kernels(get_kernels_list());
                     for(std::vector<kernel_representation_t>::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
                         std::string name("_k"+to_string(std::distance(kernels.begin(),it)));
 
+                        optimization_profile* prof;
                         if(it->type == kernel_representation_t::BLAS3_TYPE){
-                            kernels_infos.insert(std::make_pair(name,kernel_infos_t(new blas3_optimization_profile(16,256,256,4,4,4,true,false,1))));
+                            prof = kernels_infos.insert(std::make_pair(name,kernel_infos_t(new blas3_optimization_profile(16,32,64,4,4,4,true,false,4)))).first->second.profile();
                         }
                         else{
-                            kernels_infos.insert(std::make_pair(name,kernel_infos_t(new optimization_profile())));
+                            prof = kernels_infos.insert(std::make_pair(name,kernel_infos_t(new optimization_profile()))).first->second.profile();
                         }
+
+                        kss <<  "__attribute__((reqd_work_group_size(" << prof->local_work_size(0) << "," << prof->local_work_size(1) << ",1)))" << std::endl;
+
                         code_generation::kernel_generator kg(*it,name,kss, kernels_infos.at(name));
                         kg.generate() ;
                     }
