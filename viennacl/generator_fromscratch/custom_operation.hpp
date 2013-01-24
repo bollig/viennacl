@@ -177,7 +177,6 @@ namespace viennacl
                   compile_program();
               }
               viennacl::ocl::program & pgm = viennacl::ocl::current_context().get_program(operations_manager_.repr());
-
               for(std::map<std::string, generator::code_generation::kernel_infos_t>::iterator it = kernels_infos_.begin() ; it != kernels_infos_.end() ; ++it){
                   viennacl::ocl::kernel& k = pgm.get_kernel(it->first);
                   set_arguments(k,it->second.arguments());
