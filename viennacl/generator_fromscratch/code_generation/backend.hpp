@@ -29,6 +29,13 @@ namespace viennacl{
 
                     }
 
+                    void config_nd_range(viennacl::ocl::kernel & k) const{
+                        k.local_work_size(0,local_work_size_[0]);
+                        k.local_work_size(1,local_work_size_[1]);
+                        k.global_work_size(0,global_work_size_[0]);
+                        k.global_work_size(1,global_work_size_[1]);
+                    }
+
                     void apply(std::list<infos_base*> & expressions){
                         std::set<kernel_argument*,viennacl::generator::deref_less> kernel_arguments;
                         for(std::list<infos_base*>::iterator it = expressions.begin() ; it!=expressions.end() ; ++it){
@@ -399,18 +406,20 @@ namespace viennacl{
                               }
                           }
 
-                              for(unsigned int m=0 ; m < ms ; ++m){
-                                  for(unsigned int k = 0 ; k < ks ; ++k){
-                                      for(unsigned int a=0; a<alignment; ++a){
-                                          kss << first_lhs->scalartype() << " " << "val_lhs_" << m << "_" << k*alignment+a << " = " << "* ptr_lhs_" << m << "++;" << std::endl;
-                                      }
+                          for(unsigned int k = 0 ; k < ks ; ++k){
+                              for(unsigned int a=0; a<alignment; ++a){
+                          for(unsigned int m=0 ; m < ms ; ++m){
+
+                                      kss << first_lhs->scalartype() << " " << "val_lhs_" << m << "_" << k*alignment+a << " = " << "* ptr_lhs_" << m << "++;" << std::endl;
                                   }
                               }
+                          }
 
-                          for(unsigned int n=0 ; n < ns ; ++n){
-                              for(unsigned int m=0 ; m < ms ; ++m){
                                   for(unsigned int k = 0 ; k < ks ; ++k){
                                       for(unsigned int a=0; a<alignment; ++a){
+
+                                          for(unsigned int n=0 ; n < ns ; ++n){
+                                              for(unsigned int m=0 ; m < ms ; ++m){
                                           kss << res_table_name<< "_"<<m<<"_" << n << " += " ;
                                           kss << "val_lhs_" << m << "_" << k*alignment+a;
                                           kss << "*";
@@ -419,12 +428,6 @@ namespace viennacl{
                                       }
                                   }
                               }
-//                              if(n<ns-1){
-//                                  for(unsigned int m=0 ; m<ms ; ++m){
-//                                      kss << "ptr_lhs_" << m << " -= " << ks*alignment << ";" << std::endl;
-//                                  }
-//                              }
-
                           }
 
                           for(unsigned int k=0 ; k<ks ; ++k){
@@ -432,6 +435,7 @@ namespace viennacl{
                                   kss << "rhs_ptr_" << k*alignment+a << " += " << ks*alignment << "*aligned_size2_rhs - " << ns << ";" << std::endl;
                               }
                           }
+
                           kss.dec_tab();
                           kss << "}" << std::endl;
                           kss << "offsetRHS += aligned_size2_rhs" << "*" << kl*alignment << ";" << std::endl;

@@ -26,18 +26,20 @@ namespace viennacl{
 
         namespace code_generation{
 
+//            struct kernel_infos_t{
+//                enum type_t{
+//                    UNDEFINED,
+//                    BLAS1_TYPE,
+//                    BLAS2_TYPE,
+//                    BLAS3_TYPE
+//                };
+
+//                std::list<infos_base*> trees;
+//                type_t type;
+//            };
+
             class kernel_infos_t{
             public:
-                typedef std::set<kernel_argument*, deref_less> arguments_t;
-                kernel_infos_t(code_generation::optimization_profile* prof) : optimization_profile_(prof){ }
-                arguments_t & arguments(){ return arguments_; }
-                code_generation::optimization_profile* profile() { return optimization_profile_.get(); }
-            private:
-                arguments_t arguments_;
-                viennacl::tools::shared_ptr<code_generation::optimization_profile> optimization_profile_;
-            };
-
-            struct kernel_representation_t{
                 enum type_t{
                     UNDEFINED,
                     BLAS1_TYPE,
@@ -45,16 +47,55 @@ namespace viennacl{
                     BLAS3_TYPE
                 };
 
-                std::list<infos_base*> trees;
-                type_t type;
+            private:
+                optimization_profile* make_profile(){
+                    if(type_ == kernel_infos_t::BLAS1_TYPE)
+                        return new blas1_optimization_profile();
+                    if(type_ == kernel_infos_t::BLAS3_TYPE)
+                        return new blas3_optimization_profile(16,256,256,4,4,4,true,false,4);
+                }
+
+            public:
+
+                kernel_infos_t(std::list<infos_base*> trees, type_t type) : trees_(trees), type_(type), optimization_profile_(make_profile()){
+
+                }
+
+                kernel_infos_t(infos_base* op, type_t type) : type_(type), optimization_profile_(make_profile()){
+                    trees_.push_back(op);
+
+                }
+
+
+                typedef std::set<kernel_argument*, deref_less> arguments_t;
+
+                type_t type(){ return type_; }
+
+                std::list<infos_base*> & trees(){ return trees_; }
+
+                arguments_t & arguments(){ return arguments_; }
+
+                code_generation::optimization_profile* profile() { return optimization_profile_.get(); }
+
+                void config_nd_range(viennacl::ocl::kernel & k) const{
+                    optimization_profile_->config_nd_range(k);
+                }
+
+            private:
+                arguments_t arguments_;
+                std::list<infos_base*> trees_;
+                type_t type_;
+                viennacl::tools::shared_ptr<code_generation::optimization_profile> optimization_profile_;
             };
+
+
 
             class kernel_generator{
             private:
 
                 void generate_headers(){
                     kss_ << "__kernel void " + kernel_name_ + "(";
-                    for(std::list<infos_base*>::iterator it = representation_.trees.begin() ; it!= representation_.trees.end() ; ++it){
+                    for(std::list<infos_base*>::iterator it = kernel_infos_.trees().begin() ; it!= kernel_infos_.trees().end() ; ++it){
                         extract_as(*it,kernel_infos_.arguments(),utils::is_type<kernel_argument>());
                     }
                     for(std::set<kernel_argument*, deref_less>::iterator it=kernel_infos_.arguments().begin(); it!=kernel_infos_.arguments().end();++it){
@@ -70,7 +111,7 @@ namespace viennacl{
                     std::list<infos_base *> vec_exprs;
                     std::list<infos_base *> scal_exprs;
                     std::list<infos_base *> mat_exprs;
-                    for(std::list<infos_base*>::const_iterator it = representation_.trees.begin(); it!=representation_.trees.end();++it){
+                    for(std::list<infos_base*>::const_iterator it = kernel_infos_.trees().begin(); it!=kernel_infos_.trees().end();++it){
                         if(utils::is_type<vector_expression_infos_base>()(*it))
                             vec_exprs.push_back(*it);
                         else if(utils::is_type<scalar_expression_infos_base>()(*it)
@@ -80,11 +121,11 @@ namespace viennacl{
                             mat_exprs.push_back(*it);
                     }
                     kernel_infos_.profile()->load(viennacl::ocl::current_device());
-                    if(representation_.type==kernel_representation_t::BLAS1_TYPE){
+                    if(kernel_infos_.type()==kernel_infos_t::BLAS1_TYPE){
                         code_generation::blas1_generator gen(vec_exprs,mat_exprs,scal_exprs,kernel_infos_.profile());
                         gen(kss_);
                     }
-                    else if(representation_.type==kernel_representation_t::BLAS3_TYPE){
+                    else if(kernel_infos_.type()==kernel_infos_t::BLAS3_TYPE){
                         code_generation::blas3_generator gen(mat_exprs,static_cast<blas3_optimization_profile*>(kernel_infos_.profile()));
                         gen(kss_);
                     }
@@ -93,13 +134,12 @@ namespace viennacl{
                 }
 
             public:
-                kernel_generator(kernel_representation_t const & representation
+                kernel_generator(kernel_infos_t & kernel_infos
                                  , std::string const & kernel_name
-                                 , code_generation::utils::kernel_generation_stream & kss
-                                 , kernel_infos_t & kernel_infos) : representation_(representation)
+                                 , code_generation::utils::kernel_generation_stream & kss) : kernel_infos_(kernel_infos)
                                                                      , kernel_name_(kernel_name)
-                                                                     , kss_(kss) ,kernel_infos_(kernel_infos){
-                    kernel_infos_.profile()->apply(representation_.trees);
+                                                                     , kss_(kss){
+                    kernel_infos_.profile()->apply(kernel_infos_.trees());
                 }
 
                 void generate(){
@@ -109,10 +149,9 @@ namespace viennacl{
 
 
             private:
-                kernel_representation_t representation_;
+                kernel_infos_t & kernel_infos_;
                 std::string kernel_name_;
                 utils::kernel_generation_stream & kss_;
-                kernel_infos_t & kernel_infos_;
             };
 
 
@@ -132,42 +171,55 @@ namespace viennacl{
                     operations_.clear();
                 }
 
-                std::vector<kernel_representation_t> get_kernels_list() const{
-                    std::vector<kernel_representation_t> res(1);
+                std::list<kernel_infos_t> get_kernels_list() const{
+                    std::list<kernel_infos_t> res;
                     for(typename operations_t::const_iterator it = operations_.begin() ; it!=operations_.end() ; ++it){
                         infos_base* p = it->get();
                         std::list<infos_base*> inprods(utils::filter<utils::EXTRACT_IF>(p,utils::is_type<inprod_infos_base>()));
                         std::list<infos_base*> matmatprods(utils::filter<utils::EXTRACT_IF>(p,utils::is_type<matmat_prod_infos_base>()));
+                        kernel_infos_t* last = NULL;
                         if(inprods.size()){
                             assert(matmatprods.size()==0 && "INVALID KERNEL !");
-                            if(res.back().type != kernel_representation_t::UNDEFINED && res.back().type != kernel_representation_t::BLAS1_TYPE)
-                                res.push_back(kernel_representation_t());
-                            res.back().trees.merge(inprods);
-                            res.back().type = kernel_representation_t::BLAS1_TYPE;
+                            if(res.size()){
+                                if(res.back().type() != kernel_infos_t::BLAS1_TYPE)
+                                    res.push_back(kernel_infos_t(p,kernel_infos_t::BLAS1_TYPE));
+                                else
+                                    res.back().trees().merge(inprods);
+                            }
+                            else{
+                                res.push_back(kernel_infos_t(p,kernel_infos_t::BLAS1_TYPE));
+                            }
                         }
                         else if(matmatprods.size()){
-                            if(res.back().type != kernel_representation_t::UNDEFINED && res.back().type != kernel_representation_t::BLAS3_TYPE){
-                                res.push_back(kernel_representation_t());
+                            if(res.size()){
+                                if(res.back().type() != kernel_infos_t::BLAS3_TYPE)
+                                    res.push_back(kernel_infos_t(p,kernel_infos_t::BLAS3_TYPE));
+                                else
+                                    res.back().trees().push_back(p);
                             }
-                            res.back().trees.push_back(p);
-                            res.back().type = kernel_representation_t::BLAS3_TYPE;
+                            else{
+                                res.push_back(kernel_infos_t(p,kernel_infos_t::BLAS3_TYPE));
+                            }
                         }
                         else{
-                            if(res.back().type != kernel_representation_t::UNDEFINED && res.back().type != kernel_representation_t::BLAS1_TYPE)
-                                res.push_back(kernel_representation_t());
-                            res.back().trees.push_back(p);
-                            res.back().type = kernel_representation_t::BLAS1_TYPE;
+                            if(res.size()){
+                                if(res.back().type() != kernel_infos_t::BLAS1_TYPE)
+                                    res.push_back(kernel_infos_t(p,kernel_infos_t::BLAS3_TYPE));
+                                else
+                                    res.back().trees().push_back(p);
+                            }
                         }
+
                     }
                     return res;
                 }
 
                 std::string repr() const{
                     std::string res;
-                    std::vector<kernel_representation_t> kernels(get_kernels_list());
-                    for(std::vector<kernel_representation_t>::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
+                    std::list<kernel_infos_t> kernels(get_kernels_list());
+                    for(std::list<kernel_infos_t>::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
                         std::string name;
-                        for(std::list<infos_base*>::iterator iit = it->trees.begin() ; iit != it->trees.end() ; ++iit){
+                        for(std::list<infos_base*>::iterator iit = it->trees().begin() ; iit != it->trees().end() ; ++iit){
                             res += (*iit)->repr();
                         }
                     }
@@ -183,21 +235,12 @@ namespace viennacl{
                     kss <<  "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n";
                     kss <<  "#endif\n";
 
-                    std::vector<kernel_representation_t> kernels(get_kernels_list());
-                    for(std::vector<kernel_representation_t>::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
+                    std::list<kernel_infos_t> kernels(get_kernels_list());
+                    for(std::list<kernel_infos_t>::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
                         std::string name("_k"+to_string(std::distance(kernels.begin(),it)));
-
-                        optimization_profile* prof;
-                        if(it->type == kernel_representation_t::BLAS3_TYPE){
-                            prof = kernels_infos.insert(std::make_pair(name,kernel_infos_t(new blas3_optimization_profile(16,256,256,4,4,4,true,false,4)))).first->second.profile();
-                        }
-                        else{
-                            prof = kernels_infos.insert(std::make_pair(name,kernel_infos_t(new optimization_profile()))).first->second.profile();
-                        }
-
+                        optimization_profile* prof = kernels_infos.insert(std::make_pair(name,*it)).first->second.profile();
                         kss <<  "__attribute__((reqd_work_group_size(" << prof->local_work_size(0) << "," << prof->local_work_size(1) << ",1)))" << std::endl;
-
-                        code_generation::kernel_generator kg(*it,name,kss, kernels_infos.at(name));
+                        code_generation::kernel_generator kg(*it,name,kss);
                         kg.generate() ;
                     }
                     return oss.str();

@@ -163,7 +163,7 @@ namespace viennacl
               operations_manager_.add(dummy2exptree(shared_infos_,temporaries_,op));
           }
 
-          std::vector<code_generation::kernel_representation_t> kernels_list(){
+          std::list<code_generation::kernel_infos_t> kernels_list(){
               return operations_manager_.get_kernels_list();
           }
 
@@ -180,13 +180,8 @@ namespace viennacl
 
               for(std::map<std::string, generator::code_generation::kernel_infos_t>::iterator it = kernels_infos_.begin() ; it != kernels_infos_.end() ; ++it){
                   viennacl::ocl::kernel& k = pgm.get_kernel(it->first);
-                  std::cout << "size 1 = " << k.local_work_size(0) << " , size 2 = " << k.local_work_size(1) << std::endl;
                   set_arguments(k,it->second.arguments());
-                  k.local_work_size(0,it->second.profile()->local_work_size(0));
-                  k.local_work_size(1,it->second.profile()->local_work_size(1));
-                  k.global_work_size(0,it->second.profile()->global_work_size(0));
-                  k.global_work_size(1,it->second.profile()->global_work_size(1));
-
+                  it->second.config_nd_range(k);
                   viennacl::ocl::enqueue(k);
               }
           }
@@ -204,42 +199,6 @@ namespace viennacl
           std::string source_code_;
 
      };
-
-
-//      template <typename TimingType, typename OP, typename TestConfig, typename TestData>
-//      void record_full_timings(TimingType & timings,
-//                               OP operation,
-//                               TestConfig & config)
-//      {
-//        typedef typename TestData::value_type  ScalarType;
-
-//        double result = 0;
-//        functor(data); //startup run (ensures kernel compilation)
-//        for (unsigned int work_groups = config.min_work_groups(); work_groups <= config.max_work_groups(); work_groups *= 2)           //iterate over number of work groups (compute units)
-//        {
-//          for (unsigned int local_workers = config.min_local_size(); local_workers <= config.max_local_size(); local_workers *= 2)   //iterate over local thread number
-//          {
-//              for(unsigned int vectorize = config.min_vectorize() ; vectorize <= config.max_vectorize() ; vectorize *= 2){
-//                  //set parameter:
-//                  generate_kernel(work_groups, local_workers, vectorize);
-
-//                  //std::cout << "Benchmarking kernel " << config.kernel_name() << std::endl;
-//                  result = execute(functor, data);
-
-//                  //check for valid result: (kernels have an automatic fallback to smaller values included)
-//                  if (!validate_result(config.program_name(), config.kernel_name(), work_groups, local_workers))
-//                  {
-//                  std::cout << "Kernel start failed for kernel " << config.kernel_name() << " [" << work_groups << " groups, " << local_workers << " per group]" << std::endl;
-//                    break;
-//                  }
-//                  else
-//                    timings[result] = std::make_pair(work_groups * local_workers, local_workers);
-//              }
-
-//          }
-//        }
-//      }
-
   }
 }
 #endif // CUSTOM_OPERATION_HPP
