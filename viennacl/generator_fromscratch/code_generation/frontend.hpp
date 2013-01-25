@@ -24,52 +24,50 @@ namespace viennacl{
 
 
 
+
         namespace code_generation{
 
-//            struct kernel_infos_t{
-//                enum type_t{
-//                    UNDEFINED,
-//                    BLAS1_TYPE,
-//                    BLAS2_TYPE,
-//                    BLAS3_TYPE
-//                };
+            enum kernel_type_t{
+                BLAS1_TYPE,
+                BLAS2_TYPE,
+                BLAS3_TYPE
+            };
 
-//                std::list<infos_base*> trees;
-//                type_t type;
-//            };
+            template<class T>
+            struct kernel_type_of;
+
+            template<>
+            struct kernel_type_of<blas3_optimization_profile>{
+                static const kernel_type_t value = BLAS3_TYPE;
+            };
+
+            template<>
+            struct kernel_type_of<blas1_optimization_profile>{
+                static const kernel_type_t value = BLAS1_TYPE;
+            };
 
             class kernel_infos_t{
             public:
-                enum type_t{
-                    UNDEFINED,
-                    BLAS1_TYPE,
-                    BLAS2_TYPE,
-                    BLAS3_TYPE
-                };
 
             private:
-                optimization_profile* make_profile(){
-                    if(type_ == kernel_infos_t::BLAS1_TYPE)
-                        return new blas1_optimization_profile();
-                    if(type_ == kernel_infos_t::BLAS3_TYPE)
-                        return new blas3_optimization_profile(16,256,256,4,4,4,true,false,4);
-                }
+//                optimization_profile* make_profile(){
+//                    if(type_ == kernel_infos_t::BLAS1_TYPE)
+//                        return new blas1_optimization_profile();
+//                    if(type_ == kernel_infos_t::BLAS3_TYPE)
+//                        return new blas3_optimization_profile(16,256,256,4,4,4,true,false,4);
+//                }
 
             public:
 
-                kernel_infos_t(std::list<infos_base*> trees, type_t type) : trees_(trees), type_(type), optimization_profile_(make_profile()){
-
-                }
-
-                kernel_infos_t(infos_base* op, type_t type) : type_(type), optimization_profile_(make_profile()){
+                template<class ProfType>
+                kernel_infos_t(infos_base *op, ProfType const & prof_model) : type_(kernel_type_of<ProfType>::value), optimization_profile_(new ProfType(prof_model)){
                     trees_.push_back(op);
-
                 }
 
 
                 typedef std::set<kernel_argument*, deref_less> arguments_t;
 
-                type_t type(){ return type_; }
+                kernel_type_t type(){ return type_; }
 
                 std::list<infos_base*> & trees(){ return trees_; }
 
@@ -90,7 +88,7 @@ namespace viennacl{
             private:
                 arguments_t arguments_;
                 std::list<infos_base*> trees_;
-                type_t type_;
+                kernel_type_t type_;
                 viennacl::tools::shared_ptr<code_generation::optimization_profile> optimization_profile_;
             };
 
@@ -127,11 +125,11 @@ namespace viennacl{
                             mat_exprs.push_back(*it);
                     }
                     kernel_infos_.profile()->load(viennacl::ocl::current_device());
-                    if(kernel_infos_.type()==kernel_infos_t::BLAS1_TYPE){
+                    if(kernel_infos_.type()==BLAS1_TYPE){
                         code_generation::blas1_generator gen(vec_exprs,mat_exprs,scal_exprs,kernel_infos_.profile());
                         gen(kss_);
                     }
-                    else if(kernel_infos_.type()==kernel_infos_t::BLAS3_TYPE){
+                    else if(kernel_infos_.type()==BLAS3_TYPE){
                         code_generation::blas3_generator gen(mat_exprs,static_cast<blas3_optimization_profile*>(kernel_infos_.profile()));
                         gen(kss_);
                     }
@@ -167,6 +165,8 @@ namespace viennacl{
                 typedef std::list<viennacl::tools::shared_ptr<infos_base> > operations_t;
             public:
 
+                operations_manager() : blas3_model_(16,256,256,4,4,4,true,false,4){ }
+
 
                 template<class T>
                 void add(T const & op){
@@ -187,30 +187,30 @@ namespace viennacl{
                         if(inprods.size()){
                             assert(matmatprods.size()==0 && "INVALID KERNEL !");
                             if(res.size()){
-                                if(res.back().type() != kernel_infos_t::BLAS1_TYPE)
-                                    res.push_back(kernel_infos_t(p,kernel_infos_t::BLAS1_TYPE));
+                                if(res.back().type() != BLAS1_TYPE)
+                                    res.push_back(kernel_infos_t(p,blas1_model_));
                                 else
                                     res.back().trees().merge(inprods);
                             }
                             else{
-                                res.push_back(kernel_infos_t(p,kernel_infos_t::BLAS1_TYPE));
+                                res.push_back(kernel_infos_t(p,blas1_model_));
                             }
                         }
                         else if(matmatprods.size()){
                             if(res.size()){
-                                if(res.back().type() != kernel_infos_t::BLAS3_TYPE)
-                                    res.push_back(kernel_infos_t(p,kernel_infos_t::BLAS3_TYPE));
+                                if(res.back().type() != BLAS3_TYPE)
+                                    res.push_back(kernel_infos_t(p,blas3_model_));
                                 else
                                     res.back().trees().push_back(p);
                             }
                             else{
-                                res.push_back(kernel_infos_t(p,kernel_infos_t::BLAS3_TYPE));
+                                res.push_back(kernel_infos_t(p,blas3_model_));
                             }
                         }
                         else{
                             if(res.size()){
-                                if(res.back().type() != kernel_infos_t::BLAS1_TYPE)
-                                    res.push_back(kernel_infos_t(p,kernel_infos_t::BLAS3_TYPE));
+                                if(res.back().type() != BLAS1_TYPE)
+                                    res.push_back(kernel_infos_t(p,blas1_model_));
                                 else
                                     res.back().trees().push_back(p);
                             }
@@ -254,6 +254,8 @@ namespace viennacl{
 
             private:
                 operations_t operations_;
+                blas1_optimization_profile blas1_model_;
+                blas3_optimization_profile blas3_model_;
             };
 
         }

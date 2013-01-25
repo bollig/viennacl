@@ -158,8 +158,6 @@ namespace viennacl
 
           template<class T>
           void add(T const & op){
-//              std::cout << std::bitset<64>(get_operation_id<T>::value(op)).to_string() << std::endl;
-//              std::cout << encode_to_kernel_name(get_operation_id<T>::value(op)) << std::endl;
               operations_manager_.add(dummy2exptree(shared_infos_,temporaries_,op));
           }
 
