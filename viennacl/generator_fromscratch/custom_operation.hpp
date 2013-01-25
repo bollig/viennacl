@@ -144,9 +144,9 @@ namespace viennacl
       {
 
       private:
-          void compile_program() const{
+          void compile_program(std::string const & pgm_name) const{
               assert(!source_code_.empty() && " Custom Operation not initialized ");
-              viennacl::ocl::program& program = viennacl::ocl::current_context().add_program(source_code_, operations_manager_.repr());
+              viennacl::ocl::program& program = viennacl::ocl::current_context().add_program(source_code_, pgm_name);
               for(std::map<std::string, generator::code_generation::kernel_infos_t>::const_iterator it = kernels_infos_.begin() ; it !=kernels_infos_.end() ; ++it){
                 program.add_kernel(it->first);
               }
@@ -171,12 +171,12 @@ namespace viennacl
               source_code_ = operations_manager_.get_source_code(kernels_infos_);
           }
 
-          void execute(){
-              if(!viennacl::ocl::current_context().has_program(operations_manager_.repr())){
-                  std::cout << "Compiling..." << std::endl;
-                  compile_program();
+          void execute(std::string pgm_name = ""){
+              if(pgm_name.empty()) pgm_name = operations_manager_.repr();
+              if(!viennacl::ocl::current_context().has_program(pgm_name)){
+                  compile_program(pgm_name);
               }
-              viennacl::ocl::program & pgm = viennacl::ocl::current_context().get_program(operations_manager_.repr());
+              viennacl::ocl::program & pgm = viennacl::ocl::current_context().get_program(pgm_name);
               for(std::map<std::string, generator::code_generation::kernel_infos_t>::iterator it = kernels_infos_.begin() ; it != kernels_infos_.end() ; ++it){
                   viennacl::ocl::kernel& k = pgm.get_kernel(it->first);
                   set_arguments(k,it->second.arguments());
