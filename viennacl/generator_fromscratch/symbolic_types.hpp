@@ -197,6 +197,13 @@ namespace viennacl
 
           }
 
+          size_t real_size1() const{
+              return vcl_mat_.size1();
+          }
+
+          size_t real_size2() const{
+              return vcl_mat_.size2();
+          }
           void enqueue(unsigned int & n_arg, viennacl::ocl::kernel & k) const{
               k.arg(n_arg++,vcl_mat_);
               k.arg(n_arg++,cl_uint(0));

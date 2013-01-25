@@ -335,6 +335,8 @@ namespace viennacl{
             }
             bool const is_rowmajor() const { return is_rowmajor_; }
             bool const is_transposed() const { return is_transposed_; }
+            virtual size_t real_size1() const = 0;
+            virtual size_t real_size2() const = 0;
             virtual ~mat_infos_base() { }
         protected:
             mat_infos_base(bool is_rowmajor

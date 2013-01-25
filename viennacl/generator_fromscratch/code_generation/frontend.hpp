@@ -78,6 +78,12 @@ namespace viennacl{
                 code_generation::optimization_profile* profile() { return optimization_profile_.get(); }
 
                 void config_nd_range(viennacl::ocl::kernel & k) const{
+                    if(type_==BLAS3_TYPE){
+                        matrix_expression_infos_base * p = static_cast<matrix_expression_infos_base*>(trees_.front());
+                        mat_infos_base * mat = static_cast<mat_infos_base*>(&p->lhs());
+                        blas3_optimization_profile* prof = static_cast<blas3_optimization_profile*>(optimization_profile_.get());
+                        prof->set_global_sizes(mat->real_size1(),mat->real_size2());
+                    }
                     optimization_profile_->config_nd_range(k);
                 }
 
