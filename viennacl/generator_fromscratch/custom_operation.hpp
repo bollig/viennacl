@@ -154,8 +154,6 @@ namespace viennacl
 
       public :
 
-        custom_operation() { }
-
           template<class T>
           void add(T const & op){
               operations_manager_.add(dummy2exptree(shared_infos_,temporaries_,op));
@@ -163,6 +161,10 @@ namespace viennacl
 
           std::list<code_generation::kernel_infos_t> kernels_list(){
               return operations_manager_.get_kernels_list();
+          }
+
+          code_generation::operations_manager & operations_manager(){
+              return operations_manager_;
           }
 
           void init() {

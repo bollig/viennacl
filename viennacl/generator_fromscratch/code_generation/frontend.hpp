@@ -49,16 +49,6 @@ namespace viennacl{
             class kernel_infos_t{
             public:
 
-            private:
-//                optimization_profile* make_profile(){
-//                    if(type_ == kernel_infos_t::BLAS1_TYPE)
-//                        return new blas1_optimization_profile();
-//                    if(type_ == kernel_infos_t::BLAS3_TYPE)
-//                        return new blas3_optimization_profile(16,256,256,4,4,4,true,false,4);
-//                }
-
-            public:
-
                 template<class ProfType>
                 kernel_infos_t(infos_base *op, ProfType const & prof_model) : type_(kernel_type_of<ProfType>::value), optimization_profile_(new ProfType(prof_model)){
                     trees_.push_back(op);
@@ -165,8 +155,15 @@ namespace viennacl{
                 typedef std::list<viennacl::tools::shared_ptr<infos_base> > operations_t;
             public:
 
-                operations_manager() : blas3_model_(16,256,256,4,4,4,true,false,4){ }
+                operations_manager() : blas3_model_(32,32,32,4,4,4,true,false,4){ }
 
+                blas1_optimization_profile& blas1_model(){
+                    return blas1_model_;
+                }
+
+                blas3_optimization_profile& blas3_model(){
+                    return blas3_model_;
+                }
 
                 template<class T>
                 void add(T const & op){
