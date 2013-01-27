@@ -81,6 +81,9 @@ namespace viennacl{
                         assert(index==0 || index==1);
                         return global_work_size_[index];
                     }
+
+                    virtual ~optimization_profile(){ }
+
                 protected:
                     size_type local_work_size_[2];
                     size_type global_work_size_[2];
