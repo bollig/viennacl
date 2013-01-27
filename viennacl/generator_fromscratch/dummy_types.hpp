@@ -195,9 +195,9 @@ public:
 template<class ScalarType, class Layout>
 class dummy_matrix{
     typedef dummy_matrix<ScalarType, Layout> self_type;
-    typedef viennacl::matrix<ScalarType,Layout,16> vcl_mat_t;
-    vcl_mat_t const & mat_;
 public:
+
+    typedef viennacl::matrix<ScalarType,Layout,16> vcl_mat_t;
 
     dummy_matrix(vcl_mat_t const & mat) : mat_(mat){ }
 
@@ -234,6 +234,8 @@ public:
     operator-= ( RHS_TYPE const & rhs ){
       return matrix_expression_wrapper<self_type,inplace_sub_type,RHS_TYPE >(*this,rhs);
     }
+private:
+    vcl_mat_t const & mat_;
 };
 
 

@@ -171,12 +171,20 @@ namespace viennacl
               source_code_ = operations_manager_.get_source_code(kernels_infos_);
           }
 
-          void execute(std::string pgm_name = ""){
-              if(pgm_name.empty()) pgm_name = operations_manager_.repr();
-              if(!viennacl::ocl::current_context().has_program(pgm_name)){
-                  compile_program(pgm_name);
+          void program_name(std::string const & pgm_name){
+              program_name_ = pgm_name;
+          }
+
+          viennacl::ocl::program & program(){
+              if(program_name_.empty()) program_name_ = operations_manager_.repr();
+              if(!viennacl::ocl::current_context().has_program(program_name_)){
+                  compile_program(program_name_);
               }
-              viennacl::ocl::program & pgm = viennacl::ocl::current_context().get_program(pgm_name);
+              return viennacl::ocl::current_context().get_program(program_name_);
+          }
+
+          void execute(){
+              viennacl::ocl::program & pgm = program();
               for(std::map<std::string, generator::code_generation::kernel_infos_t>::iterator it = kernels_infos_.begin() ; it != kernels_infos_.end() ; ++it){
                   viennacl::ocl::kernel& k = pgm.get_kernel(it->first);
                   set_arguments(k,it->second.arguments());
@@ -196,6 +204,7 @@ namespace viennacl
           temporaries_map_t temporaries_;
           std::map<std::string, generator::code_generation::kernel_infos_t> kernels_infos_;
           std::string source_code_;
+          std::string program_name_;
 
      };
   }

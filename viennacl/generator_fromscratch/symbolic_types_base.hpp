@@ -78,8 +78,8 @@ namespace viennacl{
         protected:
             op_infos_base(std::string const & name, bool is_assignment) : name_(name), is_assignment_(is_assignment){ }
         private:
-            bool is_assignment_;
             std::string name_;
+            bool is_assignment_;
         };
 
         class nonarithmetic_op_infos_base : public op_infos_base{

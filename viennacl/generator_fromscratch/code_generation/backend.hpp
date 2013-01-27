@@ -17,7 +17,18 @@ namespace viennacl{
 
 
                 class optimization_profile{
+                protected:
                     typedef unsigned int size_type;
+
+                    virtual void print(std::ostream & os) const{
+                        os << " Alignment : " << alignment_ << " | "
+                           << " Unroll : " << loop_unroll_ << " | "
+                           << " Local Work Size 0 : " << local_work_size_[0] << " | "
+                           << " Global Work Size 0 : " << global_work_size_[0] << " | "
+                           << " Local Work Size 1 : " << local_work_size_[1] << " | "
+                           << " Global Work Size 1 : " << global_work_size_[1] ;
+                    }
+
                 public:
 
                     optimization_profile() : alignment_(1), loop_unroll_(1){
@@ -82,6 +93,19 @@ namespace viennacl{
                 };
 
                 class blas3_optimization_profile : public optimization_profile{
+                private:
+
+                    virtual void print(std::ostream & os) const{
+                        os << " ML : " << ml_ << " | "
+                           << " KL : " << kl_ << " | "
+                           << " NL : " << nl_ << " | "
+                           << " MS : " << ms_ << " | "
+                           << " KS : " << ks_ << " | "
+                           << " NS : " << ns_ << " | "
+                           << " Alignment : " << alignment_ << " | ";
+                    }
+
+
                 public:
 
                     blas3_optimization_profile(unsigned int ml, unsigned int kl, unsigned int nl
@@ -122,12 +146,7 @@ namespace viennacl{
                 };
 
                 std::ostream& operator<<(std::ostream& os, optimization_profile const & prof){
-                    os << " Alignment : " << prof.alignment_ << " | "
-                       << " Unroll : " << prof.loop_unroll_ << " | "
-                       << " Local Work Size 0 : " << prof.local_work_size_[0] << " | "
-                       << " Global Work Size 0 : " << prof.global_work_size_[0] << " | "
-                       << " Local Work Size 1 : " << prof.local_work_size_[1] << " | "
-                       << " Global Work Size 1 : " << prof.global_work_size_[1] ;
+                    prof.print(os);
                     return os;
                 }
 
