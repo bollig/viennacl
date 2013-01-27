@@ -6,9 +6,6 @@
 #include "viennacl/generator_fromscratch/forwards.h"
 #include "viennacl/generator_fromscratch/code_generation/frontend.hpp"
 
-#include "boost/numeric/ublas/matrix.hpp"
-
-
 namespace viennacl{
 
 namespace generator{
