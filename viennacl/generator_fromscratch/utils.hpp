@@ -59,6 +59,18 @@ namespace viennacl{
                 return dynamic_cast<T *>(p);
             }
 
+            template<class T, class U>
+            struct are_same_type
+            {
+              enum { value = 0 };
+            };
+
+            template<class T>
+            struct are_same_type<T,T>
+            {
+              enum { value = 1 };
+            };
+
 
             template<class Base,class Target>
             struct Base2Target { Target* operator ()( Base* value ) const { return dynamic_cast<Target*>(value); } };

@@ -28,7 +28,7 @@ void benchmark_blas3(timings_t & timings, ConfigT const & config){
                 for(unsigned int ms = config.ms_min ; ms <= config.ms_max; ms*=2){
                     for(unsigned int ks = config.ks_min ; ks <= config.ks_max; ks*=2){
                         for(unsigned int ns = config.ns_min ; ns <= config.ns_max; ns*=2){
-                            for(unsigned int alignment = 1 ; alignment <= config.alignment_max; alignment *=2){
+                            for(unsigned int alignment = config.alignment_min ; alignment <= config.alignment_max; alignment *=2){
                                 viennacl::generator::code_generation::blas3_optimization_profile prof(ml,kl,nl,ms,ks,ns,true,false,alignment);
 
                                 if(alignment>ks || alignment>ns) continue;
@@ -41,6 +41,7 @@ void benchmark_blas3(timings_t & timings, ConfigT const & config){
                                 config.add_op(op);
                                 op.operations_manager().blas3_model() = prof;
                                 op.init();
+                                std::cout << op.source_code() << std::endl;
                                 op.program_name(oss.str());
                                 viennacl::ocl::program & pgm = op.program();
 
