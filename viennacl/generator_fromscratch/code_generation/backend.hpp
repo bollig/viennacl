@@ -387,15 +387,16 @@ namespace viennacl{
                             kss.inc_tab();
                             kss << "for(unsigned int j = get_local_id(1)" << " ; j < " << kl << "; j+= get_local_size(1)){" << std::endl;
                             kss.inc_tab();
-                             kss << first_lhs->aligned_scalartype()  << " val_lhs = " << first_lhs->name() <<  "[offsetLHS + j  + aligned_size2_lhs*i];" << std::endl;
-                             kss << " ptr_lhs = local_lhs + i*" << kl*alignment+1 << "+j*" << alignment<<";" <<std::endl;
-                             for(unsigned int a = 0 ; a < alignment ; ++a){
-                                 if(alignment>1)
-                                     kss << "*ptr_lhs++ =  val_lhs.s" << a << ";" << std::endl;
-                                 else
-                                     kss << "*ptr_lhs++ =  val_lhs;" << std::endl;
+                            kss << first_lhs->aligned_scalartype()  << " val_lhs = " << first_lhs->name();
+                            kss <<  "[offsetLHS + j  + aligned_size2_lhs*i]";
+                            kss << ";" << std::endl;
+                            kss << " ptr_lhs = local_lhs + i*" << kl*alignment+1 << "+j*" << alignment<<";" <<std::endl;
+                            for(unsigned int a = 0 ; a < alignment ; ++a){
+                                if(alignment>1)
+                                    kss << "*ptr_lhs++ =  val_lhs.s" << a << ";" << std::endl;
+                                else
+                                    kss << "*ptr_lhs++ =  val_lhs;" << std::endl;
                             }
-
                             kss.dec_tab();
                             kss << "}" << std::endl;
                             kss.dec_tab();

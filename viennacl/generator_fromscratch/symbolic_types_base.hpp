@@ -237,6 +237,7 @@ namespace viennacl{
         class user_kernel_argument : public kernel_argument{
         };
 
+
         class temporary_kernel_argument : public kernel_argument{ };
 
         class cpu_scal_infos_base : public user_kernel_argument{
