@@ -41,7 +41,7 @@ void benchmark_blas3(timings_t & timings, ConfigT const & config){
                                 config.add_op(op);
                                 op.operations_manager().blas3_model() = prof;
                                 op.init();
-                                std::cout << op.source_code() << std::endl;
+//                                std::cout << op.source_code() << std::endl;
                                 op.program_name(oss.str());
                                 viennacl::ocl::program & pgm = op.program();
 
