@@ -371,10 +371,10 @@ namespace viennacl{
                         unsigned int ks_lhs = optimization_profile_->ks();
 
                         if(first_lhs->is_rowmajor()){
-                            kl_lhs /= alignment; ks_lhs /= alignment;
+                            kl_lhs /= alignment;
                         }
                         else{
-                            ml_lhs /= alignment; ms_lhs /= alignment;
+                            ml_lhs /= alignment;
                         }
 
                         unsigned int kl_rhs = optimization_profile_->kl();
