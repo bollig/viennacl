@@ -421,13 +421,13 @@ namespace viennacl{
 
                         std::string res_aligned_size1(first_assigned->internal_size1() + "/" + to_string(first_assigned->alignment()));
 
-                        if(first_assigned->is_rowmajor())
+                        if(is_result_rowmajor)
                             kss << "__global " << first_assigned->aligned_scalartype() << "* res_ptr = " << first_assigned->name() << " + (get_global_id(0)*" << ms_res << ")*aligned_size2_rhs + get_global_id(1)*" << ns_res << ";" << std::endl;
                         else
                             kss << "__global " << first_assigned->aligned_scalartype() << "* res_ptr = " << first_assigned->name() << " + (get_global_id(0)*" << ms_res << ") + get_global_id(1)*" << res_aligned_size1 << "*" << ns_res << ";" << std::endl;
 
                         kss << "unsigned int offsetRHS = " << offset_n << " +  get_group_id(1)*" << nl_rhs << ";" << std::endl;
-                        if(first_lhs->is_rowmajor())
+                        if(is_lhs_rowmajor)
                             kss << "unsigned int offsetLHS = get_group_id(0)*" << "aligned_size2_lhs" << "*" << ml_lhs  << ";" << std::endl;
                         else
                             kss << "unsigned int offsetLHS = get_group_id(0)*" << ml_lhs  << ";" << std::endl;
@@ -441,7 +441,7 @@ namespace viennacl{
                             kss.inc_tab();
                             kss << "for(unsigned int j = get_local_id(1)" << " ; j < " << kl_lhs << "; j+= get_local_size(1)){" << std::endl;
                             kss.inc_tab();
-                            if(first_lhs->is_rowmajor()){
+                            if(is_lhs_rowmajor){
                                 kss << first_lhs->aligned_scalartype()  << " val_lhs = " << first_lhs->name() <<  "[offsetLHS + j  + aligned_size2_lhs*i];" << std::endl;
                                 kss << " ptr_lhs = local_lhs + i*" << kl_default+1 << "+j*" << alignment<<";" <<std::endl;
                                 for(unsigned int a = 0 ; a < alignment ; ++a){
@@ -499,7 +499,7 @@ namespace viennacl{
                             }
                         }
 
-                        if(is_result_rowmajor && is_lhs_rowmajor && is_rhs_rowmajor){
+                        if(is_result_rowmajor){
                             for(unsigned int k = 0 ; k < ks_default ; ++k){
                                 for(unsigned int n=0 ; n < ns_rhs ; ++n){
                                     for(unsigned int m=0 ; m < ms_lhs ; ++m){
@@ -511,7 +511,7 @@ namespace viennacl{
                                 }
                             }
                         }
-                        else if(!is_result_rowmajor && is_lhs_rowmajor && is_rhs_rowmajor){
+                        else{
                             for(unsigned int k = 0 ; k < ks_default ; ++k){
                                 for(unsigned int n=0 ; n < ns_res ; ++n){
                                     for(unsigned int m=0 ; m < ms_lhs ; ++m){
