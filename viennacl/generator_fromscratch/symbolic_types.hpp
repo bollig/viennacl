@@ -223,7 +223,7 @@ namespace viennacl
           viennacl::backend::mem_handle const & handle() const{ return vcl_mat_.handle(); }
 
           repr_t repr() const{
-              return "m"+repr_of<SCALARTYPE>::value();
+              return "m"+repr_of<SCALARTYPE>::value()+'_'+to_string((int)is_rowmajor_)+'_'+to_string((int)is_transposed_);
           }
       private:
           vcl_mat_t const & vcl_mat_;

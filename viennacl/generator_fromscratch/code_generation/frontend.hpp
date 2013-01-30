@@ -221,10 +221,10 @@ namespace viennacl{
                     std::string res;
                     std::list<kernel_infos_t> kernels(get_kernels_list());
                     for(std::list<kernel_infos_t>::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
-                        std::string name;
                         for(std::list<infos_base*>::iterator iit = it->trees().begin() ; iit != it->trees().end() ; ++iit){
                             res += (*iit)->repr();
                         }
+                        res+=it->profile()->repr();
                     }
                     return res;
                 }

@@ -36,12 +36,12 @@ void benchmark_blas3(timings_t & timings, ConfigT const & config){
                                 if(prof.local_work_size(0)*prof.local_work_size(1) > dev.max_workgroup_size()) continue;
 
                                 std::ostringstream oss;
-                                oss << "p" << ml << "_" << kl << "_"  << nl << "_"  << ms << "_"  << ks << "_"  << ns << "_"  << alignment ;
+//                                oss << "p" << ml << "_" << kl << "_"  << nl << "_"  << ms << "_"  << ks << "_"  << ns << "_"  << alignment ;
                                 viennacl::generator::custom_operation op;
                                 config.add_op(op);
                                 op.operations_manager().blas3_model() = prof;
                                 op.init();
-                                op.program_name(oss.str());
+//                                op.program_name(oss.str());
                                 viennacl::ocl::program & pgm = op.program();
 
                                 viennacl::ocl::kernel & k = pgm.get_kernel("_k0");

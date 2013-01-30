@@ -336,6 +336,13 @@ namespace viennacl{
             }
             bool const is_rowmajor() const { return is_rowmajor_; }
             bool const is_transposed() const { return is_transposed_; }
+            std::string offset(std::string const & offset_i, std::string const & offset_j){
+                if(is_rowmajor_){
+                    return '(' + offset_i + ')' + '*' + internal_size2() + "+ (" + offset_j + ')';
+                }
+                return '(' + offset_i + ')' + "+ (" + offset_j + ')' + '*' + internal_size1();
+            }
+
             virtual size_t real_size1() const = 0;
             virtual size_t real_size2() const = 0;
             virtual ~mat_infos_base() { }
@@ -344,7 +351,7 @@ namespace viennacl{
                            ,bool is_transposed) : user_kernel_argument()
                                                   ,is_rowmajor_(is_rowmajor)
                                                   ,is_transposed_(is_transposed){ }
-        private:
+        protected:
             bool is_rowmajor_;
             bool is_transposed_;
         };

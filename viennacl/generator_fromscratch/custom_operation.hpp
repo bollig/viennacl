@@ -172,12 +172,9 @@ namespace viennacl
               source_code_ = operations_manager_.get_source_code(kernels_infos_);
           }
 
-          void program_name(std::string const & pgm_name){
-              program_name_ = pgm_name;
-          }
 
           viennacl::ocl::program & program(){
-              if(program_name_.empty()) program_name_ = operations_manager_.repr();
+              std::string program_name_ = operations_manager_.repr();
               if(!viennacl::ocl::current_context().has_program(program_name_)){
                   compile_program(program_name_);
               }
