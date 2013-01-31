@@ -715,7 +715,8 @@ namespace viennacl{
                                 }
                             }
 
-                        if(!is_lhs_rowmajor){
+
+                        if(!use_LHS_shared && !is_lhs_rowmajor){
                             for(unsigned int k=0 ; k<ks_lhs ; ++k){
                                 kss << "ptr_lhs_" << k << " += " << ks_lhs << "*" << internal_size1_lhs << " - " << ms_lhs << ";" << std::endl;
                             }
