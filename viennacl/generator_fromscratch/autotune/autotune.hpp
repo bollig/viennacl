@@ -29,7 +29,7 @@ void benchmark_blas3(timings_t & timings, ConfigT const & config){
                     for(unsigned int ks = config.ks_min ; ks <= config.ks_max; ks*=2){
                         for(unsigned int ns = config.ns_min ; ns <= config.ns_max; ns*=2){
                             for(unsigned int alignment = config.alignment_min ; alignment <= config.alignment_max; alignment *=2){
-                                viennacl::generator::code_generation::blas3_optimization_profile prof(ml,kl,nl,ms,ks,ns,true,false,alignment);
+                                viennacl::generator::code_generation::blas3_optimization_profile prof(ml,kl,nl,ms,ks,ns,false,false,alignment);
 
                                 if(alignment>ks || alignment>ns) continue;
                                 if((double)ml*(kl+1)*4/1024 > 32.0) continue;
