@@ -538,19 +538,27 @@ namespace viennacl{
                                    }
                                    else{
                                        for(unsigned int a=0; a<alignment; ++a){
-                                           kss << res_table_name<< "_"<<m <<"_" << n << ".s" << a << " += ";
+                                           kss << res_table_name<< "_"<<m <<"_" << n ;
+                                           if(alignment>1) kss << ".s" << a;
+                                           kss << " += ";
                                            if(is_result_rowmajor)
                                                 kss << "val_lhs_" << m << "_" << k;
                                            else
                                                 kss << "val_lhs_" << m*alignment + a << "_" << k;
                                            kss << "*";
-                                           if(is_result_rowmajor)
-                                               kss << "val_rhs_" << k/alignment << "_" << n*alignment+a<< ".s" << k%alignment;
+                                           if(is_result_rowmajor){
+                                               kss << "val_rhs_" << k/alignment << "_" << n*alignment+a;
+                                               if(alignment>1) kss << ".s" << k%alignment;
+                                           }
                                            else{
-                                               if(is_rhs_rowmajor)
-                                                   kss <<" val_rhs_" << k << "_" << n/alignment << ".s" << n%alignment;
-                                               else
-                                                   kss <<  "val_rhs_" << k/alignment << "_" << n<< ".s" << k%alignment;
+                                               if(is_rhs_rowmajor){
+                                                   kss <<" val_rhs_" << k << "_" << n/alignment;
+                                                   if(alignment>1) kss << ".s" << n%alignment;
+                                               }
+                                               else{
+                                                   kss <<  "val_rhs_" << k/alignment << "_" << n;
+                                                   if(alignment>1) kss << ".s" << k%alignment;
+                                               }
                                            }
                                            kss << ";" << std::endl;
                                        }
