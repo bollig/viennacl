@@ -122,7 +122,9 @@ namespace viennacl{
                            << "MS" << ms_
                            << "KS" << ks_
                            << "NS" << ns_
-                           << "A" << alignment_;
+                           << "A" << alignment_
+                           << "LHS" << use_LHS_shared_
+                           << "RHS" << use_RHS_shared_;
                         return oss.str();
                     }
 
@@ -353,6 +355,49 @@ namespace viennacl{
                         return name;
                     }
 
+                    static void fetch_to_local_mem(utils::kernel_generation_stream & kss,
+                                                   std::string const & lmem_name,
+                                                   std::string const & offset,
+                                                   unsigned int size0,
+                                                   unsigned int size1,
+                                                   unsigned int real_size1,
+                                                   mat_infos_base const & mat_infos){
+                        unsigned int alignment = mat_infos.alignment();
+                        kss << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
+                        kss << "for(unsigned int i = get_local_id(0)" << " ; i < " << size0 << "; i+= get_local_size(0)){" << std::endl;
+                        kss.inc_tab();
+                        kss << "for(unsigned int j = get_local_id(1)" << " ; j < " << size1 << "; j+= get_local_size(1)){" << std::endl;
+                        kss.inc_tab();
+                        if(mat_infos.is_rowmajor()){
+                            kss << mat_infos.aligned_scalartype()  << " val = " << mat_infos.name() <<  "[" << offset << " + j  + " << mat_infos.internal_size2() << "*i];" << std::endl;
+                            kss << "__local " << mat_infos.scalartype() << "* ptr = " << lmem_name << " + i*" << real_size1 << "+j*" << alignment<<";" <<std::endl;
+                                for(unsigned int a = 0 ; a < alignment ; ++a){
+                                    if(alignment>1)
+                                        kss << "*ptr++ =  val.s" << a << ";" << std::endl;
+                                    else
+                                        kss << "*ptr++ =  val;" << std::endl;
+                                }
+                        }
+                        else{
+                            kss << mat_infos.aligned_scalartype()  << " val = " << mat_infos.name() <<  "[" << offset << "+ j*" << mat_infos.internal_size1() << " + i];" << std::endl;
+                            kss << "__local " << mat_infos.scalartype() << "* ptr = " << lmem_name << " + i*" << alignment * real_size1 << "+ j;" <<std::endl;
+                            for(unsigned int a = 0 ; a < alignment ; ++a){
+                                if(alignment>1)
+                                    kss << "*ptr =  val.s" << a << ";" << std::endl;
+                                else
+                                    kss << "*ptr =  val;" << std::endl;
+                                kss << "ptr += " << real_size1 << ";" << std::endl;
+                            }
+                        }
+
+                        kss.dec_tab();
+                        kss << "}" << std::endl;
+                        kss.dec_tab();
+                        kss << "}" << std::endl;
+                        kss << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
+
+                    }
+
                 public:
                     blas3_generator(std::list<infos_base * > const & blas3_expressions
                                     , blas3_optimization_profile * kernel_config): blas3_expressions_(blas3_expressions), optimization_profile_(kernel_config)
@@ -483,78 +528,14 @@ namespace viennacl{
                         kss.inc_tab();
 
                         if(use_LHS_shared){
-                            kss << "__local " << lhs_value_scalartype << " * ptr_lhs; " << std::endl;
-                            kss << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
-                            kss << "for(unsigned int i = get_local_id(0)" << " ; i < " << ml_lhs << "; i+= get_local_size(0)){" << std::endl;
-                            kss.inc_tab();
-                            kss << "for(unsigned int j = get_local_id(1)" << " ; j < " << kl_lhs << "; j+= get_local_size(1)){" << std::endl;
-                            kss.inc_tab();
-                            if(is_lhs_rowmajor){
-                                kss << first_lhs->aligned_scalartype()  << " val_lhs = " << first_lhs->name() <<  "[offsetLHS + j  + " << internal_size2_lhs << "*i];" << std::endl;
-                                    kss << " ptr_lhs = local_lhs + i*" << kl+1 << "+j*" << alignment<<";" <<std::endl;
-                                    for(unsigned int a = 0 ; a < alignment ; ++a){
-                                        if(alignment>1)
-                                            kss << "*ptr_lhs++ =  val_lhs.s" << a << ";" << std::endl;
-                                        else
-                                            kss << "*ptr_lhs++ =  val_lhs;" << std::endl;
-                                    }
-                            }
-                            else{
-                                kss << first_lhs->aligned_scalartype()  << " val_lhs = " << first_lhs->name() <<  "[offsetLHS + j*" << internal_size1_lhs << " + i];" << std::endl;
-                                kss << " ptr_lhs = local_lhs + i*" << alignment * (kl+1) << "+ j;" <<std::endl;
-                                for(unsigned int a = 0 ; a < alignment ; ++a){
-                                    if(alignment>1)
-                                        kss << "*ptr_lhs =  val_lhs.s" << a << ";" << std::endl;
-                                    else
-                                        kss << "*ptr_lhs =  val_lhs;" << std::endl;
-                                    kss << "ptr_lhs += " << kl + 1 << ";" << std::endl;
-                                }
-                            }
-
-                            kss.dec_tab();
-                            kss << "}" << std::endl;
-                            kss.dec_tab();
-                            kss << "}" << std::endl;
-                            kss << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
+                            fetch_to_local_mem(kss,"local_lhs","offsetLHS",ml_lhs,kl_lhs,kl+1,*first_lhs);
                                 for(unsigned int m=0; m<ms_lhs; ++m){
                                     kss << "__local " << lhs_value_scalartype << "* ptr_lhs_" << m << " = local_lhs + (" << offset_m << "+" << m << ")" << "*" << kl  + 1 << ";" << std::endl;
                                 }
                         }
 
                         if(use_RHS_shared){
-                            kss << "__local " << rhs_value_scalartype << " * rhs_ptr; " << std::endl;
-                            kss << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
-                            kss << "for(unsigned int i = get_local_id(0)" << " ; i < " << kl_rhs << "; i+= get_local_size(0)){" << std::endl;
-                            kss.inc_tab();
-                            kss << "for(unsigned int j = get_local_id(1)" << " ; j < " << nl_rhs << "; j+= get_local_size(1)){" << std::endl;
-                            kss.inc_tab();
-                            if(is_rhs_rowmajor){
-                                kss << first_rhs->aligned_scalartype()  << " val_rhs = " << first_rhs->name() <<  "[offsetRHS + j  + " << internal_size2_rhs << "*i];" << std::endl;
-                                    kss << " rhs_ptr = local_rhs + i*" << nl+1 << "+j*" << alignment<<";" <<std::endl;
-                                    for(unsigned int a = 0 ; a < alignment ; ++a){
-                                        if(alignment>1)
-                                            kss << "*rhs_ptr++ =  val_rhs.s" << a << ";" << std::endl;
-                                        else
-                                            kss << "*rhs_ptr++ =  val_rhs;" << std::endl;
-                                    }
-                            }
-                            else{
-                                kss << first_rhs->aligned_scalartype()  << " val_rhs = " << first_rhs->name() <<  "[offsetRHS + j*" << internal_size1_rhs << " + i];" << std::endl;
-                                kss << " rhs_ptr = local_rhs + i*" << alignment * (nl+1) << "+ j;" <<std::endl;
-                                for(unsigned int a = 0 ; a < alignment ; ++a){
-                                    if(alignment>1)
-                                        kss << "*rhs_ptr =  val_rhs.s" << a << ";" << std::endl;
-                                    else
-                                        kss << "*rhs_ptr =  val_rhs;" << std::endl;
-                                    kss << "rhs_ptr += " << nl + 1 << ";" << std::endl;
-                                }
-                            }
-
-                            kss.dec_tab();
-                            kss << "}" << std::endl;
-                            kss.dec_tab();
-                            kss << "}" << std::endl;
-                            kss << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
+                            fetch_to_local_mem(kss,"local_rhs","offsetRHS",kl_rhs,nl_rhs,nl+1,*first_rhs);
                             for(unsigned int k=0; k<ks_rhs; ++k){
                                 kss << "__local " << rhs_value_scalartype << "* rhs_ptr_" << k << " = local_rhs + " << k*(nl+1) << " + " << offset_n << ";" << std::endl;
                             }
@@ -583,125 +564,68 @@ namespace viennacl{
                            }
                        }
 
+
                        for(unsigned int k = 0 ; k < ks ; ++k){
                            for(unsigned int n=0 ; n < ns_res ; ++n){
                                for(unsigned int m=0 ; m < ms_res ; ++m){
                                    if(is_result_rowmajor && is_rhs_rowmajor){
-                                       if(!use_RHS_shared){
-                                           kss << res_table_name<< "_"<<m<<"_" << n << " += " ;
-                                           if(use_LHS_shared)
-                                               kss << "val_lhs_" << m << "_" << k;
-                                           else{
-                                               if(is_lhs_rowmajor)
-                                                    kss << "val_lhs_" << m << "_" << k/alignment << ".s" << k%alignment;
-                                               else
-                                                   kss << "val_lhs_" << m/alignment << "_" << k << ".s" << m%alignment;
+                                       kss << res_table_name<< "_"<<m<<"_" << n << " += " ;
+                                       if(use_LHS_shared) kss << "val_lhs_" << m << "_" << k;
+                                       else if(is_lhs_rowmajor) kss << "val_lhs_" << m << "_" << k/alignment << ".s" << k%alignment;
+                                       else kss << "val_lhs_" << m/alignment << "_" << k << ".s" << m%alignment;
+                                       kss << "*";
+                                       if(use_RHS_shared){
+                                           kss << '(' << first_rhs->aligned_scalartype() << ")(";
+                                           for(unsigned int a = 0; a<alignment; ++a){
+                                                kss <<" val_rhs_" << k << "_" << n*alignment+a;
+                                                if(a<alignment-1) kss << ",";
                                            }
-                                           kss << "*";
-                                           kss <<" val_rhs_" << k << "_" << n;
-                                           kss << ";" << std::endl;
+                                           kss << ")";
                                        }
-                                       else{
-                                           for(unsigned int a=0; a<alignment; ++a){
-                                               kss << res_table_name<< "_"<<m<<"_" << n << ".s" << a << " += " ;
-                                               if(use_LHS_shared)
-                                                   kss << "val_lhs_" << m << "_" << k;
-                                               else{
-                                                   if(is_lhs_rowmajor)
-                                                        kss << "val_lhs_" << m << "_" << k/alignment << ".s" << k%alignment;
-                                                   else
-                                                       kss << "val_lhs_" << m/alignment << "_" << k << ".s" << m%alignment;
-                                               }
-                                               kss << "*";
-                                               kss <<" val_rhs_" << k << "_" << n*alignment+a;
-                                               kss << ";" << std::endl;
-                                           }
-                                       }
+                                       else kss <<" val_rhs_" << k << "_" << n;
+                                       kss << ";" << std::endl;
                                    }
                                    else{
                                        for(unsigned int a=0; a<alignment; ++a){
-                                           kss << res_table_name<< "_"<<m <<"_" << n ;
-                                           if(alignment>1) kss << ".s" << a;
-                                           kss << " += ";
-
-                                           //Fills LHS value
+                                           kss << res_table_name<< "_"<<m <<"_" << n ; if(alignment>1) kss << ".s" << a; kss << " += ";
                                            kss << "val_lhs_";
-                                           if(is_result_rowmajor){
-                                               if(use_LHS_shared)
-                                                   kss << m;
-                                               else{
-                                                   if(is_lhs_rowmajor)
-                                                       kss << m;
-                                                   else
-                                                       kss << m/alignment;
-                                               }
-                                           }
-                                           else{
-                                               if(use_LHS_shared)
-                                                   kss << m*alignment + a;
-                                               else{
-                                                   if(is_lhs_rowmajor)
-                                                       kss << m*alignment+a;
-                                                   else
-                                                       kss << m;
-                                               }
-                                           }
+                                           if(is_result_rowmajor)
+                                               if(!use_LHS_shared && !is_lhs_rowmajor) kss << m/alignment;
+                                               else kss << m;
+                                           else
+                                               if(!use_LHS_shared && !is_lhs_rowmajor) kss << m;
+                                               else kss << m*alignment+a;
                                            kss << "_";
-                                           if(use_LHS_shared)
-                                               kss << k;
-                                           else{
-                                               if(is_lhs_rowmajor)
-                                                   kss << k/alignment << ".s" << k%alignment;
-                                               else{
-                                                   if(is_result_rowmajor)
-                                                     kss << k << ".s" << m%alignment;
-                                                   else
-                                                     kss << k << ".s" << a;
-                                               }
+                                           if(use_LHS_shared) kss << k;
+                                           else
+                                               if(is_lhs_rowmajor) kss << k/alignment << ".s" << k%alignment;
+                                               else
+                                                   if(is_result_rowmajor) kss << k << ".s" << m%alignment;
+                                                   else kss << k << ".s" << a;
 
-                                           }
+                                           kss << "*" ;
 
+                                           //RHS
+                                           if(use_RHS_shared)
+                                               if(is_result_rowmajor) kss << "val_rhs_" << k << "_" << n*alignment+a;
+                                               else
+                                                   if(is_rhs_rowmajor) kss <<" val_rhs_" << k << "_" << n;
+                                                   else kss <<  "val_rhs_" << k << "_" << n;
+                                           else
+                                               if(is_result_rowmajor) kss << "val_rhs_" << k/alignment << "_" << n*alignment+a;
+                                               else if(is_rhs_rowmajor) kss <<" val_rhs_" << k << "_" << n/alignment;
+                                               else kss <<  "val_rhs_" << k/alignment << "_" << n;
 
+                                           if(!use_RHS_shared && alignment>1)
+                                               if(is_result_rowmajor || (!is_result_rowmajor && !is_rhs_rowmajor)) kss << ".s" << k%alignment;
+                                               else kss << ".s" << n%alignment;
 
-                                           kss << "*";
-
-                                           //Fills RHS value
-                                           if(use_RHS_shared){
-                                               if(is_result_rowmajor){
-                                                   kss << "val_rhs_" << k << "_" << n*alignment+a;
-                                               }
-                                               else{
-                                                   if(is_rhs_rowmajor){
-                                                       kss <<" val_rhs_" << k << "_" << n;
-                                                   }
-                                                   else{
-                                                       kss <<  "val_rhs_" << k << "_" << n;
-                                                   }
-                                               }
-                                           }
-                                           else{
-                                               if(is_result_rowmajor){
-                                                   kss << "val_rhs_" << k/alignment << "_" << n*alignment+a;
-                                                   if(alignment>1) kss << ".s" << k%alignment;
-                                               }
-                                               else{
-                                                   if(is_rhs_rowmajor){
-                                                       kss <<" val_rhs_" << k << "_" << n/alignment;
-                                                       if(alignment>1) kss << ".s" << n%alignment;
-                                                   }
-                                                   else{
-                                                       kss <<  "val_rhs_" << k/alignment << "_" << n;
-                                                       if(alignment>1) kss << ".s" << k%alignment;
-                                                   }
-                                               }
-                                           }
                                            kss << ";" << std::endl;
                                        }
                                    }
                                }
                            }
                        }
-
 
                        if(use_RHS_shared){
                            for(unsigned int k=0 ; k<ks ; ++k){

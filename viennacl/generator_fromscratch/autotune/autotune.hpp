@@ -29,50 +29,55 @@ void benchmark_blas3(timings_t & timings, ConfigT const & config){
                     for(unsigned int ks = config.ks_min ; ks <= config.ks_max; ks*=2){
                         for(unsigned int ns = config.ns_min ; ns <= config.ns_max; ns*=2){
                             for(unsigned int alignment = config.alignment_min ; alignment <= config.alignment_max; alignment *=2){
-                                viennacl::generator::code_generation::blas3_optimization_profile prof(ml,kl,nl,ms,ks,ns,true,true,alignment);
+                                for(std::vector<bool>::const_iterator lhs_storage = config.LHS_storages.begin(); lhs_storage!=config.LHS_storages.end(); ++lhs_storage){
+                                    for(std::vector<bool>::const_iterator rhs_storage = config.RHS_storages.begin(); rhs_storage!=config.RHS_storages.end(); ++rhs_storage){
 
-                                if(alignment>ks || alignment>ns) continue;
-                                if((double)ml*(kl+1)*4/1024 > 32.0) continue;
-                                if(prof.local_work_size(0)*prof.local_work_size(1) > dev.max_workgroup_size()) continue;
+                                        viennacl::generator::code_generation::blas3_optimization_profile prof(ml,kl,nl,ms,ks,ns,*lhs_storage,*rhs_storage,alignment);
 
-                                std::ostringstream oss;
-//                                oss << "p" << ml << "_" << kl << "_"  << nl << "_"  << ms << "_"  << ks << "_"  << ns << "_"  << alignment ;
-                                viennacl::generator::custom_operation op;
-                                config.add_op(op);
-                                op.operations_manager().blas3_model() = prof;
-                                op.init();
-//                                op.program_name(oss.str());
-                                viennacl::ocl::program & pgm = op.program();
+                                        if(alignment>ks || alignment>ns) continue;
+                                        if((double)ml*(kl+1)*4/1024 > 32.0) continue;
+                                        if(prof.local_work_size(0)*prof.local_work_size(1) > dev.max_workgroup_size()) continue;
 
-                                viennacl::ocl::kernel & k = pgm.get_kernel("_k0");
+                                        std::ostringstream oss;
+                                        //                                oss << "p" << ml << "_" << kl << "_"  << nl << "_"  << ms << "_"  << ks << "_"  << ns << "_"  << alignment ;
+                                        viennacl::generator::custom_operation op;
+                                        config.add_op(op);
+                                        op.operations_manager().blas3_model() = prof;
+                                        op.init();
+                                        //                                op.program_name(oss.str());
+                                        viennacl::ocl::program & pgm = op.program();
 
-                                //Anticipates kernel failure
-                                size_t max_workgroup_size = k.max_workgroup_size(dev.id());
-                                if(prof.local_work_size(0)*prof.local_work_size(1) > max_workgroup_size)
-                                    continue;
+                                        viennacl::ocl::kernel & k = pgm.get_kernel("_k0");
 
-                                //Doesn't execute because it would likelily be a waste of time
-                                size_t prefered_workgroup_size_multiple = k.prefered_work_group_size_multiple(dev.id());
-                                if( (prof.local_work_size(0)*prof.local_work_size(1)) % prefered_workgroup_size_multiple > 0)
-                                    continue;
+                                        //Anticipates kernel failure
+                                        size_t max_workgroup_size = k.max_workgroup_size(dev.id());
+                                        if(prof.local_work_size(0)*prof.local_work_size(1) > max_workgroup_size)
+                                            continue;
 
-                                op.execute();
-                                viennacl::ocl::get_queue().finish();
-                                op.execute();
-                                viennacl::ocl::get_queue().finish();
+                                        //Doesn't execute because it would likelily be a waste of time
+                                        size_t prefered_workgroup_size_multiple = k.prefered_work_group_size_multiple(dev.id());
+                                        if( (prof.local_work_size(0)*prof.local_work_size(1)) % prefered_workgroup_size_multiple > 0)
+                                            continue;
 
-                                double exec_time = 0;
-                                for(unsigned int n=0; n<n_runs ; ++n){
-                                    op.execute();
-                                    Timer t; t.start();
-                                    viennacl::ocl::get_queue().flush();
-                                    t.start();
-                                    viennacl::ocl::get_queue().finish();
-                                    exec_time+=t.get();
+                                        op.execute();
+                                        viennacl::ocl::get_queue().finish();
+                                        op.execute();
+                                        viennacl::ocl::get_queue().finish();
+
+                                        double exec_time = 0;
+                                        for(unsigned int n=0; n<n_runs ; ++n){
+                                            op.execute();
+                                            Timer t; t.start();
+                                            viennacl::ocl::get_queue().flush();
+                                            t.start();
+                                            viennacl::ocl::get_queue().finish();
+                                            exec_time+=t.get();
+                                        }
+                                        exec_time = exec_time/n_runs;
+                                        std::cout << exec_time <<  " " << prof << std::endl;
+                                        timings.insert(std::make_pair(exec_time, new viennacl::generator::code_generation::blas3_optimization_profile(prof)));
+                                    }
                                 }
-                                exec_time = exec_time/n_runs;
-                                std::cout << exec_time <<  " " << prof << std::endl;
-                                timings.insert(std::make_pair(exec_time, new viennacl::generator::code_generation::blas3_optimization_profile(prof)));
                             }
                         }
                     }
