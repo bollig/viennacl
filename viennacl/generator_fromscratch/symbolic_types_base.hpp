@@ -16,7 +16,11 @@ namespace viennacl{
 
     namespace generator{
 
-        class local_memory{
+        template<unsigned int dim>
+        class local_memory;
+
+        template<>
+        class local_memory<1>{
         public:
 
             local_memory(std::string const & name, unsigned int size, std::string const & scalartype): name_(name), size_(size), scalartype_(scalartype){ }
@@ -27,6 +31,10 @@ namespace viennacl{
 
             unsigned int size() const{ return size_; }
 
+            std::string const & name() const{
+                return name_;
+            }
+
             std::string access(std::string const & index) const{
                 return name_ + '[' + index + ']';
             }
@@ -35,6 +43,37 @@ namespace viennacl{
             std::string name_;
             unsigned int size_;
             std::string const & scalartype_;
+        };
+
+        template<>
+        class local_memory<2>{
+        public:
+
+            local_memory(std::string const & name
+                         , unsigned int size1
+                         , unsigned int size2
+                         , std::string const & scalartype): size1_(size1), size2_(size2), impl_(name,size1*size2,scalartype){
+
+            }
+
+            std::string declare() const{
+                return impl_.declare();
+            }
+
+            std::string const & name() const { return impl_.name(); }
+
+            unsigned int size1() const{ return size1_; }
+
+            unsigned int size2() const{ return size2_; }
+
+            std::string offset(std::string const & i, std::string const & j) const{
+                return '('+i+')' + '*' + to_string(size2_) + '(' + j + ')';
+            }
+
+        private:
+            unsigned int size1_;
+            unsigned int size2_;
+            local_memory<1> impl_;
         };
 
         struct shared_infos_t{
@@ -149,7 +188,10 @@ namespace viennacl{
             matmat_prod_type() : nonarithmetic_op_infos_base("prod"){ }
         };
 
-
+        class trans_type : public nonarithmetic_op_infos_base{
+        public:
+            trans_type() : nonarithmetic_op_infos_base("trans"){ }
+        };
 
         class unary_tree_infos_base{
         public:
@@ -265,8 +307,8 @@ namespace viennacl{
             enum step_t{compute,reduce};
             step_t step(){ return *step_; }
             void step(step_t s){ *step_ = s; }
-            local_memory make_local_memory(unsigned int size){
-                return local_memory(name()+"_local",size,scalartype());
+            local_memory<1> make_local_memory(unsigned int size){
+                return local_memory<1>(name()+"_local",size,scalartype());
             }
             std::string arguments_string() const{
                 return "__global " + scalartype() + "*" + " " + name();

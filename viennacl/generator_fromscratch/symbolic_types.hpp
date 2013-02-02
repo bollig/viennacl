@@ -192,8 +192,9 @@ namespace viennacl
 
           template<class SharedInfosMapT>
           symbolic_matrix(SharedInfosMapT & map
-                          ,vcl_mat_t const & vcl_mat) : mat_infos_base(are_same_type<viennacl::row_major,F>::value
-                                                                       ,false), vcl_mat_(vcl_mat){
+                          ,vcl_mat_t const & vcl_mat
+                          ,bool is_transposed) : mat_infos_base(are_same_type<viennacl::row_major,F>::value
+                                                                       ,is_transposed), vcl_mat_(vcl_mat){
             infos_= &map.insert(std::make_pair(vcl_mat_.handle(),shared_infos_t(map.size(),print_type<ScalarType>::value()))).first->second;
 
           }

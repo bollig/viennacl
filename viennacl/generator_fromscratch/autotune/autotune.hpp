@@ -5,6 +5,8 @@
 #include "ctime"
 #include "viennacl/generator_fromscratch/forwards.h"
 #include "viennacl/generator_fromscratch/code_generation/frontend.hpp"
+#include "iomanip"
+#include "cmath"
 
 namespace viennacl{
 
@@ -19,8 +21,20 @@ void benchmark_blas3(timings_t & timings, ConfigT const & config){
 
     viennacl::ocl::device const & dev = viennacl::ocl::current_device();
 
+    std::cout << std::fixed << std::setprecision(3);
     unsigned int n_runs =config.n_runs;
 
+    float total = std::log(config.ml_max/config.ml_min)/std::log(2)+1;
+    total*=std::log(config.kl_max/config.kl_min)/std::log(2)+1;
+    total*=std::log(config.nl_max/config.nl_min)/std::log(2)+1;
+    total*=std::log(config.ms_max/config.ms_min)/std::log(2)+1;
+    total*=std::log(config.ks_max/config.ks_min)/std::log(2)+1;
+    total*=std::log(config.ns_max/config.ns_min)/std::log(2)+1;
+    total*=std::log(config.alignment_max/config.alignment_min)/std::log(2)+1;
+    total*=config.LHS_storages.size();
+    total*=config.RHS_storages.size();
+
+    unsigned int n_iter=0;
 
     for(unsigned int ml = config.ml_min ; ml <= config.ml_max; ml*=2){
         for(unsigned int kl = config.kl_min ; kl <= config.kl_max; kl*=2){
@@ -32,10 +46,14 @@ void benchmark_blas3(timings_t & timings, ConfigT const & config){
                                 for(std::vector<bool>::const_iterator lhs_storage = config.LHS_storages.begin(); lhs_storage!=config.LHS_storages.end(); ++lhs_storage){
                                     for(std::vector<bool>::const_iterator rhs_storage = config.RHS_storages.begin(); rhs_storage!=config.RHS_storages.end(); ++rhs_storage){
 
+                                        std::cout << '\r' << (float)++n_iter/total * 100 << "%" << std::flush;
                                         viennacl::generator::code_generation::blas3_optimization_profile prof(ml,kl,nl,ms,ks,ns,*lhs_storage,*rhs_storage,alignment);
 
                                         if(alignment>ks || alignment>ns) continue;
-                                        if((double)ml*(kl+1)*4/1024 > 32.0) continue;
+                                        double lmem_size = 0;
+                                        if(*lhs_storage) lmem_size += (double)ml*(kl+1)*4/1024;
+                                        if(*rhs_storage) lmem_size += (double)kl*(nl+1)*4/1024;
+                                        if( lmem_size > 32.0) continue;
                                         if(prof.local_work_size(0)*prof.local_work_size(1) > dev.max_workgroup_size()) continue;
 
                                         std::ostringstream oss;
@@ -74,7 +92,6 @@ void benchmark_blas3(timings_t & timings, ConfigT const & config){
                                             exec_time+=t.get();
                                         }
                                         exec_time = exec_time/n_runs;
-                                        std::cout << exec_time <<  " " << prof << std::endl;
                                         timings.insert(std::make_pair(exec_time, new viennacl::generator::code_generation::blas3_optimization_profile(prof)));
                                     }
                                 }
@@ -85,6 +102,9 @@ void benchmark_blas3(timings_t & timings, ConfigT const & config){
             }
         }
     }
+
+    std::cout << std::setprecision(6);
+
 }
 
 }

@@ -18,6 +18,7 @@ class scal_div_type;
 class inplace_scal_div_type;
 class elementwise_prod_type;
 class elementwise_div_type;
+class trans_type;
 
 template<class LHS, class OP, class RHS>
 class compile_time_beast;

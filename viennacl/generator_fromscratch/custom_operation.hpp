@@ -35,6 +35,16 @@ namespace viennacl
           }
       };
 
+      template<class T>
+      struct dummy2exptree_impl<matrix_expression_wrapper<T,trans_type,T> >{
+          typedef typename dummy2exptree_impl<T>::result_type result_type;
+          static result_type execute(shared_infos_map_t & shared_infos,
+                                     temporaries_map_t & temporaries_,
+                                     matrix_expression_wrapper<T,trans_type,T> const & m){
+              return result_type(shared_infos, m.lhs().mat(),true);
+          }
+      };
+
       template<class ScalarType>
       struct dummy2exptree_impl<dummy_vector<ScalarType> >{
           typedef symbolic_vector<ScalarType, 16> result_type;
@@ -51,10 +61,9 @@ namespace viennacl
           static result_type execute(shared_infos_map_t & shared_infos,
                                      temporaries_map_t & temporaries_,
                                      dummy_matrix<ScalarType,Layout> const & m){
-              return result_type(shared_infos, m.mat());
+              return result_type(shared_infos, m.mat(),false);
           }
       };
-
 
       template<class LHS, class RHS>
       struct dummy2exptree_impl<inner_prod_wrapper<LHS,RHS> >{
@@ -145,7 +154,7 @@ namespace viennacl
 
       private:
           void compile_program(std::string const & pgm_name) const{
-//              std::cout << source_code_ << std::endl;
+              std::cout << source_code_ << std::endl;
               assert(!source_code_.empty() && " Custom Operation not initialized ");
               viennacl::ocl::program& program = viennacl::ocl::current_context().add_program(source_code_, pgm_name);
               for(std::map<std::string, generator::code_generation::kernel_infos_t>::const_iterator it = kernels_infos_.begin() ; it !=kernels_infos_.end() ; ++it){

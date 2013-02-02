@@ -3,6 +3,7 @@
 
 #include "viennacl/meta/enable_if.hpp"
 #include "viennacl/generator_fromscratch/forwards.h"
+//#include "viennacl/forwards.h"
 #include "viennacl/vector.hpp"
 #include <set>
 
@@ -29,6 +30,7 @@ private:
 
 struct inprod_type{ };
 struct matmat_prod_type_wrapper{ };
+
 
 template<class LHS, class OP, class RHS>
 class vector_expression_wrapper : public compile_time_beast<LHS,OP,RHS>{
@@ -333,6 +335,12 @@ typename viennacl::enable_if<is_matrix_expression_t<LHS>::value && is_matrix_exp
 prod(LHS const & lhs, RHS const & rhs)
 {
     return matmat_prod_wrapper<LHS,RHS>(lhs,rhs);
+}
+
+template<class T>
+typename viennacl::enable_if<is_matrix_expression_t<T>::value, matrix_expression_wrapper<T,trans_type,T> >::type
+trans(T const & mat){
+    return matrix_expression_wrapper<T,trans_type,T>(mat,mat);
 }
 
 template<class LHS, class RHS>
