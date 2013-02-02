@@ -615,9 +615,9 @@ namespace viennacl{
                         }
 
 
-                        for(unsigned int k = 0 ; k < ks ; ++k){
                             for(unsigned int n=0 ; n < ns_res ; ++n){
                                 for(unsigned int m=0 ; m < ms_res ; ++m){
+                                    for(unsigned int k = 0 ; k < ks ; ++k){
                                     if(is_result_rowmajor && is_rhs_rowmajor){
                                         kss << res_table_name<< "_"<<m<<"_" << n << " += " ;
                                         if(use_LHS_shared){

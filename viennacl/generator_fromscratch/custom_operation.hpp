@@ -162,6 +162,11 @@ namespace viennacl
               }
           }
 
+          void init() {
+              source_code_ = operations_manager_.get_source_code(kernels_infos_);
+          }
+
+
       public :
 
           template<class T>
@@ -177,12 +182,10 @@ namespace viennacl
               return operations_manager_;
           }
 
-          void init() {
-              source_code_ = operations_manager_.get_source_code(kernels_infos_);
-          }
 
 
           viennacl::ocl::program & program(){
+              init();
               std::string program_name_ = operations_manager_.repr();
               if(!viennacl::ocl::current_context().has_program(program_name_)){
                   compile_program(program_name_);
