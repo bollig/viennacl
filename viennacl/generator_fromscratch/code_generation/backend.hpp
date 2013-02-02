@@ -130,11 +130,16 @@ namespace viennacl{
 
 
                     void set_global_sizes(mat_infos_base* mat){
-                        if(mat->is_transposed())
-                            global_work_size_[0] = (mat->real_size1()+ml_-1)/ml_*local_work_size_[0];
-                        else
-                            global_work_size_[0] = (mat->real_size2()+kl_-1)/kl_*local_work_size_[0];
+                        if(mat->is_transposed()){
+                            local_work_size_[0] =kl_/ks_;
+                            global_work_size_[0] = (mat->real_size1()+kl_-1)/kl_*local_work_size_[0];
+                        }
+                        else{
+                            local_work_size_[0] =ml_/ms_;
+                            global_work_size_[0] = (mat->real_size2()+ml_-1)/ml_*local_work_size_[0];
+                        }
 
+                        local_work_size_[1] = nl_/ns_;
                         global_work_size_[1] = (mat->real_size2()+nl_-1)/nl_*local_work_size_[1];
                     }
 
@@ -452,9 +457,6 @@ namespace viennacl{
 
                         bool is_lhs_transposed = first_lhs->is_transposed();
 
-                        bool use_inner_product = is_lhs_rowmajor && !is_rhs_rowmajor;
-
-
                         std::string lhs_value_scalartype;
                         if(use_LHS_shared) lhs_value_scalartype = first_lhs->scalartype();
                         else lhs_value_scalartype = first_lhs->aligned_scalartype();
@@ -468,10 +470,10 @@ namespace viennacl{
                         unsigned int kl_rhs = kl, nl_rhs = nl, ks_rhs = ks, ns_rhs = ns;
 
 
-//                        if(is_lhs_transposed){
-//                            std::swap(kl_lhs,ml_lhs);
-//                            std::swap(ks_lhs,ms_lhs);
-//                        }
+                        if(is_lhs_transposed){
+                            std::swap(kl_lhs,ml_lhs);
+                            std::swap(ks_lhs,ms_lhs);
+                        }
 
                         transform_block(*first_assigned,false,ml_res,nl_res,ms_res,ns_res);
                         transform_block(*first_lhs,use_LHS_shared,ml_lhs,kl_lhs,ms_lhs,ks_lhs);
@@ -488,7 +490,17 @@ namespace viennacl{
                         std::string internal_size1_res = first_assigned->internal_size1();
                         std::string internal_size2_res = first_assigned->internal_size2();
 
-                        local_memory<2> lmem_lhs("local_lhs",ml,kl+1,first_lhs->scalartype());
+                        unsigned int lhs_size1;
+                        unsigned int lhs_size2;
+                        if(is_lhs_transposed){
+                            lhs_size1=kl;
+                            lhs_size2=ml+1;
+                        }
+                        else{
+                            lhs_size1=ml;
+                            lhs_size2=kl+1;
+                        }
+                        local_memory<2> lmem_lhs("local_lhs",lhs_size1,lhs_size2,first_lhs->scalartype());
                         local_memory<2> lmem_rhs("local_rhs",kl,nl+1,first_lhs->scalartype());
 
                         //Declaration of results registers
@@ -516,10 +528,14 @@ namespace viennacl{
 
 
 
-                        std::string offset_m(helper_variable(kss,false,"unsigned int", "offset_m", "get_local_id(0)*" + to_string(ms_lhs)));
+                        std::string offset_m;
+                        if(is_lhs_transposed)
+                            offset_m = helper_variable(kss,false,"unsigned int", "offset_m", "get_local_id(0)*" + to_string(ks_lhs));
+                        else
+                            offset_m = helper_variable(kss,false,"unsigned int", "offset_m", "get_local_id(0)*" + to_string(ms_lhs));
                         std::string offset_n(helper_variable(kss,false,"unsigned int", "offset_n", "get_local_id(1)*" + to_string(ns_rhs)));
 
-                        std::string block_num(helper_variable(kss,true,"unsigned int", "block_num", internal_size2_lhs + '/' + to_string(kl_lhs)));
+                        std::string block_num(helper_variable(kss,true,"unsigned int", "block_num", internal_size1_rhs + '/' + to_string(kl_rhs)));
 
                         kss << "__global " << first_assigned->aligned_scalartype() << "* res_ptr = " <<  first_assigned->name() << " + " << first_assigned->offset("get_global_id(0)*" + to_string(ms_res), "get_global_id(1)*" + to_string(ns_res)) << ";" << std::endl;
                         kss << "unsigned int offsetRHS = " << first_rhs->offset("0", " get_group_id(1)*" + to_string(nl_rhs)) << ";" << std::endl;
@@ -540,7 +556,11 @@ namespace viennacl{
                         if(use_LHS_shared==false){
                             if(is_lhs_rowmajor){
                                 for(unsigned int m=0; m<ms_lhs; ++m){
-                                    kss << "__global " << lhs_value_scalartype << "* ptr_lhs_" << m << " = " << first_lhs->name() << " + " << first_lhs->offset("get_group_id(0)*" + to_string(ml_lhs) + "+" + offset_m + "+" + to_string(m),"0") << ";" << std::endl;
+                                    if(is_lhs_transposed)
+                                        kss << "__global " << lhs_value_scalartype << "* ptr_lhs_" << m << " = " << first_lhs->name() << " + " << first_lhs->offset(to_string(m),"get_group_id(0)*" + to_string(kl_lhs) + "+" + offset_m ) << ";" << std::endl;
+                                    else
+                                        kss << "__global " << lhs_value_scalartype << "* ptr_lhs_" << m << " = " << first_lhs->name() << " + " << first_lhs->offset("get_group_id(0)*" + to_string(ml_lhs) + "+" + offset_m + "+" + to_string(m),"0") << ";" << std::endl;
+
                                 }
                             }
                             else{
@@ -556,7 +576,7 @@ namespace viennacl{
                             fetch_to_local_mem(kss,lmem_lhs,"offsetLHS",ml_lhs,kl_lhs,*first_lhs);
                             for(unsigned int m=0; m<ms_lhs; ++m){
                                 if(is_lhs_transposed)
-                                        kss << "__local " << lhs_value_scalartype << "* ptr_lhs_" << m << " = local_lhs + " << m*lmem_rhs.size2() << " + " << offset_m << ";" << std::endl;
+                                        kss << "__local " << lhs_value_scalartype << "* ptr_lhs_" << m << " = local_lhs + " << m*lmem_lhs.size2() << " + " << offset_m << ";" << std::endl;
 
                                 else
                                     kss << "__local " << lhs_value_scalartype << "* ptr_lhs_" << m << " = local_lhs + (" << offset_m << "+" << m << ")" << "*" << lmem_lhs.size2() << ";" << std::endl;
@@ -606,8 +626,14 @@ namespace viennacl{
                                             else
                                                 kss << "val_lhs_" << m << "_" << k;
                                         }
-                                        else if(is_lhs_rowmajor) kss << "val_lhs_" << m << "_" << k/alignment << ".s" << k%alignment;
+                                        else if(is_lhs_rowmajor){
+                                            if(is_lhs_transposed)
+                                                kss << "val_lhs_" << k << "_" << m/alignment << ".s" << m%alignment;
+                                            else
+                                                kss << "val_lhs_" << m << "_" << k/alignment << ".s" << k%alignment;
+                                        }
                                         else kss << "val_lhs_" << m/alignment << "_" << k << ".s" << m%alignment;
+
                                         kss << "*";
                                         if(use_RHS_shared){
                                             kss << '(' << first_rhs->aligned_scalartype() << ")(";
@@ -675,9 +701,12 @@ namespace viennacl{
                         }
 
 
-                        if(use_LHS_shared && is_lhs_transposed){
+                        if(is_lhs_transposed){
                             for(unsigned int m=0 ; m<ms_lhs ; ++m){
-                                kss << "ptr_lhs_" << m << " += " << ms_lhs*lmem_lhs.size2() - ks_lhs << ";" << std::endl;
+                                if(use_LHS_shared)
+                                    kss << "ptr_lhs_" << m << " += " << ks*lmem_lhs.size2() - ks_lhs << ";" << std::endl;
+                                else
+                                    kss << "ptr_lhs_" << m << " += " << ks << "*" << internal_size2_lhs << " - " <<  ks_lhs << ";" << std::endl;
                             }
                         }
 
