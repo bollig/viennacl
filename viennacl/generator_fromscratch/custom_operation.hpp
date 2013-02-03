@@ -47,7 +47,7 @@ namespace viennacl
 
       template<class ScalarType>
       struct dummy2exptree_impl<dummy_vector<ScalarType> >{
-          typedef symbolic_vector<ScalarType, 16> result_type;
+          typedef symbolic_vector<ScalarType> result_type;
           static result_type execute(shared_infos_map_t & shared_infos,
                                      temporaries_map_t & temporaries_,
                                      dummy_vector<ScalarType> const & v){
@@ -57,7 +57,7 @@ namespace viennacl
 
       template<class ScalarType, class Layout>
       struct dummy2exptree_impl<dummy_matrix<ScalarType, Layout> >{
-          typedef symbolic_matrix<ScalarType,Layout, 16> result_type;
+          typedef symbolic_matrix<ScalarType,Layout> result_type;
           static result_type execute(shared_infos_map_t & shared_infos,
                                      temporaries_map_t & temporaries_,
                                      dummy_matrix<ScalarType,Layout> const & m){

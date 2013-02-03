@@ -78,6 +78,8 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
         exec_time+=t.get();
     }
     exec_time = exec_time/n_runs;
+
+
     timings.insert(std::make_pair(exec_time, new viennacl::generator::code_generation::blas3_optimization_profile(prof)));
 
 }
@@ -108,9 +110,10 @@ void benchmark_blas3(timings_t & timings, OpT const & op, ConfigT const & config
                             for(unsigned int alignment = config.alignment_min ; alignment <= config.alignment_max; alignment *=2){
                                 for(std::vector<bool>::const_iterator lhs_storage = config.LHS_storages.begin(); lhs_storage!=config.LHS_storages.end(); ++lhs_storage){
                                     for(std::vector<bool>::const_iterator rhs_storage = config.RHS_storages.begin(); rhs_storage!=config.RHS_storages.end(); ++rhs_storage){
-                                        std::cout << '\r' << (float)++n_iter/total * 100 << "%" << std::flush;
+                                        if(n_iter%100==0) std::cout << '\r' << (float)n_iter/total * 100 << "%" << std::flush;
                                         viennacl::generator::code_generation::blas3_optimization_profile prof(ml,kl,nl,ms,ks,ns,*lhs_storage,*rhs_storage,alignment);
                                         benchmark_blas3_profile(timings,dev,op,prof);
+                                        ++n_iter;
                                     }
                                 }
                             }
@@ -128,10 +131,14 @@ void benchmark_blas3(timings_t & timings, OpT const & op, std::list<viennacl::ge
     viennacl::ocl::device const & dev = viennacl::ocl::current_device();
     unsigned int n_iter=0;
     for(std::list<viennacl::generator::code_generation::blas3_optimization_profile>::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
-        std::cout << '\r' << (float)++n_iter/profiles.size() * 100 << "%" << std::flush;
-        benchmark_blas3_profile(timings,dev,op,*it);
+        if(n_iter%100==0) std::cout << '\r' << (float)++n_iter/profiles.size() * 100 << "%" << std::flush;
+        benchmark_blas3_profile<OpT>(timings,dev,op,*it);
+        ++n_iter;
     }
 }
+
+
+
 
 }
 

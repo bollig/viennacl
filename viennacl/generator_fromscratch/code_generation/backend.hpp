@@ -627,12 +627,19 @@ namespace viennacl{
                                                 kss << "val_lhs_" << m << "_" << k;
                                         }
                                         else if(is_lhs_rowmajor){
-                                            if(is_lhs_transposed)
-                                                kss << "val_lhs_" << k << "_" << m/alignment << ".s" << m%alignment;
-                                            else
-                                                kss << "val_lhs_" << m << "_" << k/alignment << ".s" << k%alignment;
+                                            if(is_lhs_transposed){
+                                                kss << "val_lhs_" << k << "_" << m/alignment;
+                                                if(alignment>1) kss << ".s" << m%alignment;
+                                            }
+                                            else{
+                                                kss << "val_lhs_" << m << "_" << k/alignment ;
+                                                if(alignment>1) kss << ".s" << k%alignment;
+                                            }
                                         }
-                                        else kss << "val_lhs_" << m/alignment << "_" << k << ".s" << m%alignment;
+                                        else{
+                                            kss << "val_lhs_" << m/alignment << "_" << k;
+                                            if(alignment>1) kss << ".s" << m%alignment;
+                                        }
 
                                         kss << "*";
                                         if(use_RHS_shared){
@@ -648,7 +655,8 @@ namespace viennacl{
                                     }
                                     else{
                                         for(unsigned int a=0; a<alignment; ++a){
-                                            kss << res_table_name<< "_"<<m <<"_" << n ; if(alignment>1) kss << ".s" << a; kss << " += ";
+                                            kss << res_table_name<< "_"<<m <<"_" << n ;
+                                            if(alignment>1) kss << ".s" << a; kss << " += ";
                                             kss << "val_lhs_";
                                             if(is_result_rowmajor)
                                                 if(!use_LHS_shared && !is_lhs_rowmajor) kss << m/alignment;
@@ -659,10 +667,20 @@ namespace viennacl{
                                             kss << "_";
                                             if(use_LHS_shared) kss << k;
                                             else
-                                                if(is_lhs_rowmajor) kss << k/alignment << ".s" << k%alignment;
-                                                else
-                                                    if(is_result_rowmajor) kss << k << ".s" << m%alignment;
-                                                    else kss << k << ".s" << a;
+                                                if(is_lhs_rowmajor){
+                                                    kss << k/alignment;
+                                                    if(alignment>1) kss << ".s" << k%alignment;
+                                                }
+                                                else{
+                                                    if(is_result_rowmajor){
+                                                        kss << k ;
+                                                        if(alignment>1) kss << ".s" << m%alignment;
+                                                    }
+                                                    else{
+                                                        kss << k;
+                                                        if(alignment>1) kss << ".s" << a;
+                                                    }
+                                                }
 
                                             kss << "*" ;
 
@@ -677,8 +695,9 @@ namespace viennacl{
                                                 else if(is_rhs_rowmajor) kss <<" val_rhs_" << k << "_" << n/alignment;
                                                 else kss <<  "val_rhs_" << k/alignment << "_" << n;
 
+
                                             if(!use_RHS_shared && alignment>1)
-                                                if(is_result_rowmajor || (!is_result_rowmajor && !is_rhs_rowmajor)) kss << ".s" << k%alignment;
+                                                if(is_result_rowmajor || (!is_result_rowmajor && !is_rhs_rowmajor))kss << ".s" << k%alignment;
                                                 else kss << ".s" << n%alignment;
 
                                             kss << ";" << std::endl;

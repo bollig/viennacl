@@ -147,12 +147,12 @@ namespace viennacl
       * @tparam SCALARTYPE The Scalartype of the vector in the generated code
       * @tparam ALIGNMENT The Alignment of the vector in the generated code
       */
-      template <typename SCALARTYPE, unsigned int ALIGNMENT>
+      template <typename SCALARTYPE>
       class symbolic_vector : public vec_infos_base{
         private:
-          typedef symbolic_vector<SCALARTYPE,ALIGNMENT> self_type;
+          typedef symbolic_vector<SCALARTYPE> self_type;
         public:
-          typedef viennacl::vector<SCALARTYPE,ALIGNMENT> vcl_vec_t;
+          typedef viennacl::vector<SCALARTYPE> vcl_vec_t;
           typedef SCALARTYPE ScalarType;
 
           template<class SharedInfosMapT>
@@ -182,13 +182,13 @@ namespace viennacl
       * @tparam F The Layout of the matrix in the generated code
       * @tparam ALIGNMENT The Alignment of the matrix in the generated code
       */
-      template<typename SCALARTYPE, class F, unsigned int ALIGNMENT>
+      template<typename SCALARTYPE, class F>
       class symbolic_matrix : public mat_infos_base
       {
-          typedef symbolic_matrix<SCALARTYPE, F, ALIGNMENT> self_type;
+          typedef symbolic_matrix<SCALARTYPE, F> self_type;
 
         public:
-          typedef viennacl::matrix<SCALARTYPE,F, ALIGNMENT> vcl_mat_t;
+          typedef viennacl::matrix<SCALARTYPE,F> vcl_mat_t;
 
           template<class SharedInfosMapT>
           symbolic_matrix(SharedInfosMapT & map
@@ -218,7 +218,7 @@ namespace viennacl
               k.arg(n_arg++,cl_uint(vcl_mat_.internal_size2()));
           }
 
-          typedef viennacl::matrix<SCALARTYPE,F,ALIGNMENT> runtime_type;
+          typedef viennacl::matrix<SCALARTYPE,F> runtime_type;
           typedef SCALARTYPE ScalarType;
 
           viennacl::backend::mem_handle const & handle() const{ return vcl_mat_.handle(); }

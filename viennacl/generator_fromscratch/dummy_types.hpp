@@ -119,7 +119,7 @@ private:
 template<typename SCALARTYPE>
 class dummy_vector{
     typedef dummy_vector<SCALARTYPE> self_type;
-    typedef viennacl::vector<SCALARTYPE,16> vcl_vec_t;
+    typedef viennacl::vector<SCALARTYPE> vcl_vec_t;
     vcl_vec_t const & vec_;
 public:
 
@@ -199,7 +199,7 @@ class dummy_matrix{
     typedef dummy_matrix<ScalarType, Layout> self_type;
 public:
 
-    typedef viennacl::matrix<ScalarType,Layout,16> vcl_mat_t;
+    typedef viennacl::matrix<ScalarType,Layout> vcl_mat_t;
 
     dummy_matrix(vcl_mat_t const & mat) : mat_(mat){ }
 
