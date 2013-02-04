@@ -63,6 +63,7 @@ double diff(VCLMatrixType1 & mat1, VCLMatrixType2 & mat2)
 
    boost::numeric::ublas::matrix<ScalarType1> mat1_cpu(mat1.size1(), mat1.size2());
    boost::numeric::ublas::matrix<ScalarType2> mat2_cpu(mat2.size1(), mat2.size2());
+
    viennacl::backend::finish();  //workaround for a bug in APP SDK 2.7 on Trinity APUs (with Catalyst 12.8)
    viennacl::copy(mat2, mat2_cpu);
    viennacl::copy(mat1, mat1_cpu);
@@ -87,7 +88,6 @@ template<class RefTypeA,
          class ResTypeA,
          class OpT>
 bool test_blas3(RefTypeA const & reference, ResTypeA const & dummyA, OpT const & operation, std::list<viennacl::generator::code_generation::blas3_optimization_profile> const & profiles){
-    viennacl::ocl::device const & dev = viennacl::ocl::current_device();
     bool res = true;
     for(std::list<viennacl::generator::code_generation::blas3_optimization_profile>::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
         viennacl::generator::custom_operation op;
@@ -98,6 +98,7 @@ bool test_blas3(RefTypeA const & reference, ResTypeA const & dummyA, OpT const &
         double delta = diff(reference,dummyA);
         if(delta>1e-5){
             std::cout << "Failed for " << *it << "| Diff : " << delta << std::endl;
+//            std::cout << op.source_code() << std::endl;
             res=false;
         }
     }
@@ -133,17 +134,16 @@ void fill_matrix(MatTypeA & A, MatTypeB & B, MatTypeC & C){
 
 template<class OpT, class MatTypeA, class MatTypeB, class MatTypeC>
 
-void benchmark_test(OpT const & operation, config conf, MatTypeA & A, MatTypeB & B, MatTypeC & C){
+void benchmark(OpT const & operation, config conf, MatTypeA & A, MatTypeB & B, MatTypeC & C,
+                    std::list<viennacl::generator::code_generation::blas3_optimization_profile> & fastest_firsts){
     viennacl::generator::autotune::timings_t timings;
-    std::list<viennacl::generator::code_generation::blas3_optimization_profile> fastest_firsts;
     unsigned int size;
 
     std::list<std::pair<unsigned int, unsigned int> > rounds_config;
     rounds_config.push_back(std::make_pair(512,100));
-    rounds_config.push_back(std::make_pair(1024,20));
+//    rounds_config.push_back(std::make_pair(1024,20));
     for(std::list<std::pair<unsigned int, unsigned int> >::iterator it = rounds_config.begin() ; it!= rounds_config.end(); ++it){
         unsigned int k = std::distance(rounds_config.begin(),it);
-        std::cout << "Round " << k << " : " << std::endl;
         timings.clear();
         size=it->first;
         unsigned int n_keep=it->second;
@@ -166,14 +166,7 @@ void benchmark_test(OpT const & operation, config conf, MatTypeA & A, MatTypeB &
             fastest_firsts.push_back(*static_cast<viennacl::generator::code_generation::blas3_optimization_profile* >(itt->second.get()));
         }
     }
-
-    std::cout << " Best : " << std::pow((float)size/1000,3)/timings.begin()->first << " GFlops : " << *timings.begin()->second << std::endl;
-
-    std::cout << "Testing " << fastest_firsts.size() << " best configurations" << std::endl;
-    MatTypeA A_ref(viennacl::linalg::prod(B,C));
-    if(test_blas3(A_ref,A,operation,fastest_firsts)){
-        std::cout << "#Passed" << std::endl;
-    }
+    std::cout << "Best : " << std::pow((float)size/1000,3)/timings.begin()->first << " GFlops : " << *timings.begin()->second << std::endl;
 }
 
 template<class ScalarTypeA, class LayoutA
@@ -192,13 +185,12 @@ void run_autotune(){
 
     config conf;
 
-    unsigned int n_runs = 2 ;
 
     conf.ml_min = 32; conf.ml_max=32;
     conf.kl_min = 64; conf.kl_max=64;
     conf.nl_min = 32; conf.nl_max=32;
     conf.ms_min = 4; conf.ms_max=4;
-    conf.ks_min = 4; conf.ks_max=4;
+    conf.ks_min = 2; conf.ks_max=2;
     conf.ns_min = 4; conf.ns_max=4;
     conf.alignment_min = 2; conf.alignment_max = 2;
     conf.LHS_storages.push_back(true);
@@ -209,46 +201,25 @@ void run_autotune(){
     viennacl::matrix<ScalarTypeA,LayoutA> A;
     viennacl::matrix<ScalarTypeB,LayoutB> B;
     viennacl::matrix<ScalarTypeC,LayoutC> C;
+    std::list<viennacl::generator::code_generation::blas3_optimization_profile> fastest_firsts;
 
-    benchmark_test(dma_t(A) = prod(dmb_t(B),dmc_t(C)),conf,A,B,C);
-
-//    //First round
-//    std::cout << "Round 1 : " << std::endl;
-//    A.resize(size,size,false);
-//    B.resize(size,size,false);
-//    C.resize(size,size,false);
-
-//    fill_matrix(A,B,C);
+    std::cout << "------------AA------------" << std::endl;
+    benchmark(dma_t(A) = prod(dmb_t(B),dmc_t(C)),conf,A,B,C,fastest_firsts);
+    std::cout << "Testing " << fastest_firsts.size() << " best configurations" << std::endl;
+    if(!test_blas3(viennacl::matrix<ScalarTypeA,LayoutA>(viennacl::linalg::prod(B,C)),A,dma_t(A) = prod(dmb_t(B),dmc_t(C)),fastest_firsts)){
+        std::cout << "#Fail" << std::endl;
+    }
 
 
-//    viennacl::generator::autotune::benchmark_blas3(timings,dma_t(A) = prod(dmb_t(B),dmc_t(C)),conf);
+    std::cout << "------------TA------------" << std::endl;
+    benchmark(dma_t(A) = prod(trans(dmb_t(B)),dmc_t(C)),conf,A,B,C,fastest_firsts);
+    std::cout << "Testing " << fastest_firsts.size() << " best configurations" << std::endl;
 
-//    for(viennacl::generator::autotune::timings_t::iterator it = timings.begin(); it!=timings.end() ; ++it){
-//        unsigned int k = std::distance(timings.begin(),it);
-//        if(k>n_keep1) break;
-//        fastest_firsts.push_back(*static_cast<viennacl::generator::code_generation::blas3_optimization_profile* >(it->second.get()));
-//    }
+    viennacl::ocl::get_queue().finish();
+    if(!test_blas3(viennacl::matrix<ScalarTypeA,LayoutA>(viennacl::linalg::prod(trans(B),C)),A,dma_t(A) = prod(trans(dmb_t(B)),dmc_t(C)),fastest_firsts)){
+        std::cout << "#Fail" << std::endl;
+    }
 
-//    std::cout << "Round 2 : " << std::endl;
-//    timings.clear();
-//    size=1024;
-//    A.resize(size,size,false);
-//    B.resize(size,size,false);
-//    C.resize(size,size,false);
-
-//    fill_matrix(A,B,C);
-
-//    viennacl::generator::autotune::benchmark_blas3(timings,dma_t(A) = prod(dmb_t(B),dmc_t(C)),fastest_firsts);
-//    fastest_firsts.clear();
-//    for(viennacl::generator::autotune::timings_t::iterator it = timings.begin(); it!=timings.end() ; ++it){
-//        unsigned int k = std::distance(timings.begin(),it);
-//        if(k>n_keep2) break;
-//        fastest_firsts.push_back(*static_cast<viennacl::generator::code_generation::blas3_optimization_profile* >(it->second.get()));
-//        std::cout << k << "th Best : " << it->first<< " <=> " << *it->second << std::endl;
-//    }
-
-//    viennacl::matrix<ScalarTypeA,LayoutA> A_ref(viennacl::linalg::prod(B,C));
-//    test_blas3(A_ref,A,dma_t(A) = prod(dmb_t(B),dmc_t(C)),fastest_firsts);
 }
 
 int main(){
@@ -279,6 +250,16 @@ int main(){
                              ,float,viennacl::row_major
                              ,float,viennacl::column_major >();
 
+                std::cout << "====== Column-Major = Row-Major * Column-Major ======" << std::endl;
+                run_autotune< float,viennacl::column_major
+                             ,float,viennacl::row_major
+                             ,float,viennacl::column_major >();
+
+                std::cout << "====== Column-Major = Row-Major * Row-Major ======" << std::endl;
+                run_autotune< float,viennacl::column_major
+                             ,float,viennacl::row_major
+                             ,float,viennacl::row_major >();
+
                 std::cout << "====== Row-Major = Column-Major * Row-Major ======" << std::endl;
                 run_autotune< float,viennacl::row_major
                              ,float,viennacl::column_major
@@ -291,20 +272,12 @@ int main(){
 
 
 
-                std::cout << "====== Column-Major = Row-Major * Column-Major ======" << std::endl;
-                run_autotune< float,viennacl::column_major
-                             ,float,viennacl::row_major
-                             ,float,viennacl::column_major >();
-
                 std::cout << "====== Column-Major = Column-Major * Row-Major ======" << std::endl;
                 run_autotune< float,viennacl::column_major
                              ,float,viennacl::column_major
                              ,float,viennacl::row_major >();
 
-                std::cout << "====== Column-Major = Row-Major * Row-Major ======" << std::endl;
-                run_autotune< float,viennacl::column_major
-                             ,float,viennacl::row_major
-                             ,float,viennacl::row_major >();
+
 
                 std::cout << "====== Column-Major = Column-Major * Column-Major ======" << std::endl;
                 run_autotune< float,viennacl::column_major

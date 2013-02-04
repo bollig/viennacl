@@ -535,7 +535,12 @@ namespace viennacl{
                             offset_m = helper_variable(kss,false,"unsigned int", "offset_m", "get_local_id(0)*" + to_string(ms_lhs));
                         std::string offset_n(helper_variable(kss,false,"unsigned int", "offset_n", "get_local_id(1)*" + to_string(ns_rhs)));
 
-                        std::string block_num(helper_variable(kss,true,"unsigned int", "block_num", internal_size1_rhs + '/' + to_string(kl_rhs)));
+                        std::string block_num;
+                        if(is_lhs_transposed)
+                            block_num = helper_variable(kss,true,"unsigned int", "block_num", internal_size1_lhs + '/' + to_string(ml_lhs));
+                        else
+                            block_num = helper_variable(kss,true,"unsigned int", "block_num", internal_size2_lhs + '/' + to_string(kl_lhs));
+
 
                         kss << "__global " << first_assigned->aligned_scalartype() << "* res_ptr = " <<  first_assigned->name() << " + " << first_assigned->offset("get_global_id(0)*" + to_string(ms_res), "get_global_id(1)*" + to_string(ns_res)) << ";" << std::endl;
                         kss << "unsigned int offsetRHS = " << first_rhs->offset("0", " get_group_id(1)*" + to_string(nl_rhs)) << ";" << std::endl;
@@ -565,7 +570,10 @@ namespace viennacl{
                             }
                             else{
                                 for(unsigned int k=0; k<ks_lhs; ++k){
-                                    kss << "__global " << lhs_value_scalartype << "* ptr_lhs_" << k << " = " << first_lhs->name() << " + " << first_lhs->offset("get_group_id(0)*" + to_string(ml_lhs) + "+" + offset_m, to_string(k) ) << ";" << std::endl;
+                                    if(is_lhs_transposed)
+                                        kss << "__global " << lhs_value_scalartype << "* ptr_lhs_" << k << " = " << first_lhs->name() << " + " << first_lhs->offset("0", to_string(k) + "+" + "get_group_id(0)*" + to_string(kl_lhs) + "+" + offset_m ) << ";" << std::endl;
+                                    else
+                                        kss << "__global " << lhs_value_scalartype << "* ptr_lhs_" << k << " = " << first_lhs->name() << " + " << first_lhs->offset( "get_group_id(0)*" + to_string(ml_lhs) + "+" + offset_m,to_string(k) ) << ";" << std::endl;
                                 }
                             }
                         }
@@ -615,97 +623,90 @@ namespace viennacl{
                         }
 
 
+
+                        for(unsigned int k = 0 ; k < ks ; ++k){
                             for(unsigned int n=0 ; n < ns_res ; ++n){
                                 for(unsigned int m=0 ; m < ms_res ; ++m){
-                                    for(unsigned int k = 0 ; k < ks ; ++k){
-                                    if(is_result_rowmajor && is_rhs_rowmajor){
-                                        kss << res_table_name<< "_"<<m<<"_" << n << " += " ;
-                                        if(use_LHS_shared){
-                                            if(is_lhs_transposed)
-                                                kss << "val_lhs_" << k << "_" << m;
-                                            else
-                                                kss << "val_lhs_" << m << "_" << k;
-                                        }
-                                        else if(is_lhs_rowmajor){
-                                            if(is_lhs_transposed){
-                                                kss << "val_lhs_" << k << "_" << m/alignment;
-                                                if(alignment>1) kss << ".s" << m%alignment;
-                                            }
-                                            else{
-                                                kss << "val_lhs_" << m << "_" << k/alignment ;
-                                                if(alignment>1) kss << ".s" << k%alignment;
+                                    for(unsigned int a = 0; a<alignment; ++a){
+                                        int ind_lhs_1 = m;
+                                        int ind_lhs_2 = k;
+                                        int ind_s_lhs=a;
+
+                                        int ind_rhs_1=k;
+                                        int ind_rhs_2=n;
+                                        int ind_s_rhs=a;
+
+                                        if(is_result_rowmajor){
+                                            if(is_lhs_transposed) std::swap(ind_lhs_1,ind_lhs_2);
+
+                                            if(!use_LHS_shared){
+                                                if(is_lhs_rowmajor){
+                                                    ind_s_lhs = ind_lhs_2%alignment;
+                                                    ind_lhs_2 /= alignment;
+                                                }
+                                                else{
+                                                    ind_s_lhs = ind_lhs_1%alignment;
+                                                    ind_lhs_1 /= alignment;
+                                                }
                                             }
                                         }
                                         else{
-                                            kss << "val_lhs_" << m/alignment << "_" << k;
-                                            if(alignment>1) kss << ".s" << m%alignment;
+                                            if(use_LHS_shared){
+                                                ind_lhs_1 = ind_lhs_1*alignment+a;
+                                            }
+                                            else{
+                                                if((is_lhs_rowmajor && !is_lhs_transposed)
+                                                        ||(!is_lhs_rowmajor && is_lhs_transposed)){
+                                                    ind_lhs_1 = ind_lhs_1*alignment+a;
+                                                    ind_s_lhs = ind_lhs_2%alignment;
+                                                    ind_lhs_2 /= alignment;
+
+                                                }
+                                            }
+                                            if(is_lhs_transposed) std::swap(ind_lhs_1,ind_lhs_2);
                                         }
 
-                                        kss << "*";
-                                        if(use_RHS_shared){
-                                            kss << '(' << first_rhs->aligned_scalartype() << ")(";
-                                            for(unsigned int a = 0; a<alignment; ++a){
-                                                kss <<" val_rhs_" << k << "_" << n*alignment+a;
-                                                if(a<alignment-1) kss << ",";
+                                        if(is_result_rowmajor){
+                                            if(use_RHS_shared){
+                                                ind_rhs_2 = ind_rhs_2*alignment+a;
                                             }
-                                            kss << ")";
+                                            else{
+                                                if(!is_rhs_rowmajor){
+                                                    ind_rhs_2 = ind_rhs_2*alignment+a;
+                                                    ind_s_rhs = ind_rhs_1%alignment;
+                                                    ind_rhs_1 = ind_rhs_1/alignment;
+                                                }
+                                            }
                                         }
-                                        else kss <<" val_rhs_" << k << "_" << n;
-                                        kss << ";" << std::endl;
-                                    }
-                                    else{
-                                        for(unsigned int a=0; a<alignment; ++a){
-                                            kss << res_table_name<< "_"<<m <<"_" << n ;
-                                            if(alignment>1) kss << ".s" << a; kss << " += ";
-                                            kss << "val_lhs_";
-                                            if(is_result_rowmajor)
-                                                if(!use_LHS_shared && !is_lhs_rowmajor) kss << m/alignment;
-                                                else kss << m;
-                                            else
-                                                if(!use_LHS_shared && !is_lhs_rowmajor) kss << m;
-                                                else kss << m*alignment+a;
-                                            kss << "_";
-                                            if(use_LHS_shared) kss << k;
-                                            else
-                                                if(is_lhs_rowmajor){
-                                                    kss << k/alignment;
-                                                    if(alignment>1) kss << ".s" << k%alignment;
+                                        else{
+                                            if(!use_RHS_shared){
+                                                if(is_rhs_rowmajor){
+                                                    ind_s_rhs = ind_rhs_2%alignment;
+                                                    ind_rhs_2/=alignment;
                                                 }
                                                 else{
-                                                    if(is_result_rowmajor){
-                                                        kss << k ;
-                                                        if(alignment>1) kss << ".s" << m%alignment;
-                                                    }
-                                                    else{
-                                                        kss << k;
-                                                        if(alignment>1) kss << ".s" << a;
-                                                    }
+                                                    ind_s_rhs = ind_rhs_1%alignment;
+                                                    ind_rhs_1/=alignment;
                                                 }
-
-                                            kss << "*" ;
-
-                                            //RHS
-                                            if(use_RHS_shared)
-                                                if(is_result_rowmajor) kss << "val_rhs_" << k << "_" << n*alignment+a;
-                                                else
-                                                    if(is_rhs_rowmajor) kss <<" val_rhs_" << k << "_" << n;
-                                                    else kss <<  "val_rhs_" << k << "_" << n;
-                                            else
-                                                if(is_result_rowmajor) kss << "val_rhs_" << k/alignment << "_" << n*alignment+a;
-                                                else if(is_rhs_rowmajor) kss <<" val_rhs_" << k << "_" << n/alignment;
-                                                else kss <<  "val_rhs_" << k/alignment << "_" << n;
-
-
-                                            if(!use_RHS_shared && alignment>1)
-                                                if(is_result_rowmajor || (!is_result_rowmajor && !is_rhs_rowmajor))kss << ".s" << k%alignment;
-                                                else kss << ".s" << n%alignment;
-
-                                            kss << ";" << std::endl;
+                                            }
                                         }
+
+
+                                        kss << res_table_name<< "_"<<m<<"_" << n << ".s" << a << " += " ;
+                                        kss << "val_lhs_" << ind_lhs_1 << "_" << ind_lhs_2;
+                                        if(!use_LHS_shared && alignment>1) kss << ".s" << ind_s_lhs;
+                                        kss << "*";
+                                        kss << "val_rhs_" << ind_rhs_1 << "_" << ind_rhs_2;
+                                        if(!use_RHS_shared && alignment>1) kss << ".s" << ind_s_rhs;
+                                        kss << ";" << std::endl;
+
+
+
                                     }
                                 }
                             }
                         }
+
 
                         if(use_RHS_shared){
                             for(unsigned int k=0 ; k<ks ; ++k){
@@ -724,12 +725,15 @@ namespace viennacl{
                             for(unsigned int m=0 ; m<ms_lhs ; ++m){
                                 if(use_LHS_shared)
                                     kss << "ptr_lhs_" << m << " += " << ks*lmem_lhs.size2() - ks_lhs << ";" << std::endl;
-                                else
-                                    kss << "ptr_lhs_" << m << " += " << ks << "*" << internal_size2_lhs << " - " <<  ks_lhs << ";" << std::endl;
+                                else{
+                                    if(is_lhs_rowmajor)
+                                        kss << "ptr_lhs_" << m << " += " << ks << "*" << internal_size2_lhs << " - " <<  ks_lhs << ";" << std::endl;
+//                                    else
+//                                        kss << "ptr_lhs_" << m << " += " << ks -  ls_lhs << ";" << std::endl;
+                                }
                             }
                         }
-
-                        if(!use_LHS_shared && !is_lhs_rowmajor){
+                        else if(!use_LHS_shared && !is_lhs_rowmajor){
                             for(unsigned int k=0 ; k<ks_lhs ; ++k){
                                 kss << "ptr_lhs_" << k << " += " << ks_lhs << "*" << internal_size1_lhs << " - " << ms_lhs << ";" << std::endl;
                             }
@@ -738,7 +742,10 @@ namespace viennacl{
                         kss.dec_tab();
                         kss << "}" << std::endl;
                         if(is_lhs_transposed)
-                            kss << "offsetLHS += " << ml_lhs << "*" << internal_size2_lhs << ";" << std::endl;
+                            if(is_lhs_rowmajor)
+                                kss << "offsetLHS += " << ml_lhs << "*" << internal_size2_lhs << ";" << std::endl;
+                            else
+                                kss << "offsetLHS += " << ml_lhs  << ";" << std::endl;
                         else{
                             if(is_lhs_rowmajor)
                                 kss << "offsetLHS += " << kl_lhs << ";" << std::endl;
