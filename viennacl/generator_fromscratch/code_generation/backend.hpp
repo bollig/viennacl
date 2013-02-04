@@ -130,15 +130,8 @@ namespace viennacl{
 
 
                     void set_global_sizes(mat_infos_base* mat){
-                        if(mat->is_transposed()){
-                            local_work_size_[0] =kl_/ks_;
-                            global_work_size_[0] = (mat->real_size1()+kl_-1)/kl_*local_work_size_[0];
-                        }
-                        else{
-                            local_work_size_[0] =ml_/ms_;
-                            global_work_size_[0] = (mat->real_size2()+ml_-1)/ml_*local_work_size_[0];
-                        }
-
+                        local_work_size_[0] =ml_/ms_;
+                        global_work_size_[0] = (mat->real_size2()+ml_-1)/ml_*local_work_size_[0];
                         local_work_size_[1] = nl_/ns_;
                         global_work_size_[1] = (mat->real_size2()+nl_-1)/nl_*local_work_size_[1];
                     }
