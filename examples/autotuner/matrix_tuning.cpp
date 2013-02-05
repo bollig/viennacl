@@ -220,6 +220,23 @@ void run_autotune(){
         std::cout << "#Fail" << std::endl;
     }
 
+     std::cout << "------------AT------------" << std::endl;
+     benchmark(dma_t(A) = prod(dmb_t(B),trans(dmc_t(C))),conf,A,B,C,fastest_firsts);
+     std::cout << "Testing " << fastest_firsts.size() << " best configurations" << std::endl;
+
+     viennacl::ocl::get_queue().finish();
+     if(!test_blas3(viennacl::matrix<ScalarTypeA,LayoutA>(viennacl::linalg::prod(B,trans(C))),A,dma_t(A) = prod(dmb_t(B),trans(dmc_t(C))),fastest_firsts)){
+         std::cout << "#Fail" << std::endl;
+     }
+
+     std::cout << "------------TT------------" << std::endl;
+     benchmark(dma_t(A) = prod(trans(dmb_t(B)),trans(dmc_t(C))),conf,A,B,C,fastest_firsts);
+     std::cout << "Testing " << fastest_firsts.size() << " best configurations" << std::endl;
+
+     viennacl::ocl::get_queue().finish();
+     if(!test_blas3(viennacl::matrix<ScalarTypeA,LayoutA>(viennacl::linalg::prod(trans(B),trans(C))),A,dma_t(A) = prod(trans(dmb_t(B)),trans(dmc_t(C))),fastest_firsts)){
+         std::cout << "#Fail" << std::endl;
+     }
 }
 
 int main(){
