@@ -78,11 +78,12 @@ namespace viennacl{
 
         struct shared_infos_t{
         public:
-            shared_infos_t(unsigned int id, std::string scalartype, unsigned int alignment = 1) : id_(id), name_("arg"+to_string(id)), scalartype_(scalartype), alignment_(alignment){ }
+            shared_infos_t(unsigned int id, std::string scalartype, unsigned int scalartype_size, unsigned int alignment = 1) : id_(id), name_("arg"+to_string(id)), scalartype_(scalartype), scalartype_size_(scalartype_size),alignment_(alignment){ }
             std::string const & access_name(unsigned int i){ return access_names_.at(i); }
             void  access_name(unsigned int i, std::string const & name_){ access_names_[i] = name_; }
             std::string const & name() const{ return name_; }
             std::string const & scalartype() const{ return scalartype_; }
+            unsigned int const & scalartype_size() const{ return scalartype_size_; }
             unsigned int alignment() const{ return alignment_; }
             void alignment(unsigned int val) { alignment_ = val; }
         private:
@@ -90,6 +91,7 @@ namespace viennacl{
             unsigned int id_;
             std::string name_;
             std::string scalartype_;
+            unsigned int scalartype_size_;
             unsigned int alignment_;
         };
 
@@ -257,6 +259,7 @@ namespace viennacl{
             virtual std::string generate(unsigned int i) const { return infos_->access_name(i); }
             std::string name() const { return infos_->name(); }
             std::string const & scalartype() const { return infos_->scalartype(); }
+            unsigned int scalartype_size() const { return infos_->scalartype_size(); }
             std::string aligned_scalartype() const {
                 unsigned int alignment = infos_->alignment();
                 std::string const & scalartype = infos_->scalartype();

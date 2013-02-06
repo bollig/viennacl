@@ -27,27 +27,37 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
     unsigned int alignment = prof.alignment();
 
 
-    unsigned int n_runs = 2;
+
+
+    std::ostringstream oss;
+    viennacl::generator::custom_operation op;
+    op.add(operation);
+    matrix_expression_infos_base * expr = static_cast<matrix_expression_infos_base *>(op.kernels_list().front().trees().front());
+    matrix_expression_infos_base * prod = static_cast<matrix_expression_infos_base *>(&expr->rhs());
+    mat_infos_base * lhs = static_cast<mat_infos_base*>(&prod->lhs());
+    mat_infos_base * rhs = static_cast<mat_infos_base*>(&prod->rhs());
+
+    op.operations_manager().blas3_model() = prof;
+
+    unsigned int n_runs = 4;
 
     if(alignment>ms || alignment>ks || alignment>ns) return;
     double lmem_size = 0;
-    if(lhs_storage) lmem_size += (double)ml*(kl+1)*4/1024;
-    if(rhs_storage) lmem_size += (double)kl*(nl+1)*4/1024;
+    bool is_lhs_transposed = lhs->is_transposed();
+    bool is_rhs_transposed = rhs->is_transposed();
+    if(lhs_storage){
+        if(is_lhs_transposed) lmem_size += (double)kl*(ml+1)*lhs->scalartype_size()/1024;
+        else lmem_size += (double)ml*(kl+1)*lhs->scalartype_size()/1024;
+    }
+
+    if(rhs_storage){
+        if(is_rhs_transposed) lmem_size += (double)nl*(kl+1)*rhs->scalartype_size()/1024;
+        else lmem_size += (double)kl*(nl+1)*rhs->scalartype_size()/1024;
+    }
     if( lmem_size > 32.0) return;
     if(prof.local_work_size(0)*prof.local_work_size(1) > dev.max_workgroup_size()) return;
 
-    std::ostringstream oss;
-    //                                oss << "p" << ml << "_" << kl << "_"  << nl << "_"  << ms << "_"  << ks << "_"  << ns << "_"  << alignment ;
-    viennacl::generator::custom_operation op;
-    op.add(operation);
-    op.operations_manager().blas3_model() = prof;
-
-
-//    op.init();
-    //                                op.program_name(oss.str());
     viennacl::ocl::program & pgm = op.program();
-
-
     viennacl::ocl::kernel & k = pgm.get_kernel("_k0");
 
 
@@ -81,7 +91,7 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
 
 
     timings.insert(std::make_pair(exec_time, new viennacl::generator::code_generation::blas3_optimization_profile(prof)));
-
+//    viennacl::ocl::current_context().delete_program(pgm);
 }
 
 template<class OpT, class ConfigT>
@@ -99,7 +109,7 @@ void benchmark_blas3(timings_t & timings, OpT const & op, ConfigT const & config
     total*=config.LHS_storages.size();
     total*=config.RHS_storages.size();
 
-    float perc;
+    float perc=0;
     float prev_perc;
 
     for(unsigned int ml = config.ml_min ; ml <= config.ml_max; ml*=2){
@@ -111,9 +121,11 @@ void benchmark_blas3(timings_t & timings, OpT const & op, ConfigT const & config
                             for(unsigned int alignment = config.alignment_min ; alignment <= config.alignment_max; alignment *=2){
                                 for(std::vector<bool>::const_iterator lhs_storage = config.LHS_storages.begin(); lhs_storage!=config.LHS_storages.end(); ++lhs_storage){
                                     for(std::vector<bool>::const_iterator rhs_storage = config.RHS_storages.begin(); rhs_storage!=config.RHS_storages.end(); ++rhs_storage){
+//                                        std::cout << '.' << std::flush;
                                         prev_perc=perc;
-                                        perc += 100/total;
-                                        if((int)prev_perc!=(int)perc) std::cout << '\r' << perc << "%" << std::flush;                                        viennacl::generator::code_generation::blas3_optimization_profile prof(ml,kl,nl,ms,ks,ns,*lhs_storage,*rhs_storage,alignment);
+                                        perc += (float)100/total;
+                                        if((int)prev_perc!=(int)perc) std::cout << '\r' << perc << "%" << std::flush;
+                                        viennacl::generator::code_generation::blas3_optimization_profile prof(ml,kl,nl,ms,ks,ns,*lhs_storage,*rhs_storage,alignment);
                                         benchmark_blas3_profile(timings,dev,op,prof);
                                     }
                                 }
@@ -130,12 +142,13 @@ void benchmark_blas3(timings_t & timings, OpT const & op, ConfigT const & config
 template<class OpT>
 void benchmark_blas3(timings_t & timings, OpT const & op, std::list<viennacl::generator::code_generation::blas3_optimization_profile> const & profiles){
     viennacl::ocl::device const & dev = viennacl::ocl::current_device();
-    float perc;
+    float perc=0;
     float prev_perc;
     for(std::list<viennacl::generator::code_generation::blas3_optimization_profile>::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
+//        std::cout << '.' << std::flush;
         prev_perc=perc;
-        perc += 100/profiles.size();
-        if((int)prev_perc != (int)perc) std::cout << '\r' << perc << "%" << std::flush;
+        perc += (float)100/profiles.size();
+        if((int)prev_perc != (int)perc) std::cout << '\r' << perc << "%" ;
         benchmark_blas3_profile<OpT>(timings,dev,op,*it);
     }
     std::cout << std::endl;
