@@ -140,8 +140,8 @@ void benchmark(OpT const & operation, config conf, MatTypeA & A, MatTypeB & B, M
     unsigned int size;
 
     std::list<std::pair<unsigned int, unsigned int> > rounds_config;
-    rounds_config.push_back(std::make_pair(512,100));
-//    rounds_config.push_back(std::make_pair(1024,20));
+    rounds_config.push_back(std::make_pair(1024,200));
+    rounds_config.push_back(std::make_pair(2048,20));
     for(std::list<std::pair<unsigned int, unsigned int> >::iterator it = rounds_config.begin() ; it!= rounds_config.end(); ++it){
         unsigned int k = std::distance(rounds_config.begin(),it);
         timings.clear();
@@ -164,9 +164,11 @@ void benchmark(OpT const & operation, config conf, MatTypeA & A, MatTypeB & B, M
             unsigned int n = std::distance(timings.begin(),itt);
             if(n>n_keep) break;
             fastest_firsts.push_back(*static_cast<viennacl::generator::code_generation::blas3_optimization_profile* >(itt->second.get()));
+            if(std::distance(rounds_config.begin(),it)==(int)rounds_config.size()-1){
+                std::cout << std::distance(timings.begin(),itt) << "th Best : " << itt->first << "s | " << std::pow((float)size/1000,3)/itt->first << " GFlops : " << *itt->second << std::endl;
+            }
         }
     }
-    std::cout << "Best : " << std::pow((float)size/1000,3)/timings.begin()->first << " GFlops : " << *timings.begin()->second << std::endl;
 }
 
 template<class ScalarTypeA, class LayoutA
@@ -186,13 +188,14 @@ void run_autotune(){
     config conf;
 
 
-    conf.ml_min = 32; conf.ml_max=32;
-    conf.kl_min = 64; conf.kl_max=64;
-    conf.nl_min = 32; conf.nl_max=32;
-    conf.ms_min = 4; conf.ms_max=4;
-    conf.ks_min = 2; conf.ks_max=2;
-    conf.ns_min = 4; conf.ns_max=4;
-    conf.alignment_min = 2; conf.alignment_max = 2;
+    conf.n_runs = 2;
+    conf.ml_min = 32; conf.ml_max=128;
+    conf.kl_min = 32; conf.kl_max=128;
+    conf.nl_min = 32; conf.nl_max=128;
+    conf.ms_min = 4; conf.ms_max=8;
+    conf.ks_min = 4; conf.ks_max=8;
+    conf.ns_min = 4; conf.ns_max=8 ;
+    conf.alignment_min = 2 ; conf.alignment_max = 2 ;
     conf.LHS_storages.push_back(true);
     conf.LHS_storages.push_back(false);
     conf.RHS_storages.push_back(true);
@@ -257,49 +260,49 @@ int main(){
                 std::cout << "-------------------" << std::endl;
                 std::cout << "Recording timings for : " << viennacl::ocl::current_device().name() << std::endl;
 
-                std::cout << "====== Row-Major = Row-Major * Row-Major ======" << std::endl;
-                run_autotune< float,viennacl::row_major
-                             ,float,viennacl::row_major
-                             ,float,viennacl::row_major >();
+//                std::cout << "====== Row-Major = Row-Major * Row-Major ======" << std::endl;
+//                run_autotune< float,viennacl::row_major
+//                             ,float,viennacl::row_major
+//                             ,float,viennacl::row_major >();
 
-                std::cout << "====== Row-Major = Row-Major * Column-Major ======" << std::endl;
-                run_autotune< float,viennacl::row_major
-                             ,float,viennacl::row_major
-                             ,float,viennacl::column_major >();
+//                std::cout << "====== Row-Major = Row-Major * Column-Major ======" << std::endl;
+//                run_autotune< float,viennacl::row_major
+//                             ,float,viennacl::row_major
+//                             ,float,viennacl::column_major >();
 
-                std::cout << "====== Column-Major = Row-Major * Column-Major ======" << std::endl;
-                run_autotune< float,viennacl::column_major
-                             ,float,viennacl::row_major
-                             ,float,viennacl::column_major >();
+//                std::cout << "====== Column-Major = Row-Major * Column-Major ======" << std::endl;
+//                run_autotune< float,viennacl::column_major
+//                             ,float,viennacl::row_major
+//                             ,float,viennacl::column_major >();
 
                 std::cout << "====== Column-Major = Row-Major * Row-Major ======" << std::endl;
                 run_autotune< float,viennacl::column_major
                              ,float,viennacl::row_major
                              ,float,viennacl::row_major >();
 
-                std::cout << "====== Row-Major = Column-Major * Row-Major ======" << std::endl;
-                run_autotune< float,viennacl::row_major
-                             ,float,viennacl::column_major
-                             ,float,viennacl::row_major >();
+//                std::cout << "====== Row-Major = Column-Major * Row-Major ======" << std::endl;
+//                run_autotune< float,viennacl::row_major
+//                             ,float,viennacl::column_major
+//                             ,float,viennacl::row_major >();
 
-                std::cout << "====== Row-Major = Column-Major * Column-Major ======" << std::endl;
-                run_autotune< float,viennacl::row_major
-                             ,float,viennacl::column_major
-                             ,float,viennacl::column_major >();
-
-
-
-                std::cout << "====== Column-Major = Column-Major * Row-Major ======" << std::endl;
-                run_autotune< float,viennacl::column_major
-                             ,float,viennacl::column_major
-                             ,float,viennacl::row_major >();
+//                std::cout << "====== Row-Major = Column-Major * Column-Major ======" << std::endl;
+//                run_autotune< float,viennacl::row_major
+//                             ,float,viennacl::column_major
+//                             ,float,viennacl::column_major >();
 
 
 
-                std::cout << "====== Column-Major = Column-Major * Column-Major ======" << std::endl;
-                run_autotune< float,viennacl::column_major
-                             ,float,viennacl::column_major
-                             ,float,viennacl::column_major >();
+//                std::cout << "====== Column-Major = Column-Major * Row-Major ======" << std::endl;
+//                run_autotune< float,viennacl::column_major
+//                             ,float,viennacl::column_major
+//                             ,float,viennacl::row_major >();
+
+
+
+//                std::cout << "====== Column-Major = Column-Major * Column-Major ======" << std::endl;
+//                run_autotune< float,viennacl::column_major
+//                             ,float,viennacl::column_major
+//                             ,float,viennacl::column_major >();
             }
 
         }

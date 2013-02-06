@@ -520,7 +520,7 @@ namespace viennacl{
                         std::string res_table_name(first_assigned->name() + "_res");
                         for(unsigned int m=0; m< ms_res; ++m){
                             for(unsigned int n=0; n < ns_res ; ++n){
-                                kss << first_assigned->aligned_scalartype() << " " << res_table_name << "_" << m << "_" << n << " = 0 ;" << std::endl;
+                                kss << first_assigned->aligned_scalartype() << " " << res_table_name << "_" << m << "_" << n << " = (" << first_assigned->aligned_scalartype() << ")(0) ;" << std::endl;
                             }
                         }
 
@@ -668,6 +668,9 @@ namespace viennacl{
                                         int ind_rhs_2=n;
                                         int ind_s_rhs=a;
 
+                                        bool is_vectorized_lhs = false;
+                                        bool is_vectorized_rhs = false;
+
                                         if(is_result_rowmajor){
                                             if(is_lhs_transposed) std::swap(ind_lhs_1,ind_lhs_2);
 
@@ -709,6 +712,9 @@ namespace viennacl{
                                                     ind_s_rhs = ind_rhs_1%alignment;
                                                     ind_rhs_1 = ind_rhs_1/alignment;
                                                 }
+                                                else if( (is_rhs_rowmajor && !is_rhs_transposed) ){
+                                                    is_vectorized_rhs=true;
+                                                }
                                             }
                                             if(is_rhs_transposed) std::swap(ind_rhs_1,ind_rhs_2);
                                         }
@@ -727,15 +733,20 @@ namespace viennacl{
                                         }
 
 
+                                        bool is_vectorized = is_vectorized_lhs || is_vectorized_rhs;
                                         kss << res_table_name<< "_"<<m<<"_" << n;
-                                        if(alignment>1) kss << ".s" << a ;
+                                        if(!is_vectorized && alignment>1) kss << ".s" << a ;
                                         kss << " += " ;
                                         kss << "val_lhs_" << ind_lhs_1 << "_" << ind_lhs_2;
-                                        if(!use_LHS_shared && alignment>1) kss << ".s" << ind_s_lhs;
+                                        if(!is_vectorized_lhs && !use_LHS_shared && alignment>1) kss << ".s" << ind_s_lhs;
                                         kss << "*";
                                         kss << "val_rhs_" << ind_rhs_1 << "_" << ind_rhs_2;
-                                        if(!use_RHS_shared && alignment>1) kss << ".s" << ind_s_rhs;
+                                        if(!is_vectorized_rhs && !use_RHS_shared && alignment>1) kss << ".s" << ind_s_rhs;
                                         kss << ";" << std::endl;
+
+                                        if(is_vectorized)
+                                            break;
+
 
 
 

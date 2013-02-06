@@ -242,7 +242,7 @@ namespace viennacl{
                     for(std::list<kernel_infos_t>::iterator it = kernels.begin() ; it !=kernels.end() ; ++it){
                         std::string name("_k"+to_string(std::distance(kernels.begin(),it)));
                         kernel_infos_t & infos = kernels_infos.insert(std::make_pair(name,*it)).first->second;
-//                        kss <<  "__attribute__((reqd_work_group_size(" << infos.profile()->local_work_size(0) << "," << infos.profile()->local_work_size(1) << ",1)))" << std::endl;
+                        kss <<  "__attribute__((reqd_work_group_size(" << infos.profile()->local_work_size(0) << "," << infos.profile()->local_work_size(1) << ",1)))" << std::endl;
                         code_generation::kernel_generator kg(infos,name,kss);
                         kg.generate() ;
                     }
