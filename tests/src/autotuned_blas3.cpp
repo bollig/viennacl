@@ -132,6 +132,8 @@ int test_prod(Epsilon const& epsilon,
    NumericT act_diff = 0;
    bool failed;
 
+
+
    // Test: C = A * B --------------------------------------------------------------------------
    C     = viennacl::linalg::prod(A, B);
 
@@ -152,6 +154,29 @@ int test_prod(Epsilon const& epsilon,
        }
    }
    if(!failed) std::cout << "Test C = A * B passed!" << std::endl;
+
+   // Test: C = (A+A) * B --------------------------------------------------------------------------
+   ReferenceMatrixTypeA  new_A(A+A);
+   C     = viennacl::linalg::prod(new_A, B);
+
+   failed = false;
+   for(typename Profiles::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
+       viennacl::generator::custom_operation op;
+       op.operations_manager().blas3_model() = *it;
+       op.add(vcl_C = viennacl::generator::prod(vcl_A+vcl_A,vcl_B));
+       op.execute();
+       viennacl::ocl::get_queue().finish();
+       act_diff = fabs(diff(C, vcl_C.mat()));
+       if( act_diff > epsilon )
+       {
+         std::cout << "# Error at operation: matrix-matrix product for profile " << *it << std::endl;
+         std::cout << op.source_code();
+         std::cout << "  diff: " << act_diff << std::endl;
+         retval = EXIT_FAILURE;
+         failed = true;
+       }
+   }
+   if(!failed) std::cout << "Test C = (A+A) * B passed!" << std::endl;
 
 
    // Test: C = trans(A) * B --------------------------------------------------------------------------
@@ -181,6 +206,7 @@ int test_prod(Epsilon const& epsilon,
 
    failed = false;
    for(typename Profiles::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
+
        viennacl::generator::custom_operation op;
        op.operations_manager().blas3_model() = *it;
        op.add(vcl_C = viennacl::generator::prod(vcl_A,trans(vcl_B_trans)));
@@ -217,6 +243,8 @@ int test_prod(Epsilon const& epsilon,
        }
    }
    if(!failed) std::cout << "Test C = trans(A) * trans(B) passed!" << std::endl;
+
+
    return retval;
 }
 

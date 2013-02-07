@@ -55,56 +55,6 @@ struct config{
     std::vector<bool> RHS_storages;
 };
 
-template <typename VCLMatrixType1, typename VCLMatrixType2>
-double diff(VCLMatrixType1 & mat1, VCLMatrixType2 & mat2)
-{
-   typedef typename VCLMatrixType1::value_type::value_type ScalarType1;
-   typedef typename VCLMatrixType2::value_type::value_type ScalarType2;
-
-   boost::numeric::ublas::matrix<ScalarType1> mat1_cpu(mat1.size1(), mat1.size2());
-   boost::numeric::ublas::matrix<ScalarType2> mat2_cpu(mat2.size1(), mat2.size2());
-
-   viennacl::backend::finish();  //workaround for a bug in APP SDK 2.7 on Trinity APUs (with Catalyst 12.8)
-   viennacl::copy(mat2, mat2_cpu);
-   viennacl::copy(mat1, mat1_cpu);
-   viennacl::ocl::get_queue().finish();
-   double ret = 0;
-   double act = 0;
-
-    for (unsigned int i = 0; i < mat2_cpu.size1(); ++i)
-    {
-      for (unsigned int j = 0; j < mat2_cpu.size2(); ++j)
-      {
-         act = fabs(mat2_cpu(i,j) - mat1_cpu(i,j)) / std::max( fabs(mat2_cpu(i, j)), fabs(mat1_cpu(i,j)) );
-         if (act > ret)
-           ret = act;
-      }
-    }
-   //std::cout << ret << std::endl;
-   return ret;
-}
-
-template<class RefTypeA,
-         class ResTypeA,
-         class OpT>
-bool test_blas3(RefTypeA const & reference, ResTypeA const & dummyA, OpT const & operation, std::list<viennacl::generator::code_generation::blas3_optimization_profile> const & profiles){
-    bool res = true;
-    for(std::list<viennacl::generator::code_generation::blas3_optimization_profile>::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
-        viennacl::generator::custom_operation op;
-        op.operations_manager().blas3_model() = *it;
-        op.add(operation);
-        op.execute();
-        viennacl::ocl::get_queue().finish();
-        double delta = diff(reference,dummyA);
-        if(delta>1e-5){
-            std::cout << "Failed for " << *it << "| Diff : " << delta << std::endl;
-//            std::cout << op.source_code() << std::endl;
-            res=false;
-        }
-    }
-    return res;
-}
-
 
 template<class MatTypeA, class MatTypeB, class MatTypeC>
 void fill_matrix(MatTypeA & A, MatTypeB & B, MatTypeC & C){
@@ -121,7 +71,7 @@ void fill_matrix(MatTypeA & A, MatTypeB & B, MatTypeC & C){
         for(unsigned int j=0 ; j<A.size2() ; ++j){
             cpu_A(i,j)=0;
             cpu_B(i,j) =static_cast<ScalarTypeB>(rand())/static_cast<ScalarTypeB>(RAND_MAX);
-            cpu_C(i,j)=static_cast<ScalarTypeB>(rand())/static_cast<ScalarTypeB>(RAND_MAX);
+            cpu_C(i,j) =static_cast<ScalarTypeB>(rand())/static_cast<ScalarTypeB>(RAND_MAX);
         }
     }
 
@@ -208,38 +158,17 @@ void run_autotune(){
 
 //    std::cout << "------------AA------------" << std::endl;
 //    benchmark(dma_t(A) = prod(dmb_t(B),dmc_t(C)),conf,A,B,C,fastest_firsts);
-//    std::cout << "Testing " << fastest_firsts.size() << " best configurations" << std::endl;
-//    if(!test_blas3(viennacl::matrix<ScalarTypeA,LayoutA>(viennacl::linalg::prod(B,C)),A,dma_t(A) = prod(dmb_t(B),dmc_t(C)),fastest_firsts)){
-//        std::cout << "#Fail" << std::endl;
-//    }
-
 
     std::cout << "------------TA------------" << std::endl;
     benchmark(dma_t(A) = prod(trans(dmb_t(B)),dmc_t(C)),conf,A,B,C,fastest_firsts);
-    std::cout << "Testing " << fastest_firsts.size() << " best configurations" << std::endl;
 
-    viennacl::ocl::get_queue().finish();
-    if(!test_blas3(viennacl::matrix<ScalarTypeA,LayoutA>(viennacl::linalg::prod(trans(B),C)),A,dma_t(A) = prod(trans(dmb_t(B)),dmc_t(C)),fastest_firsts)){
-        std::cout << "#Fail" << std::endl;
-    }
 
 //     std::cout << "------------AT------------" << std::endl;
 //     benchmark(dma_t(A) = prod(dmb_t(B),trans(dmc_t(C))),conf,A,B,C,fastest_firsts);
-//     std::cout << "Testing " << fastest_firsts.size() << " best configurations" << std::endl;
-
-//     viennacl::ocl::get_queue().finish();
-//     if(!test_blas3(viennacl::matrix<ScalarTypeA,LayoutA>(viennacl::linalg::prod(B,trans(C))),A,dma_t(A) = prod(dmb_t(B),trans(dmc_t(C))),fastest_firsts)){
-//         std::cout << "#Fail" << std::endl;
-//     }
 
 //     std::cout << "------------TT------------" << std::endl;
 //     benchmark(dma_t(A) = prod(trans(dmb_t(B)),trans(dmc_t(C))),conf,A,B,C,fastest_firsts);
-//     std::cout << "Testing " << fastest_firsts.size() << " best configurations" << std::endl;
 
-//     viennacl::ocl::get_queue().finish();
-//     if(!test_blas3(viennacl::matrix<ScalarTypeA,LayoutA>(viennacl::linalg::prod(trans(B),trans(C))),A,dma_t(A) = prod(trans(dmb_t(B)),trans(dmc_t(C))),fastest_firsts)){
-//         std::cout << "#Fail" << std::endl;
-//     }
 }
 
 int main(int argc, char* argv[]){
