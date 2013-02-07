@@ -22,7 +22,7 @@
 #include "../tutorial/Random.hpp"
 
 
-typedef double NumericT;
+typedef float  NumericT;
 typedef std::vector< viennacl::ocl::platform > platforms_type;
 typedef std::vector<viennacl::ocl::device> devices_type;
 typedef std::vector<cl_device_id> cl_devices_type;
@@ -140,7 +140,7 @@ void benchmark(OpT const & operation, config conf, MatTypeA & A, MatTypeB & B, M
     unsigned int size;
 
     std::list<std::pair<unsigned int, unsigned int> > rounds_config;
-    rounds_config.push_back(std::make_pair(1024,200));
+    rounds_config.push_back(std::make_pair(512 ,200));
     rounds_config.push_back(std::make_pair(2048,20));
     for(std::list<std::pair<unsigned int, unsigned int> >::iterator it = rounds_config.begin() ; it!= rounds_config.end(); ++it){
         unsigned int k = std::distance(rounds_config.begin(),it);
@@ -189,16 +189,16 @@ void run_autotune(){
 
 
     conf.n_runs = 2;
-    conf.ml_min = 32; conf.ml_max=256;
-    conf.kl_min = 32; conf.kl_max=256;
-    conf.nl_min = 32; conf.nl_max=256;
-    conf.ms_min = 2; conf.ms_max=8;
-    conf.ks_min = 2; conf.ks_max=8;
-    conf.ns_min = 2; conf.ns_max=8 ;
-    conf.alignment_min = 1 ; conf.alignment_max = 4 ;
-    conf.LHS_storages.push_back(true);
+    conf.ml_min = 64; conf.ml_max=64;
+    conf.kl_min = 256; conf.kl_max=256;
+    conf.nl_min = 64; conf.nl_max=64;
+    conf.ms_min = 4; conf.ms_max=4;
+    conf.ks_min = 4; conf.ks_max=4;
+    conf.ns_min = 8; conf.ns_max=8 ;
+    conf.alignment_min = 4 ; conf.alignment_max = 4 ;
+//    conf.LHS_storages.push_back(true);
     conf.LHS_storages.push_back(false);
-    conf.RHS_storages.push_back(true);
+//    conf.RHS_storages.push_back(true);
     conf.RHS_storages.push_back(false);
 
     viennacl::matrix<ScalarTypeA,LayoutA> A;
@@ -206,12 +206,12 @@ void run_autotune(){
     viennacl::matrix<ScalarTypeC,LayoutC> C;
     std::list<viennacl::generator::code_generation::blas3_optimization_profile> fastest_firsts;
 
-    std::cout << "------------AA------------" << std::endl;
-    benchmark(dma_t(A) = prod(dmb_t(B),dmc_t(C)),conf,A,B,C,fastest_firsts);
-    std::cout << "Testing " << fastest_firsts.size() << " best configurations" << std::endl;
-    if(!test_blas3(viennacl::matrix<ScalarTypeA,LayoutA>(viennacl::linalg::prod(B,C)),A,dma_t(A) = prod(dmb_t(B),dmc_t(C)),fastest_firsts)){
-        std::cout << "#Fail" << std::endl;
-    }
+//    std::cout << "------------AA------------" << std::endl;
+//    benchmark(dma_t(A) = prod(dmb_t(B),dmc_t(C)),conf,A,B,C,fastest_firsts);
+//    std::cout << "Testing " << fastest_firsts.size() << " best configurations" << std::endl;
+//    if(!test_blas3(viennacl::matrix<ScalarTypeA,LayoutA>(viennacl::linalg::prod(B,C)),A,dma_t(A) = prod(dmb_t(B),dmc_t(C)),fastest_firsts)){
+//        std::cout << "#Fail" << std::endl;
+//    }
 
 
     std::cout << "------------TA------------" << std::endl;
@@ -223,23 +223,23 @@ void run_autotune(){
         std::cout << "#Fail" << std::endl;
     }
 
-     std::cout << "------------AT------------" << std::endl;
-     benchmark(dma_t(A) = prod(dmb_t(B),trans(dmc_t(C))),conf,A,B,C,fastest_firsts);
-     std::cout << "Testing " << fastest_firsts.size() << " best configurations" << std::endl;
+//     std::cout << "------------AT------------" << std::endl;
+//     benchmark(dma_t(A) = prod(dmb_t(B),trans(dmc_t(C))),conf,A,B,C,fastest_firsts);
+//     std::cout << "Testing " << fastest_firsts.size() << " best configurations" << std::endl;
 
-     viennacl::ocl::get_queue().finish();
-     if(!test_blas3(viennacl::matrix<ScalarTypeA,LayoutA>(viennacl::linalg::prod(B,trans(C))),A,dma_t(A) = prod(dmb_t(B),trans(dmc_t(C))),fastest_firsts)){
-         std::cout << "#Fail" << std::endl;
-     }
+//     viennacl::ocl::get_queue().finish();
+//     if(!test_blas3(viennacl::matrix<ScalarTypeA,LayoutA>(viennacl::linalg::prod(B,trans(C))),A,dma_t(A) = prod(dmb_t(B),trans(dmc_t(C))),fastest_firsts)){
+//         std::cout << "#Fail" << std::endl;
+//     }
 
-     std::cout << "------------TT------------" << std::endl;
-     benchmark(dma_t(A) = prod(trans(dmb_t(B)),trans(dmc_t(C))),conf,A,B,C,fastest_firsts);
-     std::cout << "Testing " << fastest_firsts.size() << " best configurations" << std::endl;
+//     std::cout << "------------TT------------" << std::endl;
+//     benchmark(dma_t(A) = prod(trans(dmb_t(B)),trans(dmc_t(C))),conf,A,B,C,fastest_firsts);
+//     std::cout << "Testing " << fastest_firsts.size() << " best configurations" << std::endl;
 
-     viennacl::ocl::get_queue().finish();
-     if(!test_blas3(viennacl::matrix<ScalarTypeA,LayoutA>(viennacl::linalg::prod(trans(B),trans(C))),A,dma_t(A) = prod(trans(dmb_t(B)),trans(dmc_t(C))),fastest_firsts)){
-         std::cout << "#Fail" << std::endl;
-     }
+//     viennacl::ocl::get_queue().finish();
+//     if(!test_blas3(viennacl::matrix<ScalarTypeA,LayoutA>(viennacl::linalg::prod(trans(B),trans(C))),A,dma_t(A) = prod(trans(dmb_t(B)),trans(dmc_t(C))),fastest_firsts)){
+//         std::cout << "#Fail" << std::endl;
+//     }
 }
 
 int main(int argc, char* argv[]){

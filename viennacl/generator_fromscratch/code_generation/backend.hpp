@@ -520,7 +520,7 @@ namespace viennacl{
                         std::string res_table_name(first_assigned->name() + "_res");
                         for(unsigned int m=0; m< ms_res; ++m){
                             for(unsigned int n=0; n < ns_res ; ++n){
-                                kss << first_assigned->aligned_scalartype() << " " << res_table_name << "_" << m << "_" << n << " = 0 ;" << std::endl;
+                                kss << first_assigned->aligned_scalartype() << " " << res_table_name << "_" << m << "_" << n << " = (" << first_assigned->aligned_scalartype() << ")(0) ;" << std::endl;
                             }
                         }
 
@@ -562,15 +562,19 @@ namespace viennacl{
 
                         kss << "__global " << first_assigned->aligned_scalartype() << "* res_ptr = " <<  first_assigned->name() << " + " << first_assigned->offset("get_global_id(0)*" + to_string(ms_res), "get_global_id(1)*" + to_string(ns_res)) << ";" << std::endl;
 
-                        if(is_rhs_transposed)
-                            kss << "unsigned int offsetRHS = " << first_rhs->offset(" get_group_id(1)*" + to_string(kl_rhs),"0") << ";" << std::endl;
-                        else
-                            kss << "unsigned int offsetRHS = " << first_rhs->offset("0", " get_group_id(1)*" + to_string(nl_rhs)) << ";" << std::endl;
+                        if(use_RHS_shared){
+                            if(is_rhs_transposed)
+                                kss << "unsigned int offsetRHS = " << first_rhs->offset(" get_group_id(1)*" + to_string(kl_rhs),"0") << ";" << std::endl;
+                            else
+                                kss << "unsigned int offsetRHS = " << first_rhs->offset("0", " get_group_id(1)*" + to_string(nl_rhs)) << ";" << std::endl;
+                        }
 
-                        if(is_lhs_transposed)
-                            kss << "unsigned int offsetLHS = " << first_lhs->offset("0", "get_group_id(0)*" + to_string(kl_lhs)) << ";" << std::endl;
-                        else
-                            kss << "unsigned int offsetLHS = " << first_lhs->offset("get_group_id(0)*" + to_string(ml_lhs), "0") << ";" << std::endl;
+                        if(use_LHS_shared){
+                            if(is_lhs_transposed)
+                                kss << "unsigned int offsetLHS = " << first_lhs->offset("0", "get_group_id(0)*" + to_string(kl_lhs)) << ";" << std::endl;
+                            else
+                                kss << "unsigned int offsetLHS = " << first_lhs->offset("get_group_id(0)*" + to_string(ml_lhs), "0") << ";" << std::endl;
+                        }
 
                         if(use_RHS_shared==false){
                             if(is_rhs_rowmajor)
@@ -606,6 +610,7 @@ namespace viennacl{
                                 }
                             }
                         }
+//                        kss << "barrier(CLK_GLOBAL_MEM_FENCE);" << std::endl;
                         kss << "for(unsigned int bl=0 ; bl<" << block_num << " ; ++bl){" << std::endl;
                         kss.inc_tab();
 
@@ -638,7 +643,7 @@ namespace viennacl{
                         for(unsigned int k = 0 ; k < ks_rhs ; ++k){
                             for(unsigned int n=0 ; n < ns_rhs ; ++n){
                                 if(use_RHS_shared || is_rhs_rowmajor)
-                                    kss << rhs_value_scalartype << " val_rhs_" << k << "_" << n << " = *rhs_ptr_" << k  << "++;" << std::endl;
+                                    kss << rhs_value_scalartype << "  val_rhs_" << k << "_" << n << " = *rhs_ptr_" << k  << "++;" << std::endl;
                                 else
                                     kss << rhs_value_scalartype << " val_rhs_" << k << "_" << n << " = *rhs_ptr_" << n  << "++;" << std::endl;
                             }
@@ -660,6 +665,7 @@ namespace viennacl{
                             for(unsigned int n=0 ; n < ns_res ; ++n){
                                 for(unsigned int m=0 ; m < ms_res ; ++m){
                                     for(unsigned int a = 0; a<alignment; ++a){
+
                                         int ind_lhs_1 = m;
                                         int ind_lhs_2 = k;
                                         int ind_s_lhs=a;
@@ -667,6 +673,9 @@ namespace viennacl{
                                         int ind_rhs_1=k;
                                         int ind_rhs_2=n;
                                         int ind_s_rhs=a;
+
+                                        bool is_vectorized_lhs = false;
+                                        bool is_vectorized_rhs = false;
 
                                         if(is_result_rowmajor){
                                             if(is_lhs_transposed) std::swap(ind_lhs_1,ind_lhs_2);
@@ -709,6 +718,9 @@ namespace viennacl{
                                                     ind_s_rhs = ind_rhs_1%alignment;
                                                     ind_rhs_1 = ind_rhs_1/alignment;
                                                 }
+                                                else if( (is_rhs_rowmajor && !is_rhs_transposed) ){
+                                                    is_vectorized_rhs=true;
+                                                }
                                             }
                                             if(is_rhs_transposed) std::swap(ind_rhs_1,ind_rhs_2);
                                         }
@@ -727,15 +739,20 @@ namespace viennacl{
                                         }
 
 
+                                        bool is_vectorized = is_vectorized_lhs || is_vectorized_rhs;
                                         kss << res_table_name<< "_"<<m<<"_" << n;
-                                        if(alignment>1) kss << ".s" << a ;
+                                        if(!is_vectorized && alignment>1) kss << ".s" << a ;
                                         kss << " += " ;
                                         kss << "val_lhs_" << ind_lhs_1 << "_" << ind_lhs_2;
-                                        if(!use_LHS_shared && alignment>1) kss << ".s" << ind_s_lhs;
+                                        if(!is_vectorized_lhs && !use_LHS_shared && alignment>1) kss << ".s" << ind_s_lhs;
                                         kss << "*";
                                         kss << "val_rhs_" << ind_rhs_1 << "_" << ind_rhs_2;
-                                        if(!use_RHS_shared && alignment>1) kss << ".s" << ind_s_rhs;
+                                        if(!is_vectorized_rhs && !use_RHS_shared && alignment>1) kss << ".s" << ind_s_rhs;
                                         kss << ";" << std::endl;
+
+                                        if(is_vectorized)
+                                            break;
+
 
 
 
@@ -785,29 +802,35 @@ namespace viennacl{
 
                         kss.dec_tab();
                         kss << "}" << std::endl;
-                        if(is_lhs_transposed)
-                            if(is_lhs_rowmajor)
-                                kss << "offsetLHS += " << ml_lhs << "*" << internal_size2_lhs << ";" << std::endl;
-                            else
-                                kss << "offsetLHS += " << ml_lhs  << ";" << std::endl;
-                        else{
-                            if(is_lhs_rowmajor)
-                                kss << "offsetLHS += " << kl_lhs << ";" << std::endl;
-                            else
-                                kss << "offsetLHS += " << kl_lhs << "*" << internal_size1_lhs << ";" << std::endl;
+
+                        if(use_LHS_shared){
+                            if(is_lhs_transposed)
+                                if(is_lhs_rowmajor)
+                                    kss << "offsetLHS += " << ml_lhs << "*" << internal_size2_lhs << ";" << std::endl;
+                                else
+                                    kss << "offsetLHS += " << ml_lhs  << ";" << std::endl;
+                            else{
+                                if(is_lhs_rowmajor)
+                                    kss << "offsetLHS += " << kl_lhs << ";" << std::endl;
+                                else
+                                    kss << "offsetLHS += " << kl_lhs << "*" << internal_size1_lhs << ";" << std::endl;
+                            }
+
                         }
 
-                        if(is_rhs_transposed){
-                            if(is_rhs_rowmajor)
-                                kss << "offsetRHS += " << nl_rhs << ";" << std::endl;
-                            else
-                                kss << "offsetRHS += " << nl_rhs << "*" << internal_size1_rhs << ";" << std::endl;
-                        }
-                        else{
-                            if(is_rhs_rowmajor)
-                                kss << "offsetRHS += " << kl_rhs << "*" << internal_size2_rhs << ";" << std::endl;
-                            else
-                                kss << "offsetRHS += " << kl_rhs << ";" << std::endl;
+                        if(use_RHS_shared){
+                            if(is_rhs_transposed){
+                                if(is_rhs_rowmajor)
+                                    kss << "offsetRHS += " << nl_rhs << ";" << std::endl;
+                                else
+                                    kss << "offsetRHS += " << nl_rhs << "*" << internal_size1_rhs << ";" << std::endl;
+                            }
+                            else{
+                                if(is_rhs_rowmajor)
+                                    kss << "offsetRHS += " << kl_rhs << "*" << internal_size2_rhs << ";" << std::endl;
+                                else
+                                    kss << "offsetRHS += " << kl_rhs << ";" << std::endl;
+                            }
                         }
 
                         kss.dec_tab();

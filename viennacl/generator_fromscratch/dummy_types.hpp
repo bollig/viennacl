@@ -201,7 +201,7 @@ public:
 
     typedef viennacl::matrix<ScalarType,Layout> vcl_mat_t;
 
-    dummy_matrix(vcl_mat_t const & mat) : mat_(mat){ }
+    dummy_matrix(vcl_mat_t & mat) : mat_(mat){ }
 
     vcl_mat_t const & mat() const{
         return mat_;
@@ -237,7 +237,7 @@ public:
       return matrix_expression_wrapper<self_type,inplace_sub_type,RHS_TYPE >(*this,rhs);
     }
 private:
-    vcl_mat_t const & mat_;
+    vcl_mat_t & mat_;
 };
 
 
