@@ -35,11 +35,13 @@ namespace viennacl
       template<> struct repr_of<double>{ static const infos_base::repr_t value(){ return "d"; } };
 
 
-      template<class LHS, class RHS>
+      template<class LHS, class RHS, class OP_REDUCE>
       class matmat_prod_infos : public matmat_prod_infos_base{
       public:
           typedef typename LHS::ScalarType ScalarType;
-          matmat_prod_infos(LHS const & lhs, RHS const & rhs) : matmat_prod_infos_base(new LHS(lhs), new RHS(rhs)){ }
+          matmat_prod_infos(LHS const & lhs, RHS const & rhs, std::string const & f_expr, OP_REDUCE op) : matmat_prod_infos_base(new LHS(lhs), new RHS(rhs), f_expr ,new OP_REDUCE(op)){ }
+      private:
+
       };
 
       template<class LHS, class OP, class RHS>

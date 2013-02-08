@@ -48,10 +48,6 @@ template<class LHS, class RHS>
 class inner_prod_wrapper : public compile_time_beast<LHS,inprod_type,RHS>{
 public: inner_prod_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,inprod_type, RHS>(lhs,rhs){ }
 };
-template<class LHS, class RHS>
-class matmat_prod_wrapper : public compile_time_beast<LHS,matmat_prod_type_wrapper,RHS>{
-public: matmat_prod_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,matmat_prod_type_wrapper, RHS>(lhs,rhs){ }
-};
 
 
 template<class T1, class T2=void, class T3=void>
@@ -74,15 +70,15 @@ public:
         n_args_ = 0;
         bool keep_going = true;
         while(keep_going){
-            std::string current_arg = "_"+to_string(n_args_+1)+"_";
+            std::string current_arg = "#"+to_string(n_args_+1);
             if(expr_.find(current_arg)!=std::string::npos)
                 ++n_args_;
             else
                 keep_going=false;
         }
         assert(n_args_>0 && "\nNo argument specified for the function\n"
-                            "\nRecall : 1st arg : _1_\n"
-                            "\n         2nd arg : _2_\n"
+                            "\nRecall : 1st arg : #1\n"
+                            "\n         2nd arg : #2\n"
                                       "...");
     }
 
@@ -110,11 +106,28 @@ public:
         return res;
     }
 
+    std::string expr() const { return expr_; }
+
 private:
     std::string name_;
     std::string expr_;
     unsigned int n_args_;
 };
+
+template<class LHS, class RHS, class OP_REDUCE>
+class matmat_prod_wrapper : public compile_time_beast<LHS,matmat_prod_type_wrapper,RHS>{
+public:
+    matmat_prod_wrapper(LHS const & lhs, RHS const & rhs, std::string expr, OP_REDUCE const & op_reduce) : compile_time_beast<LHS,matmat_prod_type_wrapper, RHS>(lhs,rhs)
+                                                                                        ,f_("",expr), op_reduce_(op_reduce){ }
+
+    OP_REDUCE op_reduce() const { return op_reduce_; }
+
+    std::string expr() const { return f_.expr(); }
+private:
+    function_wrapper f_;
+    OP_REDUCE op_reduce_;
+};
+
 
 template<typename SCALARTYPE>
 class dummy_vector{
@@ -266,8 +279,8 @@ template<class ScalarType, class Layout>
 struct is_matrix_expression_t<dummy_matrix<ScalarType, Layout> >{ enum { value = 1}; };
 template<class LHS, class OP, class RHS>
 struct is_matrix_expression_t<matrix_expression_wrapper<LHS,OP,RHS> >{ enum { value = 1}; };
-template<class LHS, class RHS>
-struct is_matrix_expression_t<matmat_prod_wrapper<LHS,RHS> >{ enum { value = 1}; };
+template<class LHS, class RHS, class OP_REDUCE>
+struct is_matrix_expression_t<matmat_prod_wrapper<LHS,RHS, OP_REDUCE> >{ enum { value = 1}; };
 
 template<class LHS, class OP, class RHS, bool create_vector, bool create_scalar, bool create_matrix>
 struct convert_to_expr;
@@ -331,10 +344,18 @@ inner_prod(LHS const & lhs, RHS const & rhs)
 
 template<class LHS, class RHS>
 typename viennacl::enable_if<is_matrix_expression_t<LHS>::value && is_matrix_expression_t<RHS>::value
-                            ,matmat_prod_wrapper<LHS,RHS> >::type
+                            ,matmat_prod_wrapper<LHS,RHS,add_type> >::type
 prod(LHS const & lhs, RHS const & rhs)
 {
-    return matmat_prod_wrapper<LHS,RHS>(lhs,rhs);
+    return matmat_prod_wrapper<LHS,RHS,add_type>(lhs,rhs,"#1*#2",add_type());
+}
+
+template<class LHS, class RHS, class OP_TYPE>
+typename viennacl::enable_if<is_matrix_expression_t<LHS>::value && is_matrix_expression_t<RHS>::value
+                            ,matmat_prod_wrapper<LHS,RHS,add_type> >::type
+prod_based(LHS const & lhs, RHS const & rhs, std::string const & expression, OP_TYPE const & op_reduce)
+{
+    return matmat_prod_wrapper<LHS,RHS,add_type>(lhs,rhs,expression,op_reduce);
 }
 
 template<class T>
@@ -411,9 +432,9 @@ template<class T1> static unsigned long get_operation_id<function_wrapper_impl<T
 */
 
 
-#define MAKE_BUILTIN_FUNCTION1(name) static function_wrapper name = function_wrapper(#name,#name "(_1_)")
-#define MAKE_BUILTIN_FUNCTION2(name) static function_wrapper name = function_wrapper(#name,#name "(_1_,_2_)")
-#define MAKE_BUILTIN_FUNCTION3(name) static function_wrapper name = function_wrapper(#name,#name "(_1_,_2_,_3_)")
+#define MAKE_BUILTIN_FUNCTION1(name) static function_wrapper name = function_wrapper(#name,#name "(#1)")
+#define MAKE_BUILTIN_FUNCTION2(name) static function_wrapper name = function_wrapper(#name,#name "(#1,#2)")
+#define MAKE_BUILTIN_FUNCTION3(name) static function_wrapper name = function_wrapper(#name,#name "(#1,#2,#3)")
 
 MAKE_BUILTIN_FUNCTION1(acos);
 MAKE_BUILTIN_FUNCTION1(acosh);

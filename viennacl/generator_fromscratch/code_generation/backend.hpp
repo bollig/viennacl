@@ -571,7 +571,7 @@ namespace viennacl{
                             extract_as(&(*it)->rhs(),rhss,utils::is_type<mat_infos_base>());
                         }
 
-                        matrix_expression_infos_base * first_prod = static_cast<matrix_expression_infos_base*>(*matmat_prods_.begin());
+                        matmat_prod_infos_base * first_prod = static_cast<matmat_prod_infos_base*>(*matmat_prods_.begin());
                         mat_infos_base* first_lhs = *lhss.begin();
                         mat_infos_base* first_rhs = *rhss.begin();
                         mat_infos_base* first_assigned = assigned.front();
@@ -641,10 +641,10 @@ namespace viennacl{
                         local_memory<2> lmem_rhs("local_rhs",rhs_size1,rhs_size2+1,first_lhs->scalartype());
 
                         //Declaration of results registers
-                        std::string res_table_name(first_assigned->name() + "_res");
+//                        std::string res_table_name(first_prod->repr() + "_res");
                         for(unsigned int m=0; m< ms_res; ++m)
                             for(unsigned int n=0; n < ns_res ; ++n)
-                                kss << first_assigned->aligned_scalartype() << " " << res_table_name << "_" << m << "_" << n << " = (" << first_assigned->aligned_scalartype() << ")(0) ;" << std::endl;
+                                kss << first_assigned->aligned_scalartype() << " " << first_prod->val_name(m,n) << " = (" << first_assigned->aligned_scalartype() << ")(0) ;" << std::endl;
 
                         //Declaration of local memories
                         if(use_LHS_shared) kss << lmem_lhs.declare() << ";" << std::endl;
@@ -831,7 +831,6 @@ namespace viennacl{
                                         std::ostringstream rhs_oss;
 
 
-                                        res_oss << res_table_name<< "_"<<m<<"_" << n;
                                         if(!is_vectorized && alignment>1) res_oss << ".s" << a ;
 
                                         lhs_oss << "val_lhs_" << ind_lhs_1 << "_" << ind_lhs_2;
@@ -841,7 +840,8 @@ namespace viennacl{
                                         rhs_oss << "val_rhs_" << ind_rhs_1 << "_" << ind_rhs_2;
                                         if(!is_vectorized_rhs && !use_RHS_shared && alignment>1) rhs_oss << ".s" << ind_s_rhs;
 
-                                        kss << res_oss.str() << " += " << "(" << lhs_oss.str() << "*" << rhs_oss.str() << ")" << ";" << std::endl;
+                                        kss << first_prod->update_val(m,n,lhs_oss.str(), rhs_oss.str()) << ";" << std::endl;
+
 
                                         if(is_vectorized)
                                             break;
@@ -908,7 +908,7 @@ namespace viennacl{
                         if(first_assigned->is_rowmajor()){
                             for(unsigned int m=0 ; m < ms_res ; ++m){
                                 for(unsigned int n=0 ; n < ns_res ; ++n){
-                                    kss << "*res_ptr++=" << res_table_name << "_" << m << "_" << n << ";" << std::endl;
+                                    kss << "*res_ptr++=" << first_prod->val_name(m,n) << ";" << std::endl;
                                 }
                                 kss << "res_ptr+=" << internal_size2_res << " - " << ns_res << ";" << std::endl;
                             }
@@ -916,7 +916,7 @@ namespace viennacl{
                         else{
                             for(unsigned int n=0 ; n < ns_res ; ++n){
                                 for(unsigned int m=0 ; m < ms_res ; ++m){
-                                    kss << "*res_ptr++=" << res_table_name << "_" << m << "_" << n << ";" << std::endl;
+                                    kss << "*res_ptr++=" << first_prod->val_name(m,n) << ";" << std::endl;
                                 }
                                 kss << "res_ptr+=" << internal_size1_res << " - " << ms_res << ";" << std::endl;
                             }

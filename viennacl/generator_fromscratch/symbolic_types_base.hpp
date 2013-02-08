@@ -4,6 +4,7 @@
 
 #include "viennacl/forwards.h"
 #include "viennacl/ocl/utils.hpp"
+#include "viennacl/backend/mem_handle.hpp"
 
 #include "viennacl/generator_fromscratch/utils.hpp"
 #include "viennacl/generator_fromscratch/forwards.h"
@@ -216,7 +217,7 @@ namespace viennacl{
             infos_base & rhs() const{ return *rhs_; }
             op_infos_base & op() { return *op_; }
             infos_base::repr_t repr() const {
-                return "("+lhs_->repr() + op_->repr() + rhs_->repr()+")";
+                return "p_"+lhs_->repr() + op_->repr() + rhs_->repr()+"_p";
             }
         protected:
             binary_tree_infos_base(infos_base * lhs, op_infos_base * op, infos_base * rhs) : lhs_(lhs), op_(op), rhs_(rhs){        }
@@ -301,8 +302,38 @@ namespace viennacl{
 
         class matmat_prod_infos_base : public matrix_expression_infos_base{
         public:
-            matmat_prod_infos_base( infos_base * lhs, infos_base * rhs) : matrix_expression_infos_base(lhs,new matmat_prod_type(),rhs){ }
-            std::string generate(unsigned int i) const { return ""; }
+            matmat_prod_infos_base( infos_base * lhs, infos_base * rhs, std::string const & f_expr, op_infos_base* op_reduce) :
+                f_expr_(f_expr), op_reduce_(op_reduce), matrix_expression_infos_base(lhs,new matmat_prod_type(),rhs){
+                val_name_ = repr() + "_val";
+            }
+
+            std::string val_name(unsigned int m, unsigned int n){
+                return val_name_ +  '_' + to_string(m) + '_' + to_string(n);
+            }
+
+            std::string update_val(unsigned int m, unsigned int n, std::string const & lhs, std::string const & rhs){
+                std::string _val_name(val_name(m,n));
+                std::string expr(f_expr_);
+                replace_all_occurences(expr,"#1",lhs);
+                replace_all_occurences(expr,"#2",rhs);
+                return _val_name + " = " + _val_name + op_reduce_->generate(0) + "(" + expr + ")";
+
+            }
+
+            std::string make_expr(std::string const & lhs, std::string const & rhs){
+                std::string res(f_expr_);
+                replace_all_occurences(res,"#1",lhs);
+                replace_all_occurences(res,"#2",rhs);
+                return res;
+            }
+
+            op_infos_base const & op_reduce(){ return *op_reduce_; }
+
+
+        private:
+            std::string f_expr_;
+            viennacl::tools::shared_ptr<op_infos_base> op_reduce_;
+            std::string val_name_;
         };
 
         class inprod_infos_base : public binary_tree_infos_base,public temporary_kernel_argument{

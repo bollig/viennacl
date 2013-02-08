@@ -81,18 +81,19 @@ namespace viennacl
           }
       };
 
-      template<class LHS, class RHS>
-      struct dummy2exptree_impl<matmat_prod_wrapper<LHS,RHS> >{
+      template<class LHS, class RHS, class OP_REDUCE>
+      struct dummy2exptree_impl<matmat_prod_wrapper<LHS,RHS, OP_REDUCE> >{
       private:
           typedef typename dummy2exptree_impl<LHS>::result_type LhsResult;
           typedef typename dummy2exptree_impl<RHS>::result_type RhsResult;
       public:
-          typedef matmat_prod_infos<LhsResult,RhsResult> result_type;
+          typedef matmat_prod_infos<LhsResult,RhsResult, OP_REDUCE> result_type;
           static result_type execute(shared_infos_map_t & shared_infos,
                                      temporaries_map_t & temporaries,
-                                     matmat_prod_wrapper<LHS,RHS> const & v){
+                                     matmat_prod_wrapper<LHS,RHS, OP_REDUCE> const & v){
               return result_type(dummy2exptree_impl<LHS>::execute(shared_infos,temporaries,v.lhs()),
-                                 dummy2exptree_impl<RHS>::execute(shared_infos,temporaries,v.rhs()));
+                                 dummy2exptree_impl<RHS>::execute(shared_infos,temporaries,v.rhs()),
+                                 v.expr(), v.op_reduce());
           }
       };
 
@@ -154,7 +155,7 @@ namespace viennacl
 
       private:
           void compile_program(std::string const & pgm_name) const{
-//              std::cout << source_code_ << std::endl;
+              std::cout << source_code_ << std::endl;
               assert(!source_code_.empty() && " Custom Operation not initialized ");
               viennacl::ocl::program& program = viennacl::ocl::current_context().add_program(source_code_, pgm_name);
               for(std::map<std::string, generator::code_generation::kernel_infos_t>::const_iterator it = kernels_infos_.begin() ; it !=kernels_infos_.end() ; ++it){
