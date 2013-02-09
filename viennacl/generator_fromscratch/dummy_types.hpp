@@ -350,12 +350,12 @@ prod(LHS const & lhs, RHS const & rhs)
     return matmat_prod_wrapper<LHS,RHS,add_type>(lhs,rhs,"#1*#2",add_type());
 }
 
-template<class LHS, class RHS, class OP_TYPE>
+template<class OP_TYPE, class LHS, class RHS>
 typename viennacl::enable_if<is_matrix_expression_t<LHS>::value && is_matrix_expression_t<RHS>::value
                             ,matmat_prod_wrapper<LHS,RHS,add_type> >::type
-prod_based(LHS const & lhs, RHS const & rhs, std::string const & expression, OP_TYPE const & op_reduce)
+prod_based(LHS const & lhs, RHS const & rhs, std::string const & expression)
 {
-    return matmat_prod_wrapper<LHS,RHS,add_type>(lhs,rhs,expression,op_reduce);
+    return matmat_prod_wrapper<LHS,RHS,add_type>(lhs,rhs,expression,OP_TYPE());
 }
 
 template<class T>

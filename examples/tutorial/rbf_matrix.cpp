@@ -56,7 +56,7 @@ int main(){
     viennacl::copy(cpu_val, C);
 
     viennacl::generator::custom_operation op;
-    op.add(dm_t(A) = viennacl::generator::sqrt(prod_based(dm_t(B), dm_t(C),"pow(#1 - #2,2)", add_type())));
+    op.add(dm_t(A) = prod_based<add_type>(dm_t(B), dm_t(C),"pow(#1 - #2,2)"));
     op.execute();
     std::cout << op.source_code() << std::endl;
 
