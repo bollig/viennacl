@@ -26,6 +26,8 @@
 #include "viennacl/ocl/context.hpp"
 #include "viennacl/ocl/enqueue.hpp"
 
+#include "boost/thread.hpp"
+
 namespace viennacl
 {
   namespace ocl
@@ -40,29 +42,43 @@ namespace viennacl
         *
         * @param i   ID of the new active context
         */
+
+#ifdef VIENNACL_USE_SCHEDULER
+        static void switch_context(long i, boost::thread::id id = boost::this_thread::get_id()){
+            current_context_id_[id] = i;
+        }
+#else
         static void switch_context(long i)
         {
           current_context_id_ = i;
         }
+#endif
+
         
         /** @brief Returns the current active context */
-        static viennacl::ocl::context & current_context()
-        {
-          if (!initialized_[current_context_id_])
+#ifdef VIENNACL_USE_SCHEDULER
+        static viennacl::ocl::context & current_context(boost::thread::id id = boost::this_thread::get_id()){
+          long context_id = current_context_id_.at(id);
+#else
+        static viennacl::ocl::context & current_context(){
+          long context_id = current_context_id_;
+#endif
+
+          if (!initialized_[context_id])
           {
-            //std::cout << "Initializing context no. " << current_context_id_ << std::endl;
-            contexts_[current_context_id_].init();
+            //std::cout << "Initializing context no. " << context_id << std::endl;
+            contexts_[context_id].init();
             //create one queue per device:
-            std::vector<viennacl::ocl::device> devices = contexts_[current_context_id_].devices();
+            std::vector<viennacl::ocl::device> devices = contexts_[context_id].devices();
             for (size_t j = 0; j<devices.size(); ++j)
-              contexts_[current_context_id_].add_queue(devices[j]);
-            initialized_[current_context_id_] = true;
+              contexts_[context_id].add_queue(devices[j]);
+            initialized_[context_id] = true;
             /*
-            std::cout << "Context no. " << current_context_id_ << " initialized with " << devices.size() << " devices" << std::endl;
+            std::cout << "Context no. " << context_id << " initialized with " << devices.size() << " devices" << std::endl;
             std::cout << "Device id: " << devices[0].id() << std::endl;
-            std::cout << "Current device id: " << contexts_[current_context_id_].current_device().id() << std::endl; */
+            std::cout << "Current device id: " << contexts_[context_id].current_device().id() << std::endl; */
           }
-          return contexts_[current_context_id_];
+          return contexts_[context_id];
         }
         
         /** @brief Returns the current queue for the active device in the active context */
@@ -159,15 +175,33 @@ namespace viennacl
         {
           contexts_[i].platform_index(pf_index);
         }
-        
+
+
+
       private:
+#ifdef VIENNACL_USE_SCHEDULER
+        static std::map<boost::thread::id, long> current_context_id_;
+#else
         static long current_context_id_;
+#endif
         static std::map<long, bool> initialized_;
         static std::map<long, viennacl::ocl::context> contexts_;
     };
     
+
+#ifdef VIENNACL_USE_SCHEDULER
+    static std::map<boost::thread::id, long> initialize_context_id(){
+        std::map<boost::thread::id, long> res;
+        res.insert(std::make_pair(boost::this_thread::get_id(),0));
+        return res;
+    }
+
+    template <bool dummy>
+    std::map<boost::thread::id, long> backend<dummy>::current_context_id_ = initialize_context_id();
+#else
     template <bool dummy>
     long backend<dummy>::current_context_id_ = 0;
+#endif
 
     template <bool dummy>
     std::map<long, bool> backend<dummy>::initialized_;

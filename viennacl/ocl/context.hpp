@@ -213,7 +213,7 @@ namespace viennacl
           #if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_CONTEXT)
           std::cout << "ViennaCL: Adding existing queue " << q << " for device " << dev << " to context " << h_ << std::endl;
           #endif
-          queues_[dev].push_back(viennacl::ocl::command_queue(q));
+          queues_[dev].push_back(viennacl::ocl::command_queue(this,q,dev));
           queues_[dev].back().handle().inc();
         }
         
@@ -224,10 +224,17 @@ namespace viennacl
           std::cout << "ViennaCL: Adding new queue for device " << dev << " to context " << h_ << std::endl;
           #endif
           cl_int err;
-          viennacl::ocl::handle<cl_command_queue> temp = clCreateCommandQueue(h_.get(), dev, 0, &err);
+          cl_command_queue_properties prop;
+#ifdef VIENNACL_PROFILING_ENABLE
+          prop = CL_QUEUE_PROFILING_ENABLE;
+#else
+          prop = 0;
+#endif
+
+          viennacl::ocl::handle<cl_command_queue> temp = clCreateCommandQueue(h_.get(), dev, prop, &err);
           VIENNACL_ERR_CHECK(err);
           
-          queues_[dev].push_back(viennacl::ocl::command_queue(temp));
+          queues_[dev].push_back(viennacl::ocl::command_queue(this,temp,dev));
         }
 
         /** @brief Adds a queue for the given device to the context */
@@ -236,6 +243,7 @@ namespace viennacl
         //get queue for default device:
         viennacl::ocl::command_queue & get_queue()
         {
+            std::cout << "Current device " << current_device_id_ << std::endl;
           return queues_[devices_[current_device_id_].id()][0];
         }
         
@@ -264,7 +272,7 @@ namespace viennacl
         */
         viennacl::ocl::program & add_program(cl_program p, std::string const & prog_name)
         {
-          programs_.push_back(viennacl::ocl::program(p, prog_name));
+          programs_.push_back(viennacl::ocl::program(this,p, prog_name));
           return programs_.back();
         }
         
@@ -296,7 +304,8 @@ namespace viennacl
           #endif
           VIENNACL_ERR_CHECK(err);
 
-          programs_.push_back(viennacl::ocl::program(temp, prog_name));
+
+          programs_.push_back(viennacl::ocl::program(this,temp, prog_name));
           
           return programs_.back();
         }

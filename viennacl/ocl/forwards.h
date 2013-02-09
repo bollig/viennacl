@@ -42,13 +42,14 @@ namespace viennacl
     class command_queue;
     class context;
     class program;
+    class event;
 
     template<class OCL_TYPE>
     class handle;
 
     template <typename KernelType>
-    void enqueue(KernelType & k, viennacl::ocl::command_queue const & queue);
-    
+    inline event const & enqueue(KernelType & k);
+
     inline viennacl::ocl::context & current_context();
     inline viennacl::ocl::device const & current_device();
   }

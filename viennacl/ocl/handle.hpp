@@ -142,6 +142,25 @@ namespace viennacl
       }
     };
     
+    //cl_event:
+    template<>
+    struct handle_inc_dec_helper<cl_event>
+    {
+        static void inc(cl_event & something)
+        {
+            cl_int err = clRetainEvent(something);
+            VIENNACL_ERR_CHECK(err);
+        }
+
+        static void dec(cl_event & something)
+        {
+            #ifndef __APPLE__
+            cl_int err = clReleaseEvent(something);
+            VIENNACL_ERR_CHECK(err);
+            #endif
+        }
+    };
+
     /** @brief Handle class the effectively represents a smart pointer for OpenCL handles */
     template<class OCL_TYPE>
     class handle

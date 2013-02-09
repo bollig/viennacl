@@ -20,6 +20,11 @@ SET(CMAKE_VERBOSE_MAKEFILE ON)   #uncomment this line to increase CMake verbosit
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
+file( GLOB_RECURSE QtCreatorCompatibility_SRC
+    *.hpp *.h)
+add_custom_target( QtCreatorCompatibility SOURCES ${QtCreatorCompatibility_SRC} )
+
+
 # Common options
 ################
 

@@ -36,6 +36,14 @@ namespace viennacl
 {
   namespace ocl
   {
+
+    static inline cl_uint num_platforms(){
+      cl_uint res;
+      cl_int err = clGetPlatformIDs(0, NULL, &res);
+      VIENNACL_ERR_CHECK(err)
+      return res;
+    }
+
     class platform
     {
       

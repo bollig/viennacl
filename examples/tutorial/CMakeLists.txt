@@ -50,12 +50,14 @@ endif()
 # Part 2: Tutorials which work only with OpenCL enabled:
 #
 if (ENABLE_OPENCL)
-  foreach(tut custom-kernels custom-context fft viennacl-info)
+  foreach(tut custom-kernels custom-context fft viennacl-info multi_matrix)
     add_executable(${tut} ${tut}.cpp)
     target_link_libraries(${tut} ${OPENCL_LIBRARIES})
     set_target_properties(${tut} PROPERTIES COMPILE_FLAGS "-DVIENNACL_WITH_OPENCL")
   endforeach()
-  
+  target_link_libraries(multi_matrix boost_thread pthread)
+
+
   if(ENABLE_UBLAS)
     include_directories(${Boost_INCLUDE_DIRS})
     foreach(tut amg iterative spai structured-matrices)

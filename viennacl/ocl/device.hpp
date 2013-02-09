@@ -36,6 +36,7 @@
 #include <assert.h>
 #include "viennacl/ocl/handle.hpp"
 #include "viennacl/ocl/error.hpp"
+#include "viennacl/ocl/infos.hpp"
 
 namespace viennacl
 {
@@ -194,51 +195,27 @@ namespace viennacl
         std::string info() const
         {
           std::ostringstream oss;
-          char buffer[1024]; buffer[0] = 0;
-          cl_int err;
-          cl_uint vendor_id;
-          cl_ulong local_mem_size;
-          cl_ulong global_mem_size;
-          
-          err = clGetDeviceInfo(device_, CL_DEVICE_VENDOR_ID, sizeof(cl_uint), &vendor_id, NULL);
-          VIENNACL_ERR_CHECK(err);
-          oss << "CL Device Vendor ID: " << vendor_id << std::endl;
-
-          err = clGetDeviceInfo(device_, CL_DEVICE_NAME, sizeof(char)*1024, buffer, NULL);
-          VIENNACL_ERR_CHECK(err);
-          oss << "CL Device Name: " << buffer << std::endl;
-
-          err = clGetDeviceInfo(device_, CL_DRIVER_VERSION, sizeof(char)*1024, buffer, NULL);
-          VIENNACL_ERR_CHECK(err);
-          std::string test = buffer;
-          oss << "CL Driver Version: " << test << std::endl;
-
+          oss << "CL Device Vendor ID: " << viennacl::ocl::info<CL_DEVICE_VENDOR_ID>(device_) << std::endl;
+          oss << "CL Device Name: " << name() << std::endl;
+          oss << "CL Driver Version: " << viennacl::ocl::info<CL_DRIVER_VERSION>(device_) << std::endl;
           oss << "--------------------------------" << std::endl;
-          
-          oss << "CL Device Max Compute Units: " << compute_units_ << std::endl;
-
+          oss << "CL Device Max Compute Units: " << viennacl::ocl::info<CL_DEVICE_MAX_COMPUTE_UNITS>(device_) << std::endl;
   //         err = clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(char)*1024, buffer, NULL);
   //         CL_ERR_CHECK(err);
   //         oss << "CL Device Max Work Item Dimensions: " << buffer << std::endl;
-  // 
+  //
   //         err = clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(char)*1024, buffer, NULL);
   //         CL_ERR_CHECK(err);
   //         oss << "CL Device Max Work Item Sizes: " << buffer << std::endl;
+          oss << "CL Device Max Work Group Size: " << viennacl::ocl::info<CL_DEVICE_MAX_WORK_GROUP_SIZE>(device_) << std::endl;
+          oss << "CL Device Global Mem Size: " << viennacl::ocl::info<CL_DEVICE_GLOBAL_MEM_SIZE>(device_) << std::endl;
+          oss << "CL Device Local Mem Size: " << viennacl::ocl::info<CL_DEVICE_LOCAL_MEM_SIZE>(device_) << std::endl;
 
-          oss << "CL Device Max Work Group Size: " << max_work_group_size_ << std::endl;
-
-          err = clGetDeviceInfo(device_, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(cl_ulong), &global_mem_size, NULL);
-          VIENNACL_ERR_CHECK(err);
-          oss << "CL Device Global Mem Size: " << global_mem_size << std::endl;
-          
-          err = clGetDeviceInfo(device_, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &local_mem_size, NULL);
-          VIENNACL_ERR_CHECK(err);
-          oss << "CL Device Local Mem Size: " << local_mem_size << std::endl;
-          
           //return info string:
           std::string ret(oss.str());
           return ret;
         }
+
         
         size_t max_work_group_size() const { return max_work_group_size_; }
         cl_uint compute_units() const { return compute_units_; }

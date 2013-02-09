@@ -23,7 +23,7 @@
 */
 
 #include <vector>
-#include "viennacl/ocl/backend.hpp"
+#include "viennacl/ocl/forwards.h"
 #include "viennacl/ocl/device.hpp"
 
 namespace viennacl
@@ -49,7 +49,25 @@ namespace viennacl
       }
     };
     
-    
+    namespace detail{
+        template<class T>
+        struct vcl_type_of;
+
+        template<>
+        struct vcl_type_of<cl_device_id>{ typedef viennacl::ocl::device type; };
+
+        template<>
+        struct vcl_type_of<cl_context>{ typedef viennacl::ocl::context type; };
+
+        template<>
+        struct vcl_type_of<cl_program>{ typedef viennacl::ocl::program type; };
+
+    }
+
+    template<class T>
+    T cast(typename detail::vcl_type_of<T>::type & arg){
+        return arg.handle().get();
+    }
 
   } //ocl
 } //viennacl

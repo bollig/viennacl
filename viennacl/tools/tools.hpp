@@ -70,6 +70,13 @@ namespace viennacl
     };
 
     
+    /** @brief Transforms a type into a string */
+    template<typename ScalarType>
+    std::string to_string(ScalarType v){
+        std::ostringstream oss;
+        oss << v;
+        return oss.str();
+    }
     
     /** @brief Reads a text from a file into a std::string
     *
@@ -111,6 +118,7 @@ namespace viennacl
         result.append(text.substr(pos));
       return result;
     }
+
 
     /** @brief Rounds an integer to the next multiple of another integer
     *
@@ -320,6 +328,12 @@ namespace viennacl
     struct MATRIX_EXTRACTOR_IMPL<LHS, viennacl::matrix<ScalarType, F, A> >
     {
       typedef viennacl::matrix<ScalarType, F, A>   ResultType;
+    };
+
+    template <typename LHS, typename ScalarType, typename F, unsigned int A>
+    struct MATRIX_EXTRACTOR_IMPL<LHS, viennacl::distributed::multi_matrix<ScalarType, F, A> >
+    {
+      typedef viennacl::distributed::multi_matrix<ScalarType, F, A>   ResultType;
     };
 
     template <typename LHS, typename ScalarType, unsigned int A>

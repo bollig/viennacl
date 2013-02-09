@@ -28,12 +28,14 @@
 #include <CL/cl.h>
 #endif
 
-#include "viennacl/ocl/forwards.h"
-#include "viennacl/ocl/backend.hpp"
+//#include "viennacl/ocl/forwards.h"
+//#include "viennacl/ocl/backend.hpp"
 #include "viennacl/ocl/handle.hpp"
-#include "viennacl/ocl/program.hpp"
-#include "viennacl/ocl/device.hpp"
+//#include "viennacl/ocl/program.hpp"
+//#include "viennacl/ocl/device.hpp"
 #include "viennacl/ocl/local_mem.hpp"
+#include "viennacl/ocl/infos.hpp"
+#include "viennacl/ocl/utils.hpp"
 
 namespace viennacl
 {
@@ -57,7 +59,7 @@ namespace viennacl
     public:
       typedef std::size_t            size_type;
       
-      kernel() : handle_(0)
+      kernel(viennacl::ocl::program *  prog) : handle_(0), program_(prog)
       {
         #if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_KERNEL)
         std::cout << "ViennaCL: Creating kernel object (default CTOR)" << std::endl;
@@ -65,7 +67,7 @@ namespace viennacl
         set_work_size_defaults();
       }
       
-      kernel(viennacl::ocl::handle<cl_program> const & prog, std::string const & name) 
+      kernel(viennacl::ocl::program *  prog, std::string const & name)
        : handle_(0), program_(prog), name_(name), init_done_(false)
       {
         #if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_KERNEL)
@@ -710,6 +712,9 @@ namespace viennacl
 
       std::string const & name() const { return name_; }
 
+      /** @brief Returns the program used to create the kernel */
+      viennacl::ocl::program & program() { return *program_ ; }
+
       viennacl::ocl::handle<cl_kernel> const & handle() const { return handle_; }
 
 
@@ -720,7 +725,7 @@ namespace viennacl
         #if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_KERNEL)
         std::cout << "ViennaCL: Building kernel " << name_ << std::endl;
         #endif
-        handle_ = clCreateKernel(program_.get(), name_.c_str(), &err);
+        handle_ = clCreateKernel(viennacl::ocl::cast<cl_program>(*program_), name_.c_str(), &err);
         
         if (err != CL_SUCCESS)
         {
@@ -757,7 +762,7 @@ namespace viennacl
       }
       
       viennacl::ocl::handle<cl_kernel> handle_;
-      viennacl::ocl::handle<cl_program> program_;
+      viennacl::ocl::program * program_;
       std::string name_;
       bool init_done_;
       size_type local_work_size_[2];

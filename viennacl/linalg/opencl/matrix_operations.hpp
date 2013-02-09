@@ -454,7 +454,9 @@ namespace viennacl
           
           cpu_value_type cl_alpha = static_cast<cpu_value_type>(alpha);
           cpu_value_type cl_beta  = static_cast<cpu_value_type>(beta);
-          
+
+          std::cout << "WILL CRASH" << std::endl;
+          std::cout << k.program().context() << std::endl;
           viennacl::ocl::enqueue(k(cl_alpha,
                                   viennacl::traits::opencl_handle(A), 
                                   cl_uint(viennacl::traits::start1(A)),           cl_uint(viennacl::traits::start2(A)), 

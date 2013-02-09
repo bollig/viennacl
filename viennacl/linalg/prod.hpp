@@ -244,6 +244,19 @@ namespace viennacl
 
 
 
+    template< typename MatrixT, typename NumericT, typename F, unsigned int ALIGNMENT >
+    viennacl::matrix_expression< const MatrixT,
+                                 const viennacl::distributed::multi_matrix<NumericT, F, ALIGNMENT>,
+                                 viennacl::op_prod >
+    prod(MatrixT const& matrix_A,
+         viennacl::distributed::multi_matrix<NumericT, F, ALIGNMENT> const& matrix_B)
+    {
+      // std::cout << "viennacl .. " << std::endl;
+      return viennacl::matrix_expression< const MatrixT,
+                                          const viennacl::distributed::multi_matrix<NumericT, F, ALIGNMENT>,
+                                          viennacl::op_prod >(matrix_A, matrix_B);
+    }
+
 
     template< typename MatrixT, typename NumericT, typename F, unsigned int ALIGNMENT >
     viennacl::matrix_expression< const MatrixT, 

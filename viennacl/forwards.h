@@ -184,7 +184,7 @@ namespace viennacl
   //  
   template <class SCALARTYPE, typename F = row_major, unsigned int ALIGNMENT = 1>
   class matrix;
-  
+
   template<class SCALARTYPE, unsigned int ALIGNMENT = 1>
   class compressed_matrix;
   
@@ -209,6 +209,14 @@ namespace viennacl
   template<class SCALARTYPE, unsigned int ALIGNMENT = 1>
   class vandermonde_matrix;
   
+  //Distributed Matrix
+
+  namespace distributed{
+
+      template <class SCALARTYPE, typename F = row_major, unsigned int ALIGNMENT = 1>
+      class multi_matrix;
+
+  }
   //
   // Proxies:
   //
