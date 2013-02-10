@@ -1183,6 +1183,7 @@ namespace viennacl
                               >::type
   operator += (M1 & m1, const M2 & other) 
   {
+      std::cout << "OH NOEZ" << std::endl;
     typedef typename viennacl::result_of::cpu_value_type<typename M1::value_type>::type   ScalarType;
     viennacl::linalg::ambm(m1,
                             m1,    ScalarType(1.0), 1, false, false,
@@ -1355,6 +1356,8 @@ namespace viennacl
   operator += (M1 & m1,
                 const matrix_expression< const V1, const V2, op_prod > & proxy) 
   {
+        std::cout << "OH NOEZ 2" << std::endl;
+
     typedef typename viennacl::result_of::cpu_value_type<typename M1::value_type>::type   ScalarType;
     viennacl::linalg::scaled_rank_1_update(m1,
                                             ScalarType(1.0), 1, false, false,

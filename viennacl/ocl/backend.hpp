@@ -26,7 +26,9 @@
 #include "viennacl/ocl/context.hpp"
 #include "viennacl/ocl/enqueue.hpp"
 
-#include "boost/thread.hpp"
+#if __cplusplus > 199711L
+#include <thread>
+#endif
 
 namespace viennacl
 {
@@ -43,9 +45,9 @@ namespace viennacl
         * @param i   ID of the new active context
         */
 
-#ifdef VIENNACL_USE_SCHEDULER
-        static void switch_context(long i, boost::thread::id id = boost::this_thread::get_id()){
-            current_context_id_[id] = i;
+#if __cplusplus > 199711L
+        static void switch_context(long i){
+            current_context_id_[std::this_thread::get_id()] = i;
         }
 #else
         static void switch_context(long i)
@@ -56,8 +58,8 @@ namespace viennacl
 
         
         /** @brief Returns the current active context */
-#ifdef VIENNACL_USE_SCHEDULER
-        static viennacl::ocl::context & current_context(boost::thread::id id = boost::this_thread::get_id()){
+#if __cplusplus > 199711L
+        static viennacl::ocl::context & current_context(std::thread::id id = std::this_thread::get_id()){
           long context_id = current_context_id_.at(id);
 #else
         static viennacl::ocl::context & current_context(){
@@ -179,8 +181,8 @@ namespace viennacl
 
 
       private:
-#ifdef VIENNACL_USE_SCHEDULER
-        static std::map<boost::thread::id, long> current_context_id_;
+#if __cplusplus > 199711L
+        static std::map<std::thread::id, long> current_context_id_;
 #else
         static long current_context_id_;
 #endif
@@ -189,15 +191,15 @@ namespace viennacl
     };
     
 
-#ifdef VIENNACL_USE_SCHEDULER
-    static std::map<boost::thread::id, long> initialize_context_id(){
-        std::map<boost::thread::id, long> res;
-        res.insert(std::make_pair(boost::this_thread::get_id(),0));
+#if __cplusplus > 199711L
+    static std::map<std::thread::id, long> initialize_context_id(){
+        std::map<std::thread::id, long> res;
+        res.insert(std::make_pair(std::this_thread::get_id(),0));
         return res;
     }
 
     template <bool dummy>
-    std::map<boost::thread::id, long> backend<dummy>::current_context_id_ = initialize_context_id();
+    std::map<std::thread::id, long> backend<dummy>::current_context_id_ = initialize_context_id();
 #else
     template <bool dummy>
     long backend<dummy>::current_context_id_ = 0;

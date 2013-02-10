@@ -243,7 +243,6 @@ namespace viennacl
         //get queue for default device:
         viennacl::ocl::command_queue & get_queue()
         {
-            std::cout << "Current device " << current_device_id_ << std::endl;
           return queues_[devices_[current_device_id_].id()][0];
         }
         

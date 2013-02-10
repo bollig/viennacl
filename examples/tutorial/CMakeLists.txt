@@ -55,8 +55,7 @@ if (ENABLE_OPENCL)
     target_link_libraries(${tut} ${OPENCL_LIBRARIES})
     set_target_properties(${tut} PROPERTIES COMPILE_FLAGS "-DVIENNACL_WITH_OPENCL")
   endforeach()
-  target_link_libraries(multi_matrix boost_thread pthread)
-
+  list( APPEND CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
 
   if(ENABLE_UBLAS)
     include_directories(${Boost_INCLUDE_DIRS})

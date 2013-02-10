@@ -112,6 +112,9 @@ namespace viennacl
             //workaround for ATI Stream SDK v2.3: No CPUs detected with default device type:
             err = clGetDeviceIDs(id_, CL_DEVICE_TYPE_CPU, VIENNACL_OCL_MAX_DEVICE_NUM, device_ids, &num_devices);
           }
+          if (err == CL_DEVICE_NOT_FOUND){
+              return std::vector<device>();
+          }
           
           VIENNACL_ERR_CHECK(err);
           #if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_DEVICE)
