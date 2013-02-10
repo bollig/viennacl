@@ -2,7 +2,7 @@
 #define VIENNACL_GENERATOR_DUMMY_TYPES_HPP
 
 #include "viennacl/meta/enable_if.hpp"
-#include "viennacl/generator_fromscratch/forwards.h"
+#include "viennacl/generator/forwards.h"
 //#include "viennacl/forwards.h"
 #include "viennacl/vector.hpp"
 #include <set>

@@ -126,6 +126,8 @@ namespace viennacl
 
         T* get() const {  return pt; }
 
+        T* operator->() const {  return pt; }
+
         T& operator*() const { return *pt; }
     };
 

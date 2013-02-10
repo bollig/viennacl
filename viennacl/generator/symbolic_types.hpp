@@ -19,9 +19,9 @@
 
 
 
-#include "viennacl/generator_fromscratch/dummy_types.hpp"
-#include "viennacl/generator_fromscratch/symbolic_types_base.hpp"
-#include "viennacl/generator_fromscratch/functions.hpp"
+#include "viennacl/generator/dummy_types.hpp"
+#include "viennacl/generator/symbolic_types_base.hpp"
+#include "viennacl/generator/functions.hpp"
 
 
 namespace viennacl

@@ -1,9 +1,9 @@
 #ifndef VIENNACL_GENERATOR_CODE_GENERATION_FRONTEND_HPP
 #define VIENNACL_GENERATOR_CODE_GENERATION_FRONTEND_HPP
 
-#include "viennacl/generator_fromscratch/symbolic_types_base.hpp"
-#include "viennacl/generator_fromscratch/code_generation/backend.hpp"
-#include "viennacl/generator_fromscratch/code_generation/utils.hpp"
+#include "viennacl/generator/symbolic_types_base.hpp"
+#include "viennacl/generator/code_generation/backend.hpp"
+#include "viennacl/generator/code_generation/utils.hpp"
 
 #include <algorithm>
 

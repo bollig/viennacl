@@ -6,8 +6,8 @@
 #include "viennacl/ocl/utils.hpp"
 #include "viennacl/backend/mem_handle.hpp"
 
-#include "viennacl/generator_fromscratch/utils.hpp"
-#include "viennacl/generator_fromscratch/forwards.h"
+#include "viennacl/generator/utils.hpp"
+#include "viennacl/generator/forwards.h"
 
 #include <map>
 #include <set>
@@ -303,7 +303,7 @@ namespace viennacl{
         class matmat_prod_infos_base : public matrix_expression_infos_base{
         public:
             matmat_prod_infos_base( infos_base * lhs, infos_base * rhs, std::string const & f_expr, op_infos_base* op_reduce) :
-                f_expr_(f_expr), op_reduce_(op_reduce), matrix_expression_infos_base(lhs,new matmat_prod_type(),rhs){
+                matrix_expression_infos_base(lhs,new matmat_prod_type(),rhs),f_expr_(f_expr), op_reduce_(op_reduce){
                 val_name_ = repr() + "_val";
             }
 

@@ -2,8 +2,8 @@
 #define VIENNACL_GENERATOR_FUNCTIONS_HPP
 
 
-#include "viennacl/generator_fromscratch/symbolic_types_base.hpp"
-#include "viennacl/generator_fromscratch/dummy_types.hpp"
+#include "viennacl/generator/symbolic_types_base.hpp"
+#include "viennacl/generator/dummy_types.hpp"
 
 #include <map>
 #include <list>

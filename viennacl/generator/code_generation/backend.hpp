@@ -1,8 +1,8 @@
 #ifndef VIENNACL_GENERATOR_CODE_GENERATION_BACKEND_HPP
 #define VIENNACL_GENERATOR_CODE_GENERATION_BACKEND_HPP
 
-#include "viennacl/generator_fromscratch/symbolic_types_base.hpp"
-#include "viennacl/generator_fromscratch/code_generation/utils.hpp"
+#include "viennacl/generator/symbolic_types_base.hpp"
+#include "viennacl/generator/code_generation/utils.hpp"
 #include <algorithm>
 
 namespace viennacl{
@@ -445,8 +445,8 @@ namespace viennacl{
                         unsigned int ks;
                         unsigned int ns_rhs;
                         unsigned int ks_rhs;
-                        std::string const & internal_size2_rhs;
                         std::string const & internal_size1_rhs;
+                        std::string const & internal_size2_rhs;
                     };
 
                     struct update_lhs_global_ptr{
@@ -470,8 +470,8 @@ namespace viennacl{
                         unsigned int ks;
                         unsigned int ms_lhs;
                         unsigned int ks_lhs;
-                        std::string const & internal_size2_lhs;
                         std::string const & internal_size1_lhs;
+                        std::string const & internal_size2_lhs;
                     };
 
 

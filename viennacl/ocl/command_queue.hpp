@@ -206,10 +206,8 @@ namespace viennacl
 
         } //enqueue()
       private:
-        
-        viennacl::ocl::handle<cl_command_queue> handle_;
-
         viennacl::ocl::context * context_;
+        viennacl::ocl::handle<cl_command_queue> handle_;
         viennacl::ocl::event * last_event_;
         std::map<cl_kernel, viennacl::ocl::event> events_;
     };

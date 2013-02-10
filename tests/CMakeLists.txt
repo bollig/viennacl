@@ -19,7 +19,8 @@ if (ENABLE_OPENCL)
                global_variables
                matrix-vector matrix nmf qr-method
                scalar sparse structured-matrices svd
-               vector)
+               vector
+               autotuned_blas3)
      add_executable(${PROG}-test-opencl src/${PROG}.cpp)
      target_link_libraries(${PROG}-test-opencl ${OPENCL_LIBRARIES})
      add_test(${PROG}-opencl ${PROG}-test-opencl)
