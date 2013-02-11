@@ -61,7 +61,6 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
     viennacl::ocl::program & pgm = op.program();
     viennacl::ocl::kernel & k = pgm.get_kernel("_k0");
 
-
     //Anticipates kernel failure
     size_t max_workgroup_size = viennacl::ocl::info<CL_KERNEL_WORK_GROUP_SIZE>(k.handle().get(),dev.id());
     if(prof.local_work_size(0)*prof.local_work_size(1) > max_workgroup_size)

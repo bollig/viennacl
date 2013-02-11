@@ -1,6 +1,6 @@
 //#define VIENNACL_DEBUG_BUILD
 #define VIENNACL_WITH_OPENCL
-//#define VIENNACL_DEBUG_ALL
+#define VIENNACL_DEBUG_ALL
 
 #define NDEBUG
 

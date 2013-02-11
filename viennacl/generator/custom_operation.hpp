@@ -159,7 +159,7 @@ namespace viennacl
               assert(!source_code_.empty() && " Custom Operation not initialized ");
               viennacl::ocl::program& program = viennacl::ocl::current_context().add_program(source_code_, pgm_name);
               for(std::map<std::string, generator::code_generation::kernel_infos_t>::const_iterator it = kernels_infos_.begin() ; it !=kernels_infos_.end() ; ++it){
-                program.add_kernel(it->first);
+                  program.add_kernel(it->first);
               }
           }
 
@@ -191,6 +191,7 @@ namespace viennacl
               if(!viennacl::ocl::current_context().has_program(program_name_)){
                   compile_program(program_name_);
               }
+//              std::cout << viennacl::ocl::current_context().has_program(program_name_) << std::endl;
               return viennacl::ocl::current_context().get_program(program_name_);
           }
 

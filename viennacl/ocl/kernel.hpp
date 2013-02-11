@@ -76,9 +76,10 @@ namespace viennacl
         set_work_size_defaults();
       }
       
-      kernel(kernel const & other) 
+      kernel(kernel const & other)
        : handle_(other.handle_), program_(other.program_), name_(other.name_), init_done_(other.init_done_)
       {
+
         #if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_KERNEL)
         std::cout << "ViennaCL: Creating kernel object (Copy CTOR)" << std::endl;
         #endif
