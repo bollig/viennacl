@@ -1,6 +1,6 @@
 //#define VIENNACL_DEBUG_BUILD
 #define VIENNACL_WITH_OPENCL
-#define VIENNACL_DEBUG_ALL
+//#define VIENNACL_DEBUG_ALL
 
 #define NDEBUG
 
@@ -17,7 +17,7 @@
 #include "viennacl/linalg/prod.hpp"
 #include "viennacl/linalg/norm_2.hpp"
 
-
+#include "viennacl/io/kernel_parameters.hpp"
 
 #include "../tutorial/Random.hpp"
 
@@ -55,6 +55,37 @@ struct config{
     std::vector<bool> RHS_storages;
 };
 
+template<class OpT>
+void add_profile(OpT const & OP, viennacl::generator::code_generation::blas3_optimization_profile const & prof, viennacl::io::parameter_database & paras){
+    viennacl::generator::custom_operation op;
+    op.add(OP);
+
+    paras.add_kernel();
+    paras.add_data_node(viennacl::io::tag::type, viennacl::io::val::blas3::blas3);
+    paras.add_data_node(viennacl::io::tag::name, op.operations_manager().get_kernels_list().front().trees().front()->repr());
+
+    paras.add_parameter();
+    paras.add_data_node(viennacl::io::tag::name, viennacl::io::tag::blas3::ml);
+    paras.add_data_node(viennacl::io::tag::value, prof.ml());
+    paras.add_parameter();
+    paras.add_data_node(viennacl::io::tag::name, viennacl::io::tag::blas3::kl);
+    paras.add_data_node(viennacl::io::tag::value, prof.kl());
+    paras.add_parameter();
+    paras.add_data_node(viennacl::io::tag::name, viennacl::io::tag::blas3::nl);
+    paras.add_data_node(viennacl::io::tag::value, prof.nl());
+    paras.add_parameter();
+    paras.add_data_node(viennacl::io::tag::name, viennacl::io::tag::blas3::ms);
+    paras.add_data_node(viennacl::io::tag::value, prof.ms());
+    paras.add_parameter();
+    paras.add_data_node(viennacl::io::tag::name, viennacl::io::tag::blas3::ks);
+    paras.add_data_node(viennacl::io::tag::value, prof.ks());
+    paras.add_parameter();
+    paras.add_data_node(viennacl::io::tag::name, viennacl::io::tag::blas3::ns);
+    paras.add_data_node(viennacl::io::tag::value, prof.ns());
+    paras.add_parameter();
+    paras.add_data_node(viennacl::io::tag::name, viennacl::io::tag::alignment);
+    paras.add_data_node(viennacl::io::tag::value, prof.alignment());
+}
 
 template<class MatTypeA, class MatTypeB, class MatTypeC>
 void fill_matrix(MatTypeA & A, MatTypeB & B, MatTypeC & C){
@@ -121,22 +152,39 @@ void benchmark(OpT const & operation, config conf, MatTypeA & A, MatTypeB & B, M
     }
 }
 
-template<class ScalarTypeA, class LayoutA
-         , class ScalarTypeB, class LayoutB
-         , class ScalarTypeC, class LayoutC>
-void run_autotune(){
+template<class F>
+struct opposite_layout;
+
+template<>
+struct opposite_layout<viennacl::row_major> { typedef viennacl::column_major type;};
+
+template<>
+struct opposite_layout<viennacl::column_major> { typedef viennacl::row_major type;};
+
+
+template<class NumericT, class FB, class FC>
+void run_autotune(viennacl::io::parameter_database & paras){
 
     using viennacl::generator::prod;
 
+    typedef viennacl::matrix<NumericT, FB> VclMatB1;
+    typedef viennacl::matrix<NumericT, FC> VclMatC1;
 
+    typedef viennacl::matrix<NumericT, typename opposite_layout<FB>::type> VclMatB2;
+    typedef viennacl::matrix<NumericT, typename opposite_layout<FC>::type> VclMatC2;
 
+    typedef viennacl::matrix<NumericT, viennacl::row_major> VclMatA1;
+    typedef viennacl::matrix<NumericT, viennacl::column_major> VclMatA2;
 
-    typedef viennacl::generator::dummy_matrix<ScalarTypeA, LayoutA> dma_t;
-    typedef viennacl::generator::dummy_matrix<ScalarTypeB, LayoutB> dmb_t;
-    typedef viennacl::generator::dummy_matrix<ScalarTypeC, LayoutC> dmc_t;
+    typedef viennacl::generator::dummy_matrix<VclMatA1> dma1_t;
+    typedef viennacl::generator::dummy_matrix<VclMatB1> dmb1_t;
+    typedef viennacl::generator::dummy_matrix<VclMatC1> dmc1_t;
+
+    typedef viennacl::generator::dummy_matrix<VclMatA2> dma2_t;
+    typedef viennacl::generator::dummy_matrix<VclMatB2> dmb2_t;
+    typedef viennacl::generator::dummy_matrix<VclMatC2> dmc2_t;
 
     config conf;
-
 
     conf.n_runs = 2;
     conf.ml_min = 64; conf.ml_max=64;
@@ -151,124 +199,73 @@ void run_autotune(){
 //    conf.RHS_storages.push_back(true);
     conf.RHS_storages.push_back(false);
 
-    viennacl::matrix<ScalarTypeA,LayoutA> A;
-    viennacl::matrix<ScalarTypeB,LayoutB> B;
-    viennacl::matrix<ScalarTypeC,LayoutC> C;
+    VclMatA1 A1(1,1);
+    VclMatB1 B1(1,1);
+    VclMatC1 C1(1,1);
+
+    VclMatA2 A2(1,1);
+    VclMatB2 B2(1,1);
+    VclMatC2 C2(1,1);
+
     std::list<viennacl::generator::code_generation::blas3_optimization_profile> fastest_firsts;
 
-//    std::cout << "------------AA------------" << std::endl;
-//    benchmark(dma_t(A) = prod(dmb_t(B),dmc_t(C)),conf,A,B,C,fastest_firsts);
 
-    std::cout << "------------TA------------" << std::endl;
-    benchmark(dma_t(A) = prod(trans(dmb_t(B)),dmc_t(C)),conf,A,B,C,fastest_firsts);
+    //------------AA------------
+    benchmark(dma1_t(A1) = prod(dmb1_t(B1),dmc1_t(C1)),conf,A1,B1,C1,fastest_firsts);
+    //--------------------------
 
+    //-----------Saves best parameters-------------//
+    add_profile(dma1_t(A1) = prod(dmb1_t(B1),dmc1_t(C1)),fastest_firsts.front(),paras);
+    add_profile(dma2_t(A2) = prod(dmb1_t(B1),dmc1_t(C1)),fastest_firsts.front(),paras);
 
-//     std::cout << "------------AT------------" << std::endl;
-//     benchmark(dma_t(A) = prod(dmb_t(B),trans(dmc_t(C))),conf,A,B,C,fastest_firsts);
+    //-----------Changing layout and transposing is equivalent to doing nothing-------------//
+    add_profile(dma1_t(A1) = prod(trans(dmb2_t(B2)),dmc1_t(C1)),fastest_firsts.front(),paras);
+    add_profile(dma2_t(A2) = prod(trans(dmb2_t(B2)),dmc1_t(C1)),fastest_firsts.front(),paras);
 
-//     std::cout << "------------TT------------" << std::endl;
-//     benchmark(dma_t(A) = prod(trans(dmb_t(B)),trans(dmc_t(C))),conf,A,B,C,fastest_firsts);
+    add_profile(dma1_t(A1) = prod(trans(dmb2_t(B2)),trans(dmc2_t(C2))),fastest_firsts.front(),paras);
+    add_profile(dma2_t(A2) = prod(trans(dmb2_t(B2)),trans(dmc2_t(C2))),fastest_firsts.front(),paras);
+
+    add_profile(dma1_t(A1) = prod(dmb1_t(B1),trans(dmc2_t(C2))),fastest_firsts.front(),paras);
+    add_profile(dma2_t(A2) = prod(dmb1_t(B1),trans(dmc2_t(C2))),fastest_firsts.front(),paras);
+
 
 }
 
 int main(int argc, char* argv[]){
     std::vector<std::string> args(argv,argv+argc);
-
-    if(argc < 2){
-        std::cerr << "Usage : PROGRAM_NAME LAYOUT" << std::endl;
-        exit(-1);
-    }
-    int layout = atoi(args[1].c_str());
-
     platforms_type platforms = viennacl::ocl::get_platforms();
     size_t num_platforms = platforms.size();
+    viennacl::io::parameter_database  paras;
     for(unsigned int k=0 ; k < num_platforms ; ++k)
     {
         viennacl::ocl::platform pf(k);
-
         viennacl::ocl::set_context_platform_index(k,k);
         viennacl::ocl::switch_context(k);
         devices_type dev = viennacl::ocl::current_context().devices();
         for(devices_type::iterator it = dev.begin() ; it != dev.end() ; ++it){
             viennacl::ocl::switch_device(*it);
-            if(viennacl::ocl::current_device().type()==CL_DEVICE_TYPE_GPU){
+            cl_device_id dev_id = it->id();
+            if(viennacl::ocl::info<CL_DEVICE_TYPE>(dev_id)==CL_DEVICE_TYPE_GPU){
+                paras.add_device();
+                paras.add_data_node(viennacl::io::tag::name, viennacl::ocl::info<CL_DEVICE_NAME>(dev_id));
+                paras.add_data_node(viennacl::io::tag::driver, viennacl::ocl::info<CL_DRIVER_VERSION>(dev_id));
+
                 std::cout << "-------------------" << std::endl;
                 std::cout << "Recording timings for : " << viennacl::ocl::current_device().name() << std::endl;
 
-                switch(layout){
-                case 0 :
-                    std::cout << "====== Row-Major = Row-Major * Row-Major ======" << std::endl;
-                    run_autotune< NumericT,viennacl::row_major
-                             ,NumericT,viennacl::row_major
-                             ,NumericT,viennacl::row_major >();
-                    break;
+                std::cout << "====== Step 1 : Row - Row and alikes =====" << std::endl;
+                run_autotune<NumericT,viennacl::row_major,viennacl::row_major>(paras);
 
-                case 1:
-                    std::cout << "====== Row-Major = Row-Major * Column-Major ======" << std::endl;
-                    run_autotune< NumericT,viennacl::row_major
-                                 ,NumericT,viennacl::row_major
-                                 ,NumericT,viennacl::column_major >();
-                    break;
+                std::cout << "====== Step 2 : Row - Column and alikes =====" << std::endl;
+                run_autotune<NumericT,viennacl::row_major,viennacl::column_major>(paras);
 
-                case 2:
-                    std::cout << "====== Column-Major = Row-Major * Column-Major ======" << std::endl;
-                    run_autotune< NumericT,viennacl::column_major
-                                 ,NumericT,viennacl::row_major
-                                 ,NumericT,viennacl::column_major >();
-                    break;
+                std::cout << "====== Step 3 : Column - Row and alikes =====" << std::endl;
+                run_autotune<NumericT,viennacl::column_major,viennacl::row_major>(paras);
 
-                case 3:
-                    std::cout << "====== Column-Major = Row-Major * Row-Major ======" << std::endl;
-                    run_autotune< NumericT,viennacl::column_major
-                                 ,NumericT,viennacl::row_major
-                                 ,NumericT,viennacl::row_major >();
-                    break;
-
-                case 4:
-                    std::cout << "====== Row-Major = Column-Major * Row-Major ======" << std::endl;
-                    run_autotune< NumericT,viennacl::row_major
-                                 ,NumericT,viennacl::column_major
-                                 ,NumericT,viennacl::row_major >();
-                    break;
-
-                case 5:
-                    std::cout << "====== Row-Major = Column-Major * Column-Major ======" << std::endl;
-                    run_autotune< NumericT,viennacl::row_major
-                                 ,NumericT,viennacl::column_major
-                                 ,NumericT,viennacl::column_major >();
-                    break;
-
-                case 6:
-                    std::cout << "====== Column-Major = Column-Major * Row-Major ======" << std::endl;
-                    run_autotune< NumericT,viennacl::column_major
-                                 ,NumericT,viennacl::column_major
-                                 ,NumericT,viennacl::row_major >();
-                    break;
-
-
-                case 7:
-                    std::cout << "====== Column-Major = Column-Major * Column-Major ======" << std::endl;
-                    run_autotune< NumericT,viennacl::column_major
-                                 ,NumericT,viennacl::column_major
-                                 ,NumericT,viennacl::column_major >();
-                    break;
-                }
-
-
-
-
-
-
-
-
-
-
-
-
+                std::cout << "====== Step 4 : Column - Column and alikes =====" << std::endl;
+                run_autotune<NumericT,viennacl::column_major,viennacl::column_major>(paras);
             }
-
         }
     }
-
-
+    paras.dump("matrix_parameters.xml");
 }

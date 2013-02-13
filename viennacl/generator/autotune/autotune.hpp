@@ -31,8 +31,7 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
 
 
     std::ostringstream oss;
-    viennacl::generator::custom_operation op;
-    op.add(operation);
+    viennacl::generator::custom_operation op(operation);
     matrix_expression_infos_base * expr = static_cast<matrix_expression_infos_base *>(op.kernels_list().front().trees().front());
     matrix_expression_infos_base * prod = static_cast<matrix_expression_infos_base *>(&expr->rhs());
     mat_infos_base * lhs = static_cast<mat_infos_base*>(&prod->lhs());
@@ -62,12 +61,12 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
     viennacl::ocl::kernel & k = pgm.get_kernel("_k0");
 
     //Anticipates kernel failure
-    size_t max_workgroup_size = viennacl::ocl::info<CL_KERNEL_WORK_GROUP_SIZE>(k.handle().get(),dev.id());
+    size_t max_workgroup_size = viennacl::ocl::kernel::info<CL_KERNEL_WORK_GROUP_SIZE>(k,dev);
     if(prof.local_work_size(0)*prof.local_work_size(1) > max_workgroup_size)
         return;
 
     //Doesn't execute because it would likelily be a waste of time
-    size_t prefered_workgroup_size_multiple = viennacl::ocl::info<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(k.handle().get(),dev.id());
+    size_t prefered_workgroup_size_multiple = viennacl::ocl::kernel::info<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(k,dev);
     if( (prof.local_work_size(0)*prof.local_work_size(1)) % prefered_workgroup_size_multiple > 0)
         return;
 

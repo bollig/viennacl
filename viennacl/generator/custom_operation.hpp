@@ -55,12 +55,12 @@ namespace viennacl
           }
       };
 
-      template<class ScalarType, class Layout>
-      struct dummy2exptree_impl<dummy_matrix<ScalarType, Layout> >{
-          typedef symbolic_matrix<ScalarType,Layout> result_type;
+      template<class VCL_MATRIX>
+      struct dummy2exptree_impl<dummy_matrix<VCL_MATRIX> >{
+          typedef symbolic_matrix<VCL_MATRIX> result_type;
           static result_type execute(shared_infos_map_t & shared_infos,
                                      temporaries_map_t & temporaries_,
-                                     dummy_matrix<ScalarType,Layout> const & m){
+                                     dummy_matrix<VCL_MATRIX> const & m){
               return result_type(shared_infos, m.mat(),false);
           }
       };
@@ -149,13 +149,14 @@ namespace viennacl
           return dummy2exptree_impl<T>::execute(shared_infos,temporaries,t);
       }
 
+
   /** @brief A class for making a custom operation */
       class custom_operation
       {
 
       private:
           void compile_program(std::string const & pgm_name) const{
-              std::cout << source_code_ << std::endl;
+//              std::cout << source_code_ << std::endl;
               assert(!source_code_.empty() && " Custom Operation not initialized ");
               viennacl::ocl::program& program = viennacl::ocl::current_context().add_program(source_code_, pgm_name);
               for(std::map<std::string, generator::code_generation::kernel_infos_t>::const_iterator it = kernels_infos_.begin() ; it !=kernels_infos_.end() ; ++it){
@@ -169,6 +170,13 @@ namespace viennacl
 
 
       public :
+
+          custom_operation(){ }
+
+          template<class T0>
+          custom_operation(T0 const & op0){
+              operations_manager_.add(dummy2exptree(shared_infos_,temporaries_,op0));
+          }
 
           template<class T>
           void add(T const & op){

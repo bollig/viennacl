@@ -719,6 +719,20 @@ namespace viennacl
       viennacl::ocl::handle<cl_kernel> const & handle() const { return handle_; }
 
 
+      template<cl_kernel_info param>
+      static typename detail::return_type<cl_kernel, param>::Result info(viennacl::ocl::kernel & k){
+          k.init();
+          typedef typename detail::return_type<cl_kernel, param>::Result res_t;
+          return detail::get_info_impl<res_t>()(k.handle_.get(),param);
+      }
+
+      template<cl_kernel_info param>
+      static typename detail::return_type<cl_kernel, param>::Result info(viennacl::ocl::kernel & k, viennacl::ocl::device const & d){
+          k.init();
+          typedef typename detail::return_type<cl_kernel, param>::Result res_t;
+          return detail::get_info_impl<res_t>()(k.handle_.get(),d.id(),param);
+      }
+
     private:
       void create_kernel()
       {

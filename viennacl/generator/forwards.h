@@ -29,7 +29,7 @@ class dummy_vector;
 template<typename ScalarType>
 class dummy_scalar;
 
-template<typename ScalarType, class Layout>
+template<class VCL_MATRIX>
 class dummy_matrix;
 
 }

@@ -207,16 +207,14 @@ public:
 };
 
 
-template<class ScalarType, class Layout>
+template<class VCL_MATRIX>
 class dummy_matrix{
-    typedef dummy_matrix<ScalarType, Layout> self_type;
+    typedef dummy_matrix<VCL_MATRIX> self_type;
 public:
 
-    typedef viennacl::matrix<ScalarType,Layout> vcl_mat_t;
+    dummy_matrix(VCL_MATRIX & mat) : mat_(mat){ }
 
-    dummy_matrix(vcl_mat_t & mat) : mat_(mat){ }
-
-    vcl_mat_t const & mat() const{
+    VCL_MATRIX const & mat() const{
         return mat_;
     }
 
@@ -250,7 +248,7 @@ public:
       return matrix_expression_wrapper<self_type,inplace_sub_type,RHS_TYPE >(*this,rhs);
     }
 private:
-    vcl_mat_t & mat_;
+    VCL_MATRIX & mat_;
 };
 
 
@@ -275,8 +273,8 @@ struct is_scalar_expression_t<function_wrapper_impl<T1,T2,T3> >{ enum { value = 
 
 template<class T>
 struct is_matrix_expression_t{ enum { value = 0 }; };
-template<class ScalarType, class Layout>
-struct is_matrix_expression_t<dummy_matrix<ScalarType, Layout> >{ enum { value = 1}; };
+template<class VCL_MATRIX>
+struct is_matrix_expression_t<dummy_matrix<VCL_MATRIX> >{ enum { value = 1}; };
 template<class LHS, class OP, class RHS>
 struct is_matrix_expression_t<matrix_expression_wrapper<LHS,OP,RHS> >{ enum { value = 1}; };
 template<class LHS, class RHS, class OP_REDUCE>
@@ -307,7 +305,7 @@ template<class T>
 struct is_leaf{ enum{ value = 0}; };
 template<class ScalarType> struct is_leaf<dummy_vector<ScalarType> >{ enum { value = 1 }; };
 template<class ScalarType> struct is_leaf<dummy_scalar<ScalarType> >{ enum { value = 1 }; };
-template<class ScalarType, class Layout> struct is_leaf<dummy_matrix<ScalarType,Layout> >{ enum { value = 1 }; };
+template<class VCL_MATRIX> struct is_leaf<dummy_matrix<VCL_MATRIX> >{ enum { value = 1 }; };
 
 //template<class T>
 //unary_minus<T> operator -(T const &)

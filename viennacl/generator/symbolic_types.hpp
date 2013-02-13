@@ -185,18 +185,18 @@ namespace viennacl
       * @tparam F The Layout of the matrix in the generated code
       * @tparam ALIGNMENT The Alignment of the matrix in the generated code
       */
-      template<typename SCALARTYPE, class F>
+      template<class VCL_MATRIX>
       class symbolic_matrix : public mat_infos_base
       {
-          typedef symbolic_matrix<SCALARTYPE, F> self_type;
+          typedef symbolic_matrix<VCL_MATRIX> self_type;
 
         public:
-          typedef viennacl::matrix<SCALARTYPE,F> vcl_mat_t;
+          typedef typename VCL_MATRIX::value_type::value_type ScalarType;
 
           template<class SharedInfosMapT>
           symbolic_matrix(SharedInfosMapT & map
-                          ,vcl_mat_t const & vcl_mat
-                          ,bool is_transposed) : mat_infos_base(are_same_type<viennacl::row_major,F>::value
+                          ,VCL_MATRIX const & vcl_mat
+                          ,bool is_transposed) : mat_infos_base(are_same_type<typename VCL_MATRIX::orientation_category,viennacl::row_major_tag>::value
                                                                        ,is_transposed), vcl_mat_(vcl_mat){
               infos_= &map.insert(std::make_pair(vcl_mat_.handle(),shared_infos_t(map.size(),print_type<ScalarType>::value(),sizeof(ScalarType)))).first->second;
 
@@ -221,16 +221,14 @@ namespace viennacl
               k.arg(n_arg++,cl_uint(vcl_mat_.internal_size2()));
           }
 
-          typedef viennacl::matrix<SCALARTYPE,F> runtime_type;
-          typedef SCALARTYPE ScalarType;
 
           viennacl::backend::mem_handle const & handle() const{ return vcl_mat_.handle(); }
 
           repr_t repr() const{
-              return "m"+repr_of<SCALARTYPE>::value()+'_'+to_string((int)is_rowmajor_)+'_'+to_string((int)is_transposed_);
+              return "m"+repr_of<typename VCL_MATRIX::value_type::value_type>::value()+'_'+to_string((int)is_rowmajor_)+'_'+to_string((int)is_transposed_);
           }
       private:
-          vcl_mat_t const & vcl_mat_;
+          VCL_MATRIX const & vcl_mat_;
 
       };
 

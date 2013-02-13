@@ -48,6 +48,19 @@ namespace viennacl
       static std::string param    = "param";
       static std::string value    = "value";   
       static std::string alignment = "alignment";   
+      static std::string type     = "type";
+
+      namespace blas3{
+        static std::string ml       = "ml";
+        static std::string kl       = "kl";
+        static std::string nl       = "nl";
+        static std::string ms       = "ms";
+        static std::string ks       = "ks";
+        static std::string ns       = "ns";
+        static std::string layout   = "layout";
+        static std::string transposed = "transposed";
+      }
+
     } // end namespace tag
 
     namespace val {
@@ -57,7 +70,15 @@ namespace viennacl
       static std::string matrix   = "matrix";   
       static std::string compmat  = "compressed_matrix";
       static std::string fl       = "float";   
-      static std::string dbl      = "double";      
+      static std::string dbl      = "double";
+
+
+      namespace blas3{
+        static std::string blas3    = "blas3";
+        static std::string row_major   = "row_major";
+        static std::string column_major   = "column_major";
+      }
+
     }
 
     /** @brief  A XML parameter database using PugiXML. Allows to add tests for different devices and the like */
@@ -178,23 +199,25 @@ namespace viennacl
       void add_data_node(std::string tagstr, std::string data)
       {
           pugi::xml_node node = last.append_child();
-          
-          if(tagstr == tag::name)
-            node.set_name(tag::name.c_str());
-          else if(tagstr == tag::driver)
-            node.set_name(tag::driver.c_str());      
-          else if(tagstr == tag::numeric)
-            node.set_name(tag::numeric.c_str());      
-          else if(tagstr == tag::alignment)
-            node.set_name(tag::alignment.c_str());      
-          else if(tagstr == tag::value)
-            node.set_name(tag::value.c_str());      
-          else if(tagstr == tag::compun)
-            node.set_name(tag::compun.c_str());      
-          else if(tagstr == tag::workgrp)
-            node.set_name(tag::workgrp.c_str());                        
-          else
-            std::cout << "# Error adding data node: node tag not recognized .." << std::endl;
+
+//          if(tagstr == tag::name)
+//            node.set_name(tag::name.c_str());
+//          else if(tagstr == tag::driver)
+//            node.set_name(tag::driver.c_str());
+//          else if(tagstr == tag::numeric)
+//            node.set_name(tag::numeric.c_str());
+//          else if(tagstr == tag::alignment)
+//            node.set_name(tag::alignment.c_str());
+//          else if(tagstr == tag::value)
+//            node.set_name(tag::value.c_str());
+//          else if(tagstr == tag::compun)
+//            node.set_name(tag::compun.c_str());
+//          else if(tagstr == tag::workgrp)
+//            node.set_name(tag::workgrp.c_str());
+//          else
+//            std::cout << "# Error adding data node: node tag not recognized .." << std::endl;
+
+          node.set_name(tagstr.c_str());
           node.append_child(pugi::node_pcdata).set_value(data.c_str());
       }
 
