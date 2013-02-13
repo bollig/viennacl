@@ -52,6 +52,7 @@ namespace viennacl
 
     inline viennacl::ocl::context & current_context();
     inline viennacl::ocl::device const & current_device();
+    inline viennacl::ocl::context & find_context(cl_context handle);
   }
 } //namespace viennacl
 

@@ -42,7 +42,7 @@ namespace viennacl
   { 
     template <typename KernelType>
     inline const event &enqueue(KernelType & k){
-      return k.program().context()->get_queue().enqueue(k);
+      return viennacl::ocl::find_context(viennacl::ocl::kernel::info<CL_KERNEL_CONTEXT>(k)).get_queue().enqueue(k);
     }
 
 //    /** @brief Convenience function that enqueues the provided kernel into the first queue of the currently active device in the currently active context */

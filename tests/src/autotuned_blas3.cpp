@@ -277,9 +277,9 @@ int test_prod(Epsilon const& epsilon, Profiles const & profiles)
   long matrix_size2 = 2*max_large_block_size;
   long matrix_size3 = 2*max_large_block_size;
 
-  typedef viennacl::generator::dummy_matrix<NumericT, F_A> DummyMatrixA;
-  typedef viennacl::generator::dummy_matrix<NumericT, F_B> DummyMatrixB;
-  typedef viennacl::generator::dummy_matrix<NumericT, F_C> DummyMatrixC;
+  typedef viennacl::generator::dummy_matrix< viennacl::matrix<NumericT, F_A> > DummyMatrixA;
+  typedef viennacl::generator::dummy_matrix< viennacl::matrix<NumericT, F_B> > DummyMatrixB;
+  typedef viennacl::generator::dummy_matrix< viennacl::matrix<NumericT, F_C> > DummyMatrixC;
 
   // --------------------------------------------------------------------------
 

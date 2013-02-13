@@ -32,14 +32,15 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
 
     std::ostringstream oss;
     viennacl::generator::custom_operation op(operation);
+    op.operations_manager().blas3_model() = prof;
+
     matrix_expression_infos_base * expr = static_cast<matrix_expression_infos_base *>(op.kernels_list().front().trees().front());
     matrix_expression_infos_base * prod = static_cast<matrix_expression_infos_base *>(&expr->rhs());
     mat_infos_base * lhs = static_cast<mat_infos_base*>(&prod->lhs());
     mat_infos_base * rhs = static_cast<mat_infos_base*>(&prod->rhs());
 
-    op.operations_manager().blas3_model() = prof;
 
-    unsigned int n_runs = 4;
+    unsigned int n_runs = 2;
 
     if(alignment>ms || alignment>ks || alignment>ns) return;
     double lmem_size = 0;
@@ -60,6 +61,8 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
     viennacl::ocl::program & pgm = op.program();
     viennacl::ocl::kernel & k = pgm.get_kernel("_k0");
 
+
+
     //Anticipates kernel failure
     size_t max_workgroup_size = viennacl::ocl::kernel::info<CL_KERNEL_WORK_GROUP_SIZE>(k,dev);
     if(prof.local_work_size(0)*prof.local_work_size(1) > max_workgroup_size)
@@ -71,7 +74,6 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
         return;
 
     op.execute();
-
     viennacl::ocl::get_queue().finish();
     op.execute();
     viennacl::ocl::get_queue().finish();
@@ -80,8 +82,7 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
     double exec_time = 0;
     for(unsigned int n=0; n<n_runs ; ++n){
         op.execute();
-        Timer t; t.start();
-        viennacl::ocl::get_queue().flush();
+        Timer t;
         t.start();
         viennacl::ocl::get_queue().finish();
         exec_time+=t.get();
@@ -144,11 +145,13 @@ void benchmark_blas3(timings_t & timings, OpT const & op, std::list<viennacl::ge
     float perc=0;
     float prev_perc;
     for(std::list<viennacl::generator::code_generation::blas3_optimization_profile>::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
-//        std::cout << '.' << std::flush;
+
+        //        std::cout << '.' << std::flush;
         prev_perc=perc;
         perc += (float)100/profiles.size();
         if((int)prev_perc != (int)perc) std::cout << '\r' << perc << "%" ;
         benchmark_blas3_profile<OpT>(timings,dev,op,*it);
+
     }
     std::cout << std::endl;
 }

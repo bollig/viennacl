@@ -165,7 +165,7 @@ namespace viennacl
           }
 
           void init() {
-              source_code_ = operations_manager_.get_source_code(kernels_infos_);
+              if(source_code_.empty()) source_code_ = operations_manager_.get_source_code(kernels_infos_);
           }
 
 
@@ -199,7 +199,6 @@ namespace viennacl
               if(!viennacl::ocl::current_context().has_program(program_name_)){
                   compile_program(program_name_);
               }
-//              std::cout << viennacl::ocl::current_context().has_program(program_name_) << std::endl;
               return viennacl::ocl::current_context().get_program(program_name_);
           }
 

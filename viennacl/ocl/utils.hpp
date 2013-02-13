@@ -64,11 +64,6 @@ namespace viennacl
 
     }
 
-    template<class T>
-    T cast(typename detail::vcl_type_of<T>::type & arg){
-        return arg.handle().get();
-    }
-
   } //ocl
 } //viennacl
 #endif

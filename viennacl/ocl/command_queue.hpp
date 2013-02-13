@@ -31,7 +31,6 @@
 #include <vector>
 #include <string>
 #include <sstream>
-#include "viennacl/ocl/context.hpp"
 #include "viennacl/ocl/device.hpp"
 #include "viennacl/ocl/handle.hpp"
 #include "viennacl/ocl/event.hpp"
@@ -47,23 +46,8 @@ namespace viennacl
     class command_queue
     {
       public:
-        command_queue(viennacl::ocl::context * context) : context_(context){}
-        command_queue(viennacl::ocl::context * context,viennacl::ocl::handle<cl_command_queue> h, cl_device_id dev) : context_(context), handle_(h) {}
-        
-//        //Copy constructor:
-//        command_queue(command_queue const & other)
-//        {
-//          handle_ = other.handle_;
-//          last_event_ = other.last_event_;
-//        }
-
-//        //assignment operator:
-//        command_queue & operator=(command_queue const & other)
-//        {
-//          handle_ = other.handle_;
-//          last_event_ = other.last_event_;
-//          return *this;
-//        }
+        command_queue(){ }
+        command_queue(viennacl::ocl::handle<cl_command_queue> h, cl_device_id dev) :  handle_(h) {}
         
         /** @brief Waits until all kernels in the queue have finished their execution */
         void finish() const
@@ -206,7 +190,6 @@ namespace viennacl
 
         } //enqueue()
       private:
-        viennacl::ocl::context * context_;
         viennacl::ocl::handle<cl_command_queue> handle_;
         viennacl::ocl::event * last_event_;
         std::map<cl_kernel, viennacl::ocl::event> events_;

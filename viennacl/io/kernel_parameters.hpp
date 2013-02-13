@@ -59,6 +59,8 @@ namespace viennacl
         static std::string ns       = "ns";
         static std::string layout   = "layout";
         static std::string transposed = "transposed";
+        static std::string lhs_storage = "lhs_storage";
+        static std::string rhs_storage = "rhs_storage";
       }
 
     } // end namespace tag

@@ -39,33 +39,16 @@ namespace viennacl
       typedef std::vector<viennacl::ocl::kernel>    KernelContainer;
       
     public:
-      program(viennacl::ocl::context * context) : context_(context) {}
+      program() { }
 
-      program(viennacl::ocl::context * context, viennacl::ocl::handle<cl_program> const & h, std::string const & prog_name = std::string()) : context_(context), handle_(h), name_(prog_name) {      }
-      
-      program(program const & other)
-      {
-        context_ = other.context_;
-        handle_ = other.handle_;
-        name_ = other.name_;
-        kernels_ = other.kernels_;
-      }
-      
-      viennacl::ocl::program & operator=(const program & other)
-      {
-        context_ = other.context_;
-        handle_ = other.handle_;
-        name_ = other.name_;
-        kernels_ = other.kernels_;
-        return *this;
-      }
+      program(viennacl::ocl::handle<cl_program> const & h, std::string const & prog_name = std::string()) : handle_(h), name_(prog_name) {      }
 
       std::string const & name() const { return name_; }
       
       /** @brief Adds a kernel to the program */
       viennacl::ocl::kernel & add_kernel(std::string const & kernel_name)
       {
-        viennacl::ocl::kernel temp(this, kernel_name);
+        viennacl::ocl::kernel temp(handle_,kernel_name);
         kernels_.push_back(temp);
         return kernels_.back();
       }
@@ -73,7 +56,7 @@ namespace viennacl
       /** @brief Returns the kernel with the provided name */
       viennacl::ocl::kernel & get_kernel(std::string const & name)
       {
-        //std::cout << "Requiring kernel " << name << " from program " << name_ << std::endl;
+//        std::cout << "Requiring kernel " << name << " from program " << name_ << std::endl;
         for (KernelContainer::iterator it = kernels_.begin();
               it != kernels_.end();
              ++it)
@@ -87,14 +70,9 @@ namespace viennacl
         //return kernels_[0];  //return a defined object
       }
 
-      /** @brief Returns the context used to create the program */
-      viennacl::ocl::context * context() { return context_ ; }
-
       const viennacl::ocl::handle<cl_program> & handle() const { return handle_; }
 
     private:
-
-      viennacl::ocl::context * context_;
       viennacl::ocl::handle<cl_program> handle_;
       std::string name_;
       KernelContainer kernels_;

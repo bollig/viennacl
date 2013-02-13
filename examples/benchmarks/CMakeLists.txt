@@ -19,6 +19,12 @@ if (ENABLE_OPENCL)
     target_link_libraries(${bench}bench-opencl ${OPENCL_LIBRARIES})
     set_target_properties(${bench}bench-opencl PROPERTIES COMPILE_FLAGS "-DVIENNACL_WITH_OPENCL")
   endforeach()
+
+  set(bench autotuned_blas3)
+  add_executable(${bench}bench-opencl ${bench}.cpp ${PROJECT_SOURCE_DIR}/external/pugixml/src/pugixml.cpp)
+  target_link_libraries(${bench}bench-opencl ${OPENCL_LIBRARIES})
+  set_target_properties(${bench}bench-opencl PROPERTIES COMPILE_FLAGS "-DVIENNACL_WITH_OPENCL -DVIENNACL_ENABLE_AUTOTUNE -I${PROJECT_SOURCE_DIR}/external")
+
   
   if (ENABLE_UBLAS)
      include_directories(${Boost_INCLUDE_DIRS})

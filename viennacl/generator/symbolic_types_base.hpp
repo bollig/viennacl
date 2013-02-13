@@ -490,7 +490,7 @@ namespace viennacl{
         };
 
 
-        bool operator<(infos_base const & first, infos_base const & other){
+        static bool operator<(infos_base const & first, infos_base const & other){
             if(binary_tree_infos_base const * t = dynamic_cast<binary_tree_infos_base const *>(&first)){
                 return t->lhs() < other || t->rhs() < other;
             }
@@ -528,7 +528,7 @@ namespace viennacl{
 //        }
 
         template<class T, class Pred>
-        void extract_as(infos_base* root, std::set<T*, deref_less> & args, Pred pred){
+        static void extract_as(infos_base* root, std::set<T*, deref_less> & args, Pred pred){
             if(arithmetic_tree_infos_base* p = dynamic_cast<arithmetic_tree_infos_base*>(root)){
                 extract_as(&p->lhs(), args,pred);
                 extract_as(&p->rhs(),args,pred);

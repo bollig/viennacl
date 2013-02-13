@@ -54,7 +54,7 @@ namespace viennacl{
                     unsigned int alignment() const{ return alignment_; }
                     unsigned int loop_unroll(){ return loop_unroll_; }
 
-                    friend std::ostream& operator<<(std::ostream& os, optimization_profile const & );
+//                    friend std::ostream& operator<<(std::ostream& os, optimization_profile const & );
 
                     void local_work_size(unsigned int index, size_type val){
                         assert(index==0 || index==1);
@@ -158,12 +158,12 @@ namespace viennacl{
                     bool use_RHS_shared_;
                 };
 
-                std::ostream& operator<<(std::ostream& os, optimization_profile const & prof){
+                static std::ostream& operator<<(std::ostream& os, optimization_profile const & prof){
                     os << prof.repr();
                     return os;
                 }
 
-                void compute_reductions_samesize(utils::kernel_generation_stream& kss, std::list<local_memory<1> > const & lmems){
+                static void compute_reductions_samesize(utils::kernel_generation_stream& kss, std::list<local_memory<1> > const & lmems){
                    //Same size assumption
                    assert(std::adjacent_find(lmems.begin(), lmems.end(), std::not2(lid_has_same_size()))==lmems.end() && " Calling the wrong function for reducing inner products of different sizes! ");
                    unsigned int size = lmems.front().size();

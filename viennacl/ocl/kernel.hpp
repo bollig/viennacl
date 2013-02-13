@@ -59,7 +59,7 @@ namespace viennacl
     public:
       typedef std::size_t            size_type;
       
-      kernel(viennacl::ocl::program *  prog) : handle_(0), program_(prog)
+      kernel() : handle_(0)
       {
         #if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_KERNEL)
         std::cout << "ViennaCL: Creating kernel object (default CTOR)" << std::endl;
@@ -67,8 +67,8 @@ namespace viennacl
         set_work_size_defaults();
       }
       
-      kernel(viennacl::ocl::program *  prog, std::string const & name)
-       : handle_(0), program_(prog), name_(name), init_done_(false)
+      kernel(viennacl::ocl::handle<cl_program> program, std::string const & name)
+       : handle_(0), program_(program), name_(name), init_done_(false)
       {
         #if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_KERNEL)
         std::cout << "ViennaCL: Creating kernel object (full CTOR)" << std::endl;
@@ -76,35 +76,35 @@ namespace viennacl
         set_work_size_defaults();
       }
       
-      kernel(kernel const & other)
-       : handle_(other.handle_), program_(other.program_), name_(other.name_), init_done_(other.init_done_)
-      {
+//      kernel(kernel const & other)
+//       : handle_(other.handle_), program_(other.program_), name_(other.name_), init_done_(other.init_done_)
+//      {
 
-        #if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_KERNEL)
-        std::cout << "ViennaCL: Creating kernel object (Copy CTOR)" << std::endl;
-        #endif
-        local_work_size_[0] = other.local_work_size_[0];
-        local_work_size_[1] = other.local_work_size_[1];
+//        #if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_KERNEL)
+//        std::cout << "ViennaCL: Creating kernel object (Copy CTOR)" << std::endl;
+//        #endif
+//        local_work_size_[0] = other.local_work_size_[0];
+//        local_work_size_[1] = other.local_work_size_[1];
         
-        global_work_size_[0] = other.global_work_size_[0];
-        global_work_size_[1] = other.global_work_size_[1];
-      }
+//        global_work_size_[0] = other.global_work_size_[0];
+//        global_work_size_[1] = other.global_work_size_[1];
+//      }
       
-      viennacl::ocl::kernel & operator=(const kernel & other)
-      {
-        #if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_KERNEL)
-        std::cout << "ViennaCL: Assigning kernel object" << std::endl;
-        #endif
-        handle_ = other.handle_;
-        program_ = other.program_;
-        name_ = other.name_;
-        init_done_ = other.init_done_;
-        local_work_size_[0] = other.local_work_size_[0];
-        local_work_size_[1] = other.local_work_size_[1];
-        global_work_size_[0] = other.global_work_size_[0];
-        global_work_size_[1] = other.global_work_size_[1];
-        return *this;
-      }
+//      viennacl::ocl::kernel & operator=(const kernel & other)
+//      {
+//        #if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_KERNEL)
+//        std::cout << "ViennaCL: Assigning kernel object" << std::endl;
+//        #endif
+//        handle_ = other.handle_;
+//        program_ = other.program_;
+//        name_ = other.name_;
+//        init_done_ = other.init_done_;
+//        local_work_size_[0] = other.local_work_size_[0];
+//        local_work_size_[1] = other.local_work_size_[1];
+//        global_work_size_[0] = other.global_work_size_[0];
+//        global_work_size_[1] = other.global_work_size_[1];
+//        return *this;
+//      }
       
       
       /** @brief Sets an unsigned integer argument at the provided position */
@@ -714,7 +714,7 @@ namespace viennacl
       std::string const & name() const { return name_; }
 
       /** @brief Returns the program used to create the kernel */
-      viennacl::ocl::program & program() { return *program_ ; }
+//      viennacl::ocl::program & program() { return *program_ ; }
 
       viennacl::ocl::handle<cl_kernel> const & handle() const { return handle_; }
 
@@ -740,7 +740,7 @@ namespace viennacl
         #if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_KERNEL)
         std::cout << "ViennaCL: Building kernel " << name_ << std::endl;
         #endif
-        handle_ = clCreateKernel(viennacl::ocl::cast<cl_program>(*program_), name_.c_str(), &err);
+        handle_ = clCreateKernel(program_, name_.c_str(), &err);
         
         if (err != CL_SUCCESS)
         {
@@ -777,7 +777,7 @@ namespace viennacl
       }
       
       viennacl::ocl::handle<cl_kernel> handle_;
-      viennacl::ocl::program * program_;
+      viennacl::ocl::handle<cl_program> program_;
       std::string name_;
       bool init_done_;
       size_type local_work_size_[2];

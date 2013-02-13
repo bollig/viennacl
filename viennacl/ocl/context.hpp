@@ -213,7 +213,7 @@ namespace viennacl
           #if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_CONTEXT)
           std::cout << "ViennaCL: Adding existing queue " << q << " for device " << dev << " to context " << h_ << std::endl;
           #endif
-          queues_[dev].push_back(viennacl::ocl::command_queue(this,q,dev));
+          queues_[dev].push_back(viennacl::ocl::command_queue(q,dev));
           queues_[dev].back().handle().inc();
         }
         
@@ -234,15 +234,14 @@ namespace viennacl
           viennacl::ocl::handle<cl_command_queue> temp = clCreateCommandQueue(h_.get(), dev, prop, &err);
           VIENNACL_ERR_CHECK(err);
           
-          queues_[dev].push_back(viennacl::ocl::command_queue(this,temp,dev));
+          queues_[dev].push_back(viennacl::ocl::command_queue(temp,dev));
         }
 
         /** @brief Adds a queue for the given device to the context */
         void add_queue(viennacl::ocl::device d) { add_queue(d.id()); }
 
         //get queue for default device:
-        viennacl::ocl::command_queue & get_queue()
-        {
+        viennacl::ocl::command_queue & get_queue(){
           return queues_[devices_[current_device_id_].id()][0];
         }
         
@@ -271,7 +270,7 @@ namespace viennacl
         */
         viennacl::ocl::program & add_program(cl_program p, std::string const & prog_name)
         {
-          programs_.push_back(viennacl::ocl::program(this,p, prog_name));
+          programs_.push_back(viennacl::ocl::program(p, prog_name));
           return programs_.back();
         }
         
@@ -304,7 +303,7 @@ namespace viennacl
           VIENNACL_ERR_CHECK(err);
 
 
-          programs_.push_back(viennacl::ocl::program(this,temp, prog_name));
+          programs_.push_back(viennacl::ocl::program(temp, prog_name));
           
           return programs_.back();
         }

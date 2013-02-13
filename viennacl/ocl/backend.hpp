@@ -60,7 +60,7 @@ namespace viennacl
         /** @brief Returns the current active context */
 #if __cplusplus > 199711L
         static viennacl::ocl::context & current_context(std::thread::id id = std::this_thread::get_id()){
-          long context_id = current_context_id_.at(id);
+          long context_id = current_context_id_[id];
 #else
         static viennacl::ocl::context & current_context(){
           long context_id = current_context_id_;
@@ -178,6 +178,13 @@ namespace viennacl
           contexts_[i].platform_index(pf_index);
         }
 
+        static viennacl::ocl::context& find_context(cl_context handle){
+            for(std::map<long,viennacl::ocl::context>::iterator it = contexts_.begin(); it!=contexts_.end();++it){
+                if(it->second.handle().get()==handle) return it->second;
+            }
+            throw "No such context in the backend";
+        }
+
 
 
       private:
@@ -192,14 +199,14 @@ namespace viennacl
     
 
 #if __cplusplus > 199711L
-    static std::map<std::thread::id, long> initialize_context_id(){
-        std::map<std::thread::id, long> res;
-        res.insert(std::make_pair(std::this_thread::get_id(),0));
-        return res;
-    }
+//    static std::map<std::thread::id, long> initialize_context_id(){
+//        std::map<std::thread::id, long> res;
+//        res.insert(std::make_pair(std::this_thread::get_id(),0));
+//        return res;
+//    }
 
     template <bool dummy>
-    std::map<std::thread::id, long> backend<dummy>::current_context_id_ = initialize_context_id();
+    std::map<std::thread::id, long> backend<dummy>::current_context_id_;
 #else
     template <bool dummy>
     long backend<dummy>::current_context_id_ = 0;
@@ -298,6 +305,7 @@ namespace viennacl
       viennacl::ocl::backend<>::set_context_platform_index(i, pf_index);
     }
     
+
     ///////////////////////// get queues ///////////////////
     /** @brief Convenience function for getting the default queue for the currently active device in the active context */
     inline viennacl::ocl::command_queue & get_queue()
@@ -334,6 +342,10 @@ namespace viennacl
     inline viennacl::ocl::device const & current_device()
     {
       return viennacl::ocl::current_context().current_device();
+    }
+
+    inline viennacl::ocl::context & find_context(cl_context handle){
+        return viennacl::ocl::backend<>::find_context(handle);
     }
 
   } //ocl

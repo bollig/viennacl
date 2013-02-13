@@ -1,6 +1,7 @@
 //#define VIENNACL_DEBUG_BUILD
 #define VIENNACL_WITH_OPENCL
 //#define VIENNACL_DEBUG_ALL
+//#define VIENNACL_USE_SCHEDULER
 
 #define NDEBUG
 
@@ -83,6 +84,12 @@ void add_profile(OpT const & OP, viennacl::generator::code_generation::blas3_opt
     paras.add_data_node(viennacl::io::tag::name, viennacl::io::tag::blas3::ns);
     paras.add_data_node(viennacl::io::tag::value, prof.ns());
     paras.add_parameter();
+    paras.add_data_node(viennacl::io::tag::name, viennacl::io::tag::blas3::lhs_storage);
+    paras.add_data_node(viennacl::io::tag::value, prof.use_LHS_shared());
+    paras.add_parameter();
+    paras.add_data_node(viennacl::io::tag::name, viennacl::io::tag::blas3::rhs_storage);
+    paras.add_data_node(viennacl::io::tag::value, prof.use_RHS_shared());
+    paras.add_parameter();
     paras.add_data_node(viennacl::io::tag::name, viennacl::io::tag::alignment);
     paras.add_data_node(viennacl::io::tag::value, prof.alignment());
 }
@@ -121,7 +128,7 @@ void benchmark(OpT const & operation, config conf, MatTypeA & A, MatTypeB & B, M
     unsigned int size;
 
     std::list<std::pair<unsigned int, unsigned int> > rounds_config;
-    rounds_config.push_back(std::make_pair(512 ,200));
+    rounds_config.push_back(std::make_pair(512,200));
     rounds_config.push_back(std::make_pair(2048,20));
     for(std::list<std::pair<unsigned int, unsigned int> >::iterator it = rounds_config.begin() ; it!= rounds_config.end(); ++it){
         unsigned int k = std::distance(rounds_config.begin(),it);
@@ -187,16 +194,16 @@ void run_autotune(viennacl::io::parameter_database & paras){
     config conf;
 
     conf.n_runs = 2;
-    conf.ml_min = 64; conf.ml_max=64;
-    conf.kl_min = 256; conf.kl_max=256;
-    conf.nl_min = 64; conf.nl_max=64;
+    conf.ml_min = 32; conf.ml_max=32;
+    conf.kl_min = 32; conf.kl_max=32;
+    conf.nl_min = 32; conf.nl_max=32;
     conf.ms_min = 4; conf.ms_max=4;
     conf.ks_min = 4; conf.ks_max=4;
-    conf.ns_min = 8; conf.ns_max=8 ;
-    conf.alignment_min = 4 ; conf.alignment_max = 4 ;
-//    conf.LHS_storages.push_back(true);
+    conf.ns_min = 4; conf.ns_max=4;
+    conf.alignment_min = 2 ; conf.alignment_max = 2 ;
+    conf.LHS_storages.push_back(true);
     conf.LHS_storages.push_back(false);
-//    conf.RHS_storages.push_back(true);
+    conf.RHS_storages.push_back(true);
     conf.RHS_storages.push_back(false);
 
     VclMatA1 A1(1,1);
@@ -211,9 +218,11 @@ void run_autotune(viennacl::io::parameter_database & paras){
 
 
     //------------AA------------
+    std::cout << "Getting best parameters..." << std::endl;
     benchmark(dma1_t(A1) = prod(dmb1_t(B1),dmc1_t(C1)),conf,A1,B1,C1,fastest_firsts);
     //--------------------------
 
+    std::cout << "Saving..." << std::endl;
     //-----------Saves best parameters-------------//
     add_profile(dma1_t(A1) = prod(dmb1_t(B1),dmc1_t(C1)),fastest_firsts.front(),paras);
     add_profile(dma2_t(A2) = prod(dmb1_t(B1),dmc1_t(C1)),fastest_firsts.front(),paras);
@@ -264,8 +273,10 @@ int main(int argc, char* argv[]){
 
                 std::cout << "====== Step 4 : Column - Column and alikes =====" << std::endl;
                 run_autotune<NumericT,viennacl::column_major,viennacl::column_major>(paras);
+
+
             }
         }
     }
-    paras.dump("matrix_parameters.xml");
+    paras.dump("blas3_parameters.xml");
 }
