@@ -830,8 +830,8 @@ namespace viennacl{
                                         std::ostringstream lhs_oss;
                                         std::ostringstream rhs_oss;
 
-
-                                        if(is_vectorized || alignment==1) a=-1;
+                                        res_oss << first_prod->val_name(m,n);
+                                        if(!is_vectorized && alignment>1) res_oss << ".s" << a;
 
                                         lhs_oss << "val_lhs_" << ind_lhs_1 << "_" << ind_lhs_2;
                                         if(!is_vectorized_lhs && !use_LHS_shared && alignment>1) lhs_oss << ".s" << ind_s_lhs;
@@ -840,7 +840,7 @@ namespace viennacl{
                                         rhs_oss << "val_rhs_" << ind_rhs_1 << "_" << ind_rhs_2;
                                         if(!is_vectorized_rhs && !use_RHS_shared && alignment>1) rhs_oss << ".s" << ind_s_rhs;
 
-                                        kss << first_prod->update_val(m,n,a,lhs_oss.str(), rhs_oss.str()) << ";" << std::endl;
+                                        kss << first_prod->update_val(res_oss.str(),lhs_oss.str(), rhs_oss.str()) << ";" << std::endl;
 
 
                                         if(is_vectorized)

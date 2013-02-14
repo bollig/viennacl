@@ -311,13 +311,11 @@ namespace viennacl{
                 return val_name_ +  '_' + to_string(m) + '_' + to_string(n);
             }
 
-            std::string update_val(unsigned int m, unsigned int n, int a, std::string const & lhs, std::string const & rhs){
-                std::string _val_name(val_name(m,n));
-                if(a>=0) _val_name += ".s" + to_string(a);
+            std::string update_val(std::string const & res, std::string const & lhs, std::string const & rhs){
                 std::string expr(f_expr_);
                 replace_all_occurences(expr,"#1",lhs);
                 replace_all_occurences(expr,"#2",rhs);
-                return _val_name + " = " + _val_name + op_reduce_->generate(0) + "(" + expr + ")";
+                return res + " = " + res + op_reduce_->generate(0) + "(" + expr + ")";
 
             }
 

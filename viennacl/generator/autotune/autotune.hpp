@@ -62,7 +62,6 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
     viennacl::ocl::kernel & k = pgm.get_kernel("_k0");
 
 
-
     //Anticipates kernel failure
     size_t max_workgroup_size = viennacl::ocl::kernel::info<CL_KERNEL_WORK_GROUP_SIZE>(k,dev);
     if(prof.local_work_size(0)*prof.local_work_size(1) > max_workgroup_size)
@@ -91,7 +90,6 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
 
 
     timings.insert(std::make_pair(exec_time, new viennacl::generator::code_generation::blas3_optimization_profile(prof)));
-//    viennacl::ocl::current_context().delete_program(pgm);
 }
 
 template<class OpT, class ConfigT>
@@ -149,7 +147,7 @@ void benchmark_blas3(timings_t & timings, OpT const & op, std::list<viennacl::ge
         //        std::cout << '.' << std::flush;
         prev_perc=perc;
         perc += (float)100/profiles.size();
-        if((int)prev_perc != (int)perc) std::cout << '\r' << perc << "%" ;
+        if((int)prev_perc != (int)perc) std::cout << '\r' << perc << "%" << std::flush ;
         benchmark_blas3_profile<OpT>(timings,dev,op,*it);
 
     }

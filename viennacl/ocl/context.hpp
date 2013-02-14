@@ -349,7 +349,7 @@ namespace viennacl
 
         /** @brief Returns the number of devices within this context */
         std::size_t device_num() { return devices_.size(); }
-        
+
         /** @brief Returns the context handle */
         const viennacl::ocl::handle<cl_context> & handle() const { return h_; }
         

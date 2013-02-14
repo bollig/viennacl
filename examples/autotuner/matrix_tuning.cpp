@@ -245,7 +245,6 @@ int main(int argc, char* argv[]){
     unsigned int layout = atoi(args[1].c_str());
     platforms_type platforms = viennacl::ocl::get_platforms();
     size_t num_platforms = platforms.size();
-    viennacl::io::parameter_database  paras;
     for(unsigned int k=0 ; k < num_platforms ; ++k)
     {
         viennacl::ocl::platform pf(k);
@@ -253,6 +252,7 @@ int main(int argc, char* argv[]){
         viennacl::ocl::switch_context(k);
         devices_type dev = viennacl::ocl::current_context().devices();
         for(devices_type::iterator it = dev.begin() ; it != dev.end() ; ++it){
+            viennacl::io::parameter_database  paras;
             viennacl::ocl::switch_device(*it);
             cl_device_id dev_id = it->id();
             if(viennacl::ocl::info<CL_DEVICE_TYPE>(dev_id)==CL_DEVICE_TYPE_GPU){
@@ -290,8 +290,6 @@ int main(int argc, char* argv[]){
                 }
 
                 paras.dump("blas3_parameters_"+devname+"_"+args[1]+".xml");
-
-
 
             }
         }
