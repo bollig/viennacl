@@ -129,7 +129,7 @@ void benchmark(OpT const & operation, config conf, MatTypeA & A, MatTypeB & B, M
 
     std::list<std::pair<unsigned int, unsigned int> > rounds_config;
     rounds_config.push_back(std::make_pair(512,200));
-    rounds_config.push_back(std::make_pair(2048,20));
+    rounds_config.push_back(std::make_pair(3072,20));
     for(std::list<std::pair<unsigned int, unsigned int> >::iterator it = rounds_config.begin() ; it!= rounds_config.end(); ++it){
         unsigned int k = std::distance(rounds_config.begin(),it);
         timings.clear();
@@ -194,13 +194,13 @@ void run_autotune(viennacl::io::parameter_database & paras){
     config conf;
 
     conf.n_runs = 2;
-    conf.ml_min = 32; conf.ml_max=32;
-    conf.kl_min = 32; conf.kl_max=32;
-    conf.nl_min = 32; conf.nl_max=32;
-    conf.ms_min = 4; conf.ms_max=4;
-    conf.ks_min = 4; conf.ks_max=4;
-    conf.ns_min = 4; conf.ns_max=4;
-    conf.alignment_min = 2 ; conf.alignment_max = 2 ;
+    conf.ml_min = 32; conf.ml_max=256;
+    conf.kl_min = 32; conf.kl_max=256;
+    conf.nl_min = 32; conf.nl_max=256;
+    conf.ms_min = 2; conf.ms_max=8;
+    conf.ks_min = 2; conf.ks_max=8;
+    conf.ns_min = 2; conf.ns_max=8;
+    conf.alignment_min = 1 ; conf.alignment_max = 4 ;
     conf.LHS_storages.push_back(true);
     conf.LHS_storages.push_back(false);
     conf.RHS_storages.push_back(true);
@@ -242,6 +242,7 @@ void run_autotune(viennacl::io::parameter_database & paras){
 
 int main(int argc, char* argv[]){
     std::vector<std::string> args(argv,argv+argc);
+    unsigned int layout = atoi(args[1].c_str());
     platforms_type platforms = viennacl::ocl::get_platforms();
     size_t num_platforms = platforms.size();
     viennacl::io::parameter_database  paras;
@@ -259,24 +260,40 @@ int main(int argc, char* argv[]){
                 paras.add_data_node(viennacl::io::tag::name, viennacl::ocl::info<CL_DEVICE_NAME>(dev_id));
                 paras.add_data_node(viennacl::io::tag::driver, viennacl::ocl::info<CL_DRIVER_VERSION>(dev_id));
 
+                std::string devname = viennacl::ocl::current_device().name();
+
                 std::cout << "-------------------" << std::endl;
-                std::cout << "Recording timings for : " << viennacl::ocl::current_device().name() << std::endl;
+                std::cout << "Recording timings for : " << devname << std::endl;
 
-                std::cout << "====== Step 1 : Row - Row and alikes =====" << std::endl;
-                run_autotune<NumericT,viennacl::row_major,viennacl::row_major>(paras);
 
-                std::cout << "====== Step 2 : Row - Column and alikes =====" << std::endl;
-                run_autotune<NumericT,viennacl::row_major,viennacl::column_major>(paras);
 
-                std::cout << "====== Step 3 : Column - Row and alikes =====" << std::endl;
-                run_autotune<NumericT,viennacl::column_major,viennacl::row_major>(paras);
+                switch(layout){
+                case 1:
+                    std::cout << "====== Step 1 : Row - Row and alikes =====" << std::endl;
+                    run_autotune<NumericT,viennacl::row_major,viennacl::row_major>(paras);
+                    break;
 
-                std::cout << "====== Step 4 : Column - Column and alikes =====" << std::endl;
-                run_autotune<NumericT,viennacl::column_major,viennacl::column_major>(paras);
+                case 2:
+                    std::cout << "====== Step 2 : Row - Column and alikes =====" << std::endl;
+                    run_autotune<NumericT,viennacl::row_major,viennacl::column_major>(paras);
+                    break;
+
+                case 3:
+                    std::cout << "====== Step 3 : Column - Row and alikes =====" << std::endl;
+                    run_autotune<NumericT,viennacl::column_major,viennacl::row_major>(paras);
+                    break;
+
+                case 4:
+                    std::cout << "====== Step 4 : Column - Column and alikes =====" << std::endl;
+                    run_autotune<NumericT,viennacl::column_major,viennacl::column_major>(paras);
+                    break;
+                }
+
+                paras.dump("blas3_parameters_"+devname+"_"+args[1]+".xml");
+
 
 
             }
         }
     }
-    paras.dump("blas3_parameters.xml");
 }

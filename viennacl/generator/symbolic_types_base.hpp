@@ -311,8 +311,9 @@ namespace viennacl{
                 return val_name_ +  '_' + to_string(m) + '_' + to_string(n);
             }
 
-            std::string update_val(unsigned int m, unsigned int n, std::string const & lhs, std::string const & rhs){
+            std::string update_val(unsigned int m, unsigned int n, int a, std::string const & lhs, std::string const & rhs){
                 std::string _val_name(val_name(m,n));
+                if(a>=0) _val_name += ".s" + to_string(a);
                 std::string expr(f_expr_);
                 replace_all_occurences(expr,"#1",lhs);
                 replace_all_occurences(expr,"#2",rhs);
