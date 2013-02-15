@@ -276,6 +276,8 @@ template<class T>
 struct is_matrix_expression_t{ enum { value = 0 }; };
 template<class VCL_MATRIX>
 struct is_matrix_expression_t<dummy_matrix<VCL_MATRIX> >{ enum { value = 1}; };
+template<class Scalartype, class F>
+struct is_matrix_expression_t<viennacl::distributed::multi_matrix<Scalartype, F> >{ enum { value = 1}; };
 template<class LHS, class OP, class RHS>
 struct is_matrix_expression_t<matrix_expression_wrapper<LHS,OP,RHS> >{ enum { value = 1}; };
 template<class LHS, class RHS, class OP_REDUCE>

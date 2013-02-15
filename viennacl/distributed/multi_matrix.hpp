@@ -41,20 +41,20 @@ namespace distributed
 {
 
 template<class Mat1, class Mat2, class Mat3>
-void autotuned_prod_impl_1(Mat1 & mat1, Mat2 const & mat2, Mat3 const & mat3){
+static void autotuned_prod_impl_1(Mat1 & mat1, Mat2 const & mat2, Mat3 const & mat3){
     viennacl::generator::dummy_matrix<Mat1> m1(mat1);
     viennacl::generator::dummy_matrix<Mat2> m2(mat2);
     viennacl::generator::dummy_matrix<Mat3> m3(mat3);
-    viennacl::generator::custom_operation op( m1 = viennacl::linalg::prod(m2,m3));
+    viennacl::generator::custom_operation op( m1 = viennacl::generator::prod(m2,m3));
     op.execute();
 }
 
 template<class Mat1, class Mat2, class Mat3>
-void autotuned_prod_impl_2(Mat1 & mat1, Mat2 const & mat2, Mat3 const & mat3){
+static void autotuned_prod_impl_2(Mat1 & mat1, Mat2 const & mat2, Mat3 const & mat3){
     viennacl::generator::dummy_matrix<Mat1> m1(mat1);
     viennacl::generator::dummy_matrix<Mat2> m2(mat2);
     viennacl::generator::dummy_matrix<Mat3> m3(mat3);
-    viennacl::generator::custom_operation op( m1 += viennacl::linalg::prod(m2,m3));
+    viennacl::generator::custom_operation op( m1 += viennacl::generator::prod(m2,m3));
     op.execute();
 }
 
@@ -215,7 +215,7 @@ multi_matrix<SCALARTYPE, F, ALIGNMENT> & operator = (const generator::matmat_pro
     for(unsigned int row = 0 ; row < num_blocks_rows() ; ++row){
         for(unsigned int col = 0 ; col < num_blocks_columns() ; ++ col){
             //First product is not inplace
-            viennacl::distributed::task * t1 = scheduler::create_task<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>(static_cast<fun_t>(autotuned_prod_impl_2),
+            viennacl::distributed::task * t1 = scheduler::create_task<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>(fun_t(autotuned_prod_impl_1<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>),
                                                                        viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type1>(proxy.lhs().block_matrix(row,0)),
                                                                        viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type2>(proxy.rhs().block_matrix(0,col)),
                                                                        viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_));
@@ -223,7 +223,7 @@ multi_matrix<SCALARTYPE, F, ALIGNMENT> & operator = (const generator::matmat_pro
 
             //Inplace add of products
             for(unsigned int update = 1 ; update < proxy.lhs().num_blocks_columns() ; ++update){
-                viennacl::distributed::task * t2 = scheduler::create_task<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>(static_cast<fun_t>(autotuned_prod_impl_2),
+                viennacl::distributed::task * t2 = scheduler::create_task<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>(fun_t(autotuned_prod_impl_2<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>),
                                                                           viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type1>(proxy.lhs().block_matrix(row,update)),
                                                                           viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type2>(proxy.rhs().block_matrix(update,col)),
                                                                           viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_));
