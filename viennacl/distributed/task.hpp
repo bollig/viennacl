@@ -96,8 +96,7 @@ public:
 
     viennacl::ocl::event * run(){
         std::cout << "Running " << info() << std::endl;
-//        std::cout << viennacl::ocl::current_device().info()<< std::endl;
-//        viennacl::ocl::switch_context(ctxt_id);
+
         transfer_handler< gwrap0_t > gpu_arg0(arg0_);
         transfer_handler< gwrap1_t > gpu_arg1(arg1_);
         transfer_handler< gwrapres_t > gpu_res(res_);

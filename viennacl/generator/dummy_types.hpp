@@ -4,6 +4,7 @@
 #include "viennacl/meta/enable_if.hpp"
 #include "viennacl/generator/forwards.h"
 //#include "viennacl/forwards.h"
+#include "viennacl/generator/utils.hpp"
 #include "viennacl/vector.hpp"
 #include <set>
 

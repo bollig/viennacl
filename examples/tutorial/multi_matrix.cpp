@@ -69,7 +69,12 @@ int main(){
     Timer t;
     t.start();
 //    res = viennacl::linalg::prod(mat,vec);
-    mat=viennacl::linalg::prod(mat2,mat3);
+
+    viennacl::generator::dummy_matrix<gpu_mat_t> dummy_mat(mat);
+    viennacl::generator::dummy_matrix<gpu_mat_t> dummy_mat2(mat2);
+    viennacl::generator::dummy_matrix<gpu_mat_t> dummy_mat3(mat3);
+
+    dummy_mat=viennacl::generator::prod(dummy_mat2,dummy_mat3);
     viennacl::distributed::scheduler::finish();
 
     std::cout << "\n\n////////////\n\n" << std::endl;

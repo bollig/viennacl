@@ -32,14 +32,31 @@
 #include "viennacl/tools/tools.hpp"
 #include "viennacl/linalg/prod.hpp"
 
-
-
+#include "viennacl/generator/custom_operation.hpp"
 
 namespace viennacl
 {   
 
 namespace distributed
 {
+
+template<class Mat1, class Mat2, class Mat3>
+void autotuned_prod_impl_1(Mat1 & mat1, Mat2 const & mat2, Mat3 const & mat3){
+    viennacl::generator::dummy_matrix<Mat1> m1(mat1);
+    viennacl::generator::dummy_matrix<Mat2> m2(mat2);
+    viennacl::generator::dummy_matrix<Mat3> m3(mat3);
+    viennacl::generator::custom_operation op( m1 = viennacl::linalg::prod(m2,m3));
+    op.execute();
+}
+
+template<class Mat1, class Mat2, class Mat3>
+void autotuned_prod_impl_2(Mat1 & mat1, Mat2 const & mat2, Mat3 const & mat3){
+    viennacl::generator::dummy_matrix<Mat1> m1(mat1);
+    viennacl::generator::dummy_matrix<Mat2> m2(mat2);
+    viennacl::generator::dummy_matrix<Mat3> m3(mat3);
+    viennacl::generator::custom_operation op( m1 += viennacl::linalg::prod(m2,m3));
+    op.execute();
+}
 
 /** @brief A dense matrix class - Multiple devices
 *
@@ -184,6 +201,42 @@ public:
       scheduler::init();
     return *this;
   }
+
+
+template <typename MatrixType1, typename MatrixType2, class ReduceType>
+multi_matrix<SCALARTYPE, F, ALIGNMENT> & operator = (const generator::matmat_prod_wrapper< MatrixType1,
+                                                                        MatrixType2,
+                                                                        ReduceType > & proxy)
+{
+    typedef const typename MatrixType1::gpu_matrix_type gpu_matrix_type1;
+    typedef const typename MatrixType2::gpu_matrix_type gpu_matrix_type2;
+
+    typedef std::function<void (gpu_matrix_type & A, gpu_matrix_type1 const & B, gpu_matrix_type2 const & C)> fun_t;
+    for(unsigned int row = 0 ; row < num_blocks_rows() ; ++row){
+        for(unsigned int col = 0 ; col < num_blocks_columns() ; ++ col){
+            //First product is not inplace
+            viennacl::distributed::task * t1 = scheduler::create_task<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>(static_cast<fun_t>(autotuned_prod_impl_2),
+                                                                       viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type1>(proxy.lhs().block_matrix(row,0)),
+                                                                       viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type2>(proxy.rhs().block_matrix(0,col)),
+                                                                       viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_));
+            t1->info("Matrix Product : Block " + viennacl::tools::to_string(row) +  "," + viennacl::tools::to_string(col) + " : Initial assignment " );
+
+            //Inplace add of products
+            for(unsigned int update = 1 ; update < proxy.lhs().num_blocks_columns() ; ++update){
+                viennacl::distributed::task * t2 = scheduler::create_task<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>(static_cast<fun_t>(autotuned_prod_impl_2),
+                                                                          viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type1>(proxy.lhs().block_matrix(row,update)),
+                                                                          viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type2>(proxy.rhs().block_matrix(update,col)),
+                                                                          viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_));
+                t2->info("Matrix Product : Block " + viennacl::tools::to_string(row) +  "," + viennacl::tools::to_string(col) + " : " + viennacl::tools::to_string(update));
+                scheduler::connect(t1,t2);
+                t1 = t2;
+            }
+
+        }
+    }
+    scheduler::init();
+  return *this;
+}
 
   template <typename SCALARTYPE1, typename F1, class A1, typename SCALARTYPE2, typename F2, unsigned int ALIGNMENT2>
   friend void viennacl::copy(const boost::numeric::ublas::matrix<SCALARTYPE1, F1, A1> & cpu_matrix,
