@@ -34,6 +34,8 @@
 
 #include "viennacl/generator/custom_operation.hpp"
 
+#include <numeric>
+
 namespace viennacl
 {   
 
@@ -109,9 +111,10 @@ private:
   size_t num_blocks_columns() const{
       return  1 + (columns_-1)/block_size_;
   }
-  static bool min_allocable_memory(viennacl::ocl::device const & d1, viennacl::ocl::device const & d2){
-      return d1.max_allocable_memory() < d2.max_allocable_memory() ;
-  }
+
+//  static size_t min_allocable_memory(viennacl::ocl::device const & d1, viennacl::ocl::device const & d2){
+//      return std::min(d1.max_allocable_memory(),d2.max_allocable_memory());
+//  }
 
   void init_blocks(){
       size_type num_blocks_row = num_blocks_rows();
@@ -119,7 +122,7 @@ private:
       blocks_.resize(num_blocks_row);
       for(typename blocks_t::iterator it = blocks_.begin() ; it != blocks_.end() ; ++it){
           size_type row = it - blocks_.begin();
-          size_type row_block_size = std::min(rows_ - row*block_size_, block_size_);
+          size_type row_block_size = std::min(viennacl::tools::roundUpToNextMultiple<size_type>(rows_ - row*block_size_,256), block_size_);
           it->reserve(num_blocks_col);
           for(size_type col = 0 ; col < num_blocks_col ; ++col){
               size_type col_block_size = std::min(columns_ - col*block_size_, block_size_);
@@ -130,6 +133,18 @@ private:
 
   }
 
+  size_t global_max_allocable_memory_size(){
+      std::vector<size_t> max_allocable_sizes;
+      cl_uint num_platforms = viennacl::ocl::num_platforms();
+      for(cl_uint i = 0 ; i < num_platforms ; ++i){
+          viennacl::ocl::platform pf(i);
+          std::vector<viennacl::ocl::device> devices = pf.devices(CL_DEVICE_TYPE_ALL);
+          for(std::vector<viennacl::ocl::device>::const_iterator it = devices.begin(); it!=devices.end(); ++it){
+              max_allocable_sizes.push_back(it->max_allocable_memory());
+          }
+      }
+      return  *std::min_element(max_allocable_sizes.begin(),max_allocable_sizes.end());
+  }
 
 public:
   /** @brief Creates the matrix with the given dimensions
@@ -138,8 +153,11 @@ public:
   * @param columns  Number of columns
   */
   explicit multi_matrix(size_type rows, size_type columns) :
-      rows_(rows), columns_(columns), block_size_(viennacl::distributed::utils::matrix_block_size<SCALARTYPE>())
+      rows_(rows), columns_(columns)
   {
+    size_t max_allocable_size = global_max_allocable_memory_size();
+    size_type max_block_size_ = viennacl::tools::roundDownToPreviousMultiple<vcl_size_t>(sqrt(max_allocable_size/(sizeof(SCALARTYPE))),256);
+    block_size_ = std::min(max_block_size_,rows/scheduler::n_devices());
     init_blocks();
   }
 

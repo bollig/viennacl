@@ -275,7 +275,7 @@ int test_prod(Epsilon const& epsilon, Profiles const & profiles)
 {
   int ret;
 
-  long matrix_size1 = 2*max_large_block_size;
+  long matrix_size1 = 1*max_large_block_size;
   long matrix_size2 = 2*max_large_block_size;
   long matrix_size3 = 2*max_large_block_size;
 
@@ -368,7 +368,7 @@ int test(Epsilon const& epsilon, unsigned int n_profiles)
   //Creates profiles
   std::list<viennacl::generator::code_generation::blas3_optimization_profile> profiles;
   while(profiles.size() < n_profiles){
-    for(unsigned int alignment = min_alignment ; alignment <= max_alignment ; alignment*=2){
+    for(unsigned int alignment = min_alignment ; alignment <= min_alignment ; alignment*=2){
           unsigned int ml = pow(2,rand()%n_large_blocks)*min_large_block_size;
           unsigned int kl = pow(2,rand()%n_large_blocks)*min_large_block_size;
           unsigned int nl = pow(2,rand()%n_large_blocks)*min_large_block_size;

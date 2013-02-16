@@ -131,9 +131,9 @@ namespace viennacl{
 
                     void set_global_sizes(mat_infos_base* mat){
                         local_work_size_[0] =ml_/ms_;
-                        global_work_size_[0] = (mat->real_size2()+ml_-1)/ml_*local_work_size_[0];
+                        global_work_size_[0] = mat->real_size1()/ml_*local_work_size_[0];
                         local_work_size_[1] = nl_/ns_;
-                        global_work_size_[1] = (mat->real_size2()+nl_-1)/nl_*local_work_size_[1];
+                        global_work_size_[1] = mat->real_size2()/nl_*local_work_size_[1];
                     }
 
                     unsigned int ml() const{ return ml_ ; }
