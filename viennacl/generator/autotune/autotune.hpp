@@ -44,16 +44,14 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
 
     if(alignment>ms || alignment>ks || alignment>ns) return;
     double lmem_size = 0;
-    bool is_lhs_transposed = lhs->is_transposed();
-    bool is_rhs_transposed = rhs->is_transposed();
+//    bool is_lhs_transposed = lhs->is_transposed();
+//    bool is_rhs_transposed = rhs->is_transposed();
     if(lhs_storage){
-        if(is_lhs_transposed) lmem_size += (double)kl*(ml+1)*lhs->scalartype_size()/1024;
-        else lmem_size += (double)ml*(kl+1)*lhs->scalartype_size()/1024;
+        lmem_size += (double)(kl+1)*(ml+1)*lhs->scalartype_size()/1024;
     }
 
     if(rhs_storage){
-        if(is_rhs_transposed) lmem_size += (double)nl*(kl+1)*rhs->scalartype_size()/1024;
-        else lmem_size += (double)kl*(nl+1)*rhs->scalartype_size()/1024;
+        lmem_size += (double)(nl+1)*(kl+1)*rhs->scalartype_size()/1024;
     }
     if( lmem_size > 32.0) return;
     if(prof.local_work_size(0)*prof.local_work_size(1) > dev.max_workgroup_size()) return;

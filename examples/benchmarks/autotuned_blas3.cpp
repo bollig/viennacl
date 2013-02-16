@@ -50,7 +50,7 @@
 #include "benchmark-utils.hpp"
 
 
-#define BLAS3_MATRIX_SIZE   2048
+#define BLAS3_MATRIX_SIZE   3072
 
 template<typename ScalarType, class FB, class FC>
 int run_benchmark()
@@ -101,7 +101,7 @@ int run_benchmark()
                         vcl_B);
 
     std::cout << " ----- AA ----- " << std::endl;
-    viennacl::generator::custom_operation op( (dmc_t(vcl_C) = viennacl::generator::prod( dma_t(vcl_A), dmb_t(vcl_B))) );
+    viennacl::generator::custom_operation op( (dma_t(vcl_A) = viennacl::generator::prod( dmb_t(vcl_B), dmc_t(vcl_C))) );
     op.execute();
     viennacl::backend::finish();
     timer.start();
@@ -113,7 +113,7 @@ int run_benchmark()
     std::cout << std::endl;
 
     std::cout << " ----- TA ----- " << std::endl;
-    viennacl::generator::custom_operation op2( (dmc_t(vcl_C) = viennacl::generator::prod( trans(dma_t(vcl_A)), dmb_t(vcl_B))) );
+    viennacl::generator::custom_operation op2( (dma_t(vcl_A) = viennacl::generator::prod( trans(dmb_t(vcl_B)), dmc_t(vcl_C))) );
     op2.execute();
     viennacl::backend::finish();
     timer.start();
@@ -125,7 +125,7 @@ int run_benchmark()
     std::cout << std::endl;
 
     std::cout << " ----- AT ----- " << std::endl;
-    viennacl::generator::custom_operation op3( (dmc_t(vcl_C) = viennacl::generator::prod( dma_t(vcl_A), trans(dmb_t(vcl_B)))) );
+    viennacl::generator::custom_operation op3( (dma_t(vcl_A) = viennacl::generator::prod( dmb_t(vcl_B), trans(dmc_t(vcl_C)))) );
     op3.execute();
     viennacl::backend::finish();
     timer.start();
@@ -137,7 +137,7 @@ int run_benchmark()
     std::cout << std::endl;
 
     std::cout << " ----- TT ----- " << std::endl;
-    viennacl::generator::custom_operation op4( (dmc_t(vcl_C) = viennacl::generator::prod( trans(dma_t(vcl_A)), trans(dmb_t(vcl_B)))) );
+    viennacl::generator::custom_operation op4( (dma_t(vcl_A) = viennacl::generator::prod( trans(dmb_t(vcl_B)), trans(dmc_t(vcl_C)))) );
     op4.execute();
     viennacl::backend::finish();
     timer.start();
@@ -198,17 +198,17 @@ int main()
             std::cout << "   ---------------------------------"<< std::endl;
             run_benchmark<float,viennacl::row_major,viennacl::row_major>();
             std::cout << "   ---------------------------------"<< std::endl;
-            std::cout << "   LHS : Column-Major | RHS : Row-Major"<< std::endl;
-            std::cout << "   ---------------------------------"<< std::endl;
-            run_benchmark<float,viennacl::column_major,viennacl::row_major>();
+//            std::cout << "   LHS : Column-Major | RHS : Row-Major"<< std::endl;
+//            std::cout << "   ---------------------------------"<< std::endl;
+//            run_benchmark<float,viennacl::column_major,viennacl::row_major>();
             std::cout << "   ---------------------------------"<< std::endl;
             std::cout << "   LHS : Row-Major | RHS : Column-Major"<< std::endl;
             std::cout << "   ---------------------------------"<< std::endl;
             run_benchmark<float,viennacl::row_major,viennacl::column_major>();
-            std::cout << "   ---------------------------------"<< std::endl;
-            std::cout << "   LHS : Column-Major | RHS : Column-Major"<< std::endl;
-            std::cout << "   ---------------------------------"<< std::endl;
-            run_benchmark<float,viennacl::column_major,viennacl::column_major>();
+//            std::cout << "   ---------------------------------"<< std::endl;
+//            std::cout << "   LHS : Column-Major | RHS : Column-Major"<< std::endl;
+//            std::cout << "   ---------------------------------"<< std::endl;
+//            run_benchmark<float,viennacl::column_major,viennacl::column_major>();
 
             //#ifdef VIENNACL_WITH_OPENCL
             //  if( viennacl::ocl::current_device().double_support() )

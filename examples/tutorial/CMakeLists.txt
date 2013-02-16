@@ -50,11 +50,16 @@ endif()
 # Part 2: Tutorials which work only with OpenCL enabled:
 #
 if (ENABLE_OPENCL)
-  foreach(tut custom-kernels custom-context fft viennacl-info multi_matrix)
+  foreach(tut custom-kernels custom-context fft viennacl-info)
     add_executable(${tut} ${tut}.cpp)
     target_link_libraries(${tut} ${OPENCL_LIBRARIES})
     set_target_properties(${tut} PROPERTIES COMPILE_FLAGS "-DVIENNACL_WITH_OPENCL")
   endforeach()
+  set(tut multi_matrix)
+  add_executable(${tut} ${tut}.cpp ${PROJECT_SOURCE_DIR}/external/pugixml/src/pugixml.cpp)
+  target_link_libraries(${tut} ${OPENCL_LIBRARIES})
+  set_target_properties(${tut} PROPERTIES COMPILE_FLAGS "-DVIENNACL_WITH_OPENCL -DVIENNACL_ENABLE_AUTOTUNE -I${PROJECT_SOURCE_DIR}/external")
+
   list( APPEND CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
 
   if(ENABLE_UBLAS)

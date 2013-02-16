@@ -109,6 +109,7 @@ namespace viennacl{
             typedef std::string repr_t;
             virtual std::string generate(unsigned int i) const { return ""; }
             virtual repr_t repr() const = 0;
+            virtual repr_t simplified_repr(){ return repr(); }
             virtual ~infos_base(){ }
         };
 
@@ -231,6 +232,10 @@ namespace viennacl{
         public:
             std::string generate(unsigned int i) const { return "(" + lhs_->generate(i) + op_->generate(i) + rhs_->generate(i) + ")"; }
             repr_t repr() const{ return binary_tree_infos_base::repr(); }
+            infos_base::repr_t simplified_repr() const{
+                if(op_->is_assignment()) return "p_"+lhs_->repr() + assign_type().repr() + rhs_->repr()+"_p";
+                else return lhs_->repr();
+            }
             arithmetic_tree_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) :  binary_tree_infos_base(lhs,op,rhs){        }
         private:
         };

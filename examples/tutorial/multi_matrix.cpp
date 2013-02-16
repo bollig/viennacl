@@ -15,6 +15,7 @@
 ============================================================================= */
 
 #define VIENNACL_USE_SCHEDULER
+#define VIENNACL_ENABLE_AUTOTUNE
 #define VIENNACL_PROFILING_ENABLE
 //#define VIENNACL_DEBUG_ALL
 
@@ -41,8 +42,8 @@
 #include "boost/numeric/ublas/matrix.hpp"
 
 int main(){
-    unsigned int size1 = 9600;
-    unsigned int size2 = 9600;
+    unsigned int size1 = 11264;
+    unsigned int size2 = 11264;
     typedef float ScalarType;
 
     typedef viennacl::distributed::multi_matrix<ScalarType,viennacl::row_major,1> gpu_mat_t;

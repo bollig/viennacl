@@ -178,10 +178,12 @@ namespace viennacl{
 #else
                     const char * tmp = std::getenv("VIENNACL_PARAMS_PATH");
                     if(tmp==NULL){
-                        std::cerr << "Tuner: Environment variable VIENNACL_PARAMS_PATH not set ... Falling back on default" << std::endl;
-                        return blas3_model_;
+//                        std::cerr << "Tuner: Environment variable VIENNACL_PARAMS_PATH not set ... Falling back on default" << std::endl;
+//                        return blas3_model_;
+                        tmp = "./";
                     }
                     std::string VCL_PARAMS_PATH(tmp);
+
                     std::string filename(VCL_PARAMS_PATH + "/blas3_parameters.xml");
                     viennacl::io::parameter_database  paras;
                     paras.load(filename);
@@ -193,27 +195,34 @@ namespace viennacl{
 
                     std::string devname = viennacl::ocl::current_device().name();
                     // check if tune parameters for the current device are present
-                    std::string          device_str = "/parameters/devices/device[name='"+devname+"']";
+                    std::string          device_str = "/parameters/devices/device[contains(name,'"+devname+"')]";
                     pugi::xpath_node_set device_res = paras.doc.select_nodes(device_str.c_str());
 
-                    if(device_res.size() == 0){
-                        std::cerr << "Tuner: There are no parameters for this device present! ... Falling back on default" << std::endl;
+                    if(device_res.empty()){
+                        std::cerr << "Tuner: There are no parameters existing for the device : " << devname << " ! ... Falling back on default" << std::endl;
+                        return blas3_model_;
+                    }
+                    else if(device_res.size()>1){
+                        std::cerr << "Tuner: Existing multiple definitions for the device : " << devname << " ! ... Falling back on default" << std::endl;
                         return blas3_model_;
                     }
 
                     // check if tune parameters for float exist
-                    std::string          name_str = device_str+"/kernels/kernel[name='"+operation->repr()+"']";
+                    std::string          name_str = device_str+"/kernels/kernel[name='"+operation->simplified_repr()+"']";
                     pugi::xpath_node_set name_res = paras.doc.select_nodes(name_str.c_str());
 
                     if(name_res.size() == 0){
-                        std::cerr << "Tuner: There are no parameters for this kernel present! ... Falling back on default" << std::endl;
+                        std::cerr << "Tuner: There are no parameters for the kernel : " << operation->repr() << "! ... Falling back on default" << std::endl;
                         return blas3_model_;
                     }
 
-                    return blas3_optimization_profile(get_param<unsigned int>(paras,name_str,"ml"),get_param<unsigned int>(paras,name_str,"kl"),get_param<unsigned int>(paras,name_str,"nl"),
+                    blas3_optimization_profile res(get_param<unsigned int>(paras,name_str,"ml"),get_param<unsigned int>(paras,name_str,"kl"),get_param<unsigned int>(paras,name_str,"nl"),
                                                       get_param<unsigned int>(paras,name_str,"ms"),get_param<unsigned int>(paras,name_str,"ks"),get_param<unsigned int>(paras,name_str,"ns"),
                                                       get_param<bool>(paras,name_str,"lhs_storage"),get_param<bool>(paras,name_str,"rhs_storage"),get_param<unsigned int>(paras,name_str,"alignment")
                                 );
+
+//                    std::cout << operation->repr() << " " << res << std::endl;
+                    return res;
 #endif
                 }
 

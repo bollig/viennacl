@@ -242,6 +242,10 @@ void run_autotune(viennacl::io::parameter_database & paras){
 
 int main(int argc, char* argv[]){
     std::vector<std::string> args(argv,argv+argc);
+    if(argc<2){
+        std::cerr << "USAGE : PROGRAM_NAME LAYOUT" << std::endl;
+        exit(1);
+    }
     unsigned int layout = atoi(args[1].c_str());
     platforms_type platforms = viennacl::ocl::get_platforms();
     size_t num_platforms = platforms.size();

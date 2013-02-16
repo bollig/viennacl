@@ -42,7 +42,7 @@ INT_TYPE roundDownToPreviousMultiple(INT_TYPE to_reach, INT_TYPE base)
 template<class ScalarType>
 vcl_size_t matrix_block_size(){
     vcl_size_t mem_chunk_size = 128*1024*1024;
-    return roundDownToPreviousMultiple<vcl_size_t>(sqrt(mem_chunk_size/(sizeof(ScalarType))),64);
+    return roundDownToPreviousMultiple<vcl_size_t>(sqrt(mem_chunk_size/(sizeof(ScalarType))),256);
 }
 
 template<class ScalarType>

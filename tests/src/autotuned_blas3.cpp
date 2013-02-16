@@ -139,6 +139,7 @@ int test_prod(Epsilon const& epsilon,
 
    failed = false;
    for(typename Profiles::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
+//       std::cout << *it << std::endl;
        viennacl::generator::custom_operation op;
        op.operations_manager().blas3_model() = *it;
        op.add(vcl_C = viennacl::generator::prod(vcl_A,vcl_B));
@@ -160,6 +161,7 @@ int test_prod(Epsilon const& epsilon,
 
    failed = false;
    for(typename Profiles::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
+//       std::cout << *it << std::endl;
        viennacl::generator::custom_operation op;
        op.operations_manager().blas3_model() = *it;
        op.add(vcl_C = viennacl::generator::prod(trans(vcl_A_trans),vcl_B));
