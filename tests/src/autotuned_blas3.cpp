@@ -139,7 +139,7 @@ int test_prod(Epsilon const& epsilon,
 
    failed = false;
    for(typename Profiles::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
-//       std::cout << *it << std::endl;
+       std::cout << *it << std::endl;
        viennacl::generator::custom_operation op;
        op.operations_manager().blas3_model() = *it;
        op.add(vcl_C = viennacl::generator::prod(vcl_A,vcl_B));
@@ -275,9 +275,9 @@ int test_prod(Epsilon const& epsilon, Profiles const & profiles)
 {
   int ret;
 
-  long matrix_size1 = 1*max_large_block_size;
+  long matrix_size1 = 5*max_large_block_size;
   long matrix_size2 = 2*max_large_block_size;
-  long matrix_size3 = 2*max_large_block_size;
+  long matrix_size3 = 3*max_large_block_size;
 
   typedef viennacl::generator::dummy_matrix< viennacl::matrix<NumericT, F_A> > DummyMatrixA;
   typedef viennacl::generator::dummy_matrix< viennacl::matrix<NumericT, F_B> > DummyMatrixB;
@@ -368,7 +368,7 @@ int test(Epsilon const& epsilon, unsigned int n_profiles)
   //Creates profiles
   std::list<viennacl::generator::code_generation::blas3_optimization_profile> profiles;
   while(profiles.size() < n_profiles){
-    for(unsigned int alignment = min_alignment ; alignment <= min_alignment ; alignment*=2){
+    for(unsigned int alignment = min_alignment ; alignment <= max_alignment ; alignment*=2){
           unsigned int ml = pow(2,rand()%n_large_blocks)*min_large_block_size;
           unsigned int kl = pow(2,rand()%n_large_blocks)*min_large_block_size;
           unsigned int nl = pow(2,rand()%n_large_blocks)*min_large_block_size;

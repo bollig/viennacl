@@ -95,8 +95,9 @@ public:
     task2(fun_t fun, gwrap0_t arg0, gwrap1_t arg1, gwrapres_t  res) : arg0_(arg0),arg1_(arg1), res_(res), fun_(fun){ }
 
     viennacl::ocl::event * run(){
+#ifdef VIENNACL_DEBUG_SCHEDULER
         std::cout << "Running " << info() << std::endl;
-
+#endif
         transfer_handler< gwrap0_t > gpu_arg0(arg0_);
         transfer_handler< gwrap1_t > gpu_arg1(arg1_);
         transfer_handler< gwrapres_t > gpu_res(res_);

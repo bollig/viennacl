@@ -47,8 +47,12 @@ static void autotuned_prod_impl_1(Mat1 & mat1, Mat2 const & mat2, Mat3 const & m
     viennacl::generator::dummy_matrix<Mat1> m1(mat1);
     viennacl::generator::dummy_matrix<Mat2> m2(mat2);
     viennacl::generator::dummy_matrix<Mat3> m3(mat3);
+    assert(mat1.size1()==mat2.size1());
+    assert(mat1.size2()==mat3.size2());
+    assert(mat2.size2()==mat3.size1());
     viennacl::generator::custom_operation op( m1 = viennacl::generator::prod(m2,m3));
     op.execute();
+//    mat1=viennacl::linalg::prod(mat2,mat3);
 }
 
 template<class Mat1, class Mat2, class Mat3>
@@ -56,8 +60,12 @@ static void autotuned_prod_impl_2(Mat1 & mat1, Mat2 const & mat2, Mat3 const & m
     viennacl::generator::dummy_matrix<Mat1> m1(mat1);
     viennacl::generator::dummy_matrix<Mat2> m2(mat2);
     viennacl::generator::dummy_matrix<Mat3> m3(mat3);
-    viennacl::generator::custom_operation op( m1 += viennacl::generator::prod(m2,m3));
+    assert(mat1.size1()==mat2.size1());
+    assert(mat1.size2()==mat3.size2());
+    assert(mat2.size2()==mat3.size1());
+    viennacl::generator::custom_operation op( m1 = viennacl::generator::prod(m2,m3));
     op.execute();
+//    mat1+=viennacl::linalg::prod(mat2,mat3);
 }
 
 /** @brief A dense matrix class - Multiple devices
@@ -122,7 +130,7 @@ private:
       blocks_.resize(num_blocks_row);
       for(typename blocks_t::iterator it = blocks_.begin() ; it != blocks_.end() ; ++it){
           size_type row = it - blocks_.begin();
-          size_type row_block_size = std::min(viennacl::tools::roundUpToNextMultiple<size_type>(rows_ - row*block_size_,256), block_size_);
+          size_type row_block_size = std::min(rows_ - row*block_size_, block_size_);
           it->reserve(num_blocks_col);
           for(size_type col = 0 ; col < num_blocks_col ; ++col){
               size_type col_block_size = std::min(columns_ - col*block_size_, block_size_);
@@ -144,6 +152,7 @@ private:
           }
       }
       return  *std::min_element(max_allocable_sizes.begin(),max_allocable_sizes.end());
+//      return 128*1024*1024;
   }
 
 public:
@@ -157,7 +166,8 @@ public:
   {
     size_t max_allocable_size = global_max_allocable_memory_size();
     size_type max_block_size_ = viennacl::tools::roundDownToPreviousMultiple<vcl_size_t>(sqrt(max_allocable_size/(sizeof(SCALARTYPE))),256);
-    block_size_ = std::min(max_block_size_,rows/scheduler::n_devices());
+//    block_size_ = std::min(max_block_size_,rows/scheduler::n_devices());
+    block_size_ = max_block_size_;
     init_blocks();
   }
 

@@ -97,16 +97,20 @@ private:
             }
             else{
                 double begin = timeline_.get();
+#ifdef VIENNACL_DEBUG_SCHEDULER
                 std::cout << "[" << begin << "] : % Start :" << tsk->info() << " on " << device.name() << std::endl;
+#endif
                 viennacl::ocl::event * evt = tsk->run();
                 while(evt->status() > 0){
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 }
                 mutex_.lock();
                 double end = timeline_.get();
+#ifdef VIENNACL_DEBUG_SCHEDULER
                 std::cout << "[" << end << "] : #Finished : " << tsk->info() <<  " on device " << device.name() << " : \n"
                           << "      Kernel duration : " << viennacl::ocl::time_of_execution_us(*evt)/1000  << "ms\n"
                           << "      Total duration : " << (end-begin)*1000 << "ms" << std::endl;
+#endif
                 solve_dependancies(tsk.get()); //Removes current task
                 mutex_.unlock();
             }
@@ -117,7 +121,9 @@ private:
 public:
 
     static void add_device(viennacl::ocl::device const & device){
+#ifdef VIENNACL_DEBUG_SCHEDULER
         std::cout << "Adding " << device.name() << " to the scheduler " << std::endl;
+#endif
 //        long id = context_map_.size();
 //        std::vector<cl_device_id> devs; devs.push_back(device.id());
 //        viennacl::ocl::setup_context(id,devs);
@@ -131,9 +137,7 @@ public:
         cl_uint num_platforms = viennacl::ocl::num_platforms();
         for(cl_uint i = 0 ; i < num_platforms ; ++i){
             viennacl::ocl::platform pf(i);
-            std::cout << pf.info() << std::endl;
             std::vector<viennacl::ocl::device> devices = pf.devices(dtype);
-            std::cout << devices.size() << std::endl;
             for(std::vector<viennacl::ocl::device>::iterator it = devices.begin() ; it != devices.end() ; ++it){
                 viennacl::distributed::scheduler::add_device(*it);
             }

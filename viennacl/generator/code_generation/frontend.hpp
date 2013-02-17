@@ -60,7 +60,7 @@ namespace viennacl{
                 }
 
 
-                typedef std::set<kernel_argument*, deref_less> arguments_t;
+                typedef std::list<kernel_argument*> arguments_t;
 
                 kernel_type_t type(){ return type_; }
 
@@ -89,15 +89,47 @@ namespace viennacl{
 
 
 
+            template<class T>
+            static bool find_pred(T* t1, T* t2){
+                return t1->handle()==t2->handle();
+            }
+
+            template<class T, class Pred>
+            static void extract_to_list(infos_base* root, std::list<T*> & args, Pred pred){
+                if(arithmetic_tree_infos_base* p = dynamic_cast<arithmetic_tree_infos_base*>(root)){
+                    extract_to_list(&p->lhs(), args,pred);
+                    extract_to_list(&p->rhs(),args,pred);
+                }
+                else if(function_base* p = dynamic_cast<function_base*>(root)){
+                    std::list<infos_base*> func_args(p->args());
+                    for(std::list<infos_base*>::const_iterator it = func_args.begin(); it!= func_args.end(); ++it){
+                        extract_to_list(*it,args,pred);
+                    }
+                }
+                else if(inprod_infos_base* p = dynamic_cast<inprod_infos_base*>(root)){
+                    if(p->step() == inprod_infos_base::compute){
+                        extract_to_list(&p->lhs(), args,pred);
+                        extract_to_list(&p->rhs(),args,pred);
+                    }
+                }
+                if(T* t = dynamic_cast<T*>(root)){
+                    if(pred(t)){
+                        typename std::list<T*>::iterator it = std::find_if(args.begin(),args.end(),std::bind2nd(std::ptr_fun(find_pred<T>),t));
+                        if(it==args.end()) args.push_back(t);
+                    }
+                }
+            }
+
+
             class kernel_generator{
             private:
 
                 void generate_headers(){
                     kss_ << "__kernel void " + kernel_name_ + "(";
                     for(std::list<infos_base*>::iterator it = kernel_infos_.trees().begin() ; it!= kernel_infos_.trees().end() ; ++it){
-                        extract_as(*it,kernel_infos_.arguments(),utils::is_type<kernel_argument>());
+                        extract_to_list(*it,kernel_infos_.arguments(),utils::is_type<kernel_argument>());
                     }
-                    for(std::set<kernel_argument*, deref_less>::iterator it=kernel_infos_.arguments().begin(); it!=kernel_infos_.arguments().end();++it){
+                    for(std::list<kernel_argument*>::iterator it=kernel_infos_.arguments().begin(); it!=kernel_infos_.arguments().end();++it){
                         if(it!=kernel_infos_.arguments().begin()) kss_ << ',';
                         kss_ << (*it)->arguments_string() << std::endl ;
                     }

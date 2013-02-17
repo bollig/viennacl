@@ -14,9 +14,8 @@
    License:         MIT (X11), see file LICENSE in the base directory
 ============================================================================= */
 
-#define VIENNACL_USE_SCHEDULER
-#define VIENNACL_ENABLE_AUTOTUNE
 #define VIENNACL_PROFILING_ENABLE
+//#define VIENNACL_DEBUG_SCHEDULER
 //#define VIENNACL_DEBUG_ALL
 
 //#define VIENNACL_WITH_OPENCL
@@ -44,16 +43,17 @@
 int main(){
     unsigned int size1 = 17920;
     unsigned int size2 = 17920;
+    unsigned int size3 = 17920;
     typedef float ScalarType;
 
-    typedef viennacl::distributed::multi_matrix<ScalarType,viennacl::row_major,1> gpu_mat_t;
+    typedef viennacl::distributed::multi_matrix<ScalarType> gpu_mat_t;
 //    typedef viennacl::distributed::multi_vector<ScalarType,1> gpu_vec_t;
 
     viennacl::distributed::scheduler::add_all_available_devices(CL_DEVICE_TYPE_GPU);
 
-    gpu_mat_t mat(size1,size2);
+    gpu_mat_t mat(size1,size3);
     gpu_mat_t mat2(size1,size2);
-    gpu_mat_t mat3(size1,size2);
+    gpu_mat_t mat3(size2,size3);
 
 //    gpu_vec_t vec(size2);
 //    gpu_vec_t res(size2);
@@ -66,6 +66,9 @@ int main(){
 //        }
 //    }
 
+
+    mat=viennacl::generator::prod(mat2,mat3);
+    viennacl::distributed::scheduler::finish();
 
     Timer t;
     t.start();

@@ -869,7 +869,7 @@ namespace viennacl{
                             if(is_rhs_transposed)
                                 std::for_each(rhss.begin(),rhss.end(),update_rhs_global_ptr(kss,ks,ks_rhs,ns_rhs,internal_size1_rhs,internal_size2_rhs));
                             else
-                                 std::for_each(rhss.begin(),rhss.end(),update_rhs_global_ptr(kss,ks,ns_rhs,ks_rhs,internal_size1_rhs,internal_size2_rhs));
+                                std::for_each(rhss.begin(),rhss.end(),update_rhs_global_ptr(kss,ks,ns_rhs,ks_rhs,internal_size1_rhs,internal_size2_rhs));
                         }
 
 
@@ -929,7 +929,7 @@ namespace viennacl{
                                 for(unsigned int n=0 ; n < ns_res ; ++n){
                                     kss << "*res_ptr++=" << first_prod->val_name(m,n) << ";" << std::endl;
                                 }
-                                kss << "res_ptr+=" << internal_size2_res << " - " << ns_res << ";" << std::endl;
+                                if(m<ms_res-1)  kss << "res_ptr+=" << internal_size2_res << " - " << ns_res << ";" << std::endl;
                             }
                         }
                         else{
@@ -937,7 +937,7 @@ namespace viennacl{
                                 for(unsigned int m=0 ; m < ms_res ; ++m){
                                     kss << "*res_ptr++=" << first_prod->val_name(m,n) << ";" << std::endl;
                                 }
-                                kss << "res_ptr+=" << internal_size1_res << " - " << ms_res << ";" << std::endl;
+                                if(n<ns_res-1) kss << "res_ptr+=" << internal_size1_res << " - " << ms_res << ";" << std::endl;
                             }
                         }
 
