@@ -116,17 +116,13 @@ private:
 };
 
 template<class LHS, class RHS, class OP_REDUCE>
-class matmat_prod_wrapper : public compile_time_beast<LHS,matmat_prod_type_wrapper,RHS>{
+class matrix_expression_wrapper<LHS,matmat_prod_type<OP_REDUCE>,RHS> : public compile_time_beast<LHS,matmat_prod_type<OP_REDUCE>,RHS>{
 public:
-    matmat_prod_wrapper(LHS const & lhs, RHS const & rhs, std::string expr, OP_REDUCE const & op_reduce) : compile_time_beast<LHS,matmat_prod_type_wrapper, RHS>(lhs,rhs)
-                                                                                        ,f_("",expr), op_reduce_(op_reduce){ }
-
-    OP_REDUCE op_reduce() const { return op_reduce_; }
+    matrix_expression_wrapper(LHS const & lhs, RHS const & rhs, std::string expr) : compile_time_beast<LHS,matmat_prod_type<OP_REDUCE>, RHS>(lhs,rhs) ,f_("",expr){ }
 
     std::string expr() const { return f_.expr(); }
 private:
     function_wrapper f_;
-    OP_REDUCE op_reduce_;
 };
 
 
@@ -280,8 +276,8 @@ template<class Scalartype, class F>
 struct is_matrix_expression_t<viennacl::distributed::multi_matrix<Scalartype, F> >{ enum { value = 1}; };
 template<class LHS, class OP, class RHS>
 struct is_matrix_expression_t<matrix_expression_wrapper<LHS,OP,RHS> >{ enum { value = 1}; };
-template<class LHS, class RHS, class OP_REDUCE>
-struct is_matrix_expression_t<matmat_prod_wrapper<LHS,RHS, OP_REDUCE> >{ enum { value = 1}; };
+//template<class LHS, class RHS, class OP_REDUCE>
+//struct is_matrix_expression_t<matmat_prod_wrapper<LHS,RHS, OP_REDUCE> >{ enum { value = 1}; };
 
 template<class LHS, class OP, class RHS, bool create_vector, bool create_scalar, bool create_matrix>
 struct convert_to_expr;
@@ -345,18 +341,18 @@ inner_prod(LHS const & lhs, RHS const & rhs)
 
 template<class LHS, class RHS>
 typename viennacl::enable_if<is_matrix_expression_t<LHS>::value && is_matrix_expression_t<RHS>::value
-                            ,matmat_prod_wrapper<LHS,RHS,add_type> >::type
+                            ,matrix_expression_wrapper<LHS,matmat_prod_type<add_type>,RHS> >::type
 prod(LHS const & lhs, RHS const & rhs)
 {
-    return matmat_prod_wrapper<LHS,RHS,add_type>(lhs,rhs,"#1*#2",add_type());
+    return matrix_expression_wrapper<LHS,matmat_prod_type<add_type>,RHS>(lhs,rhs,"#1*#2");
 }
 
 template<class OP_TYPE, class LHS, class RHS>
 typename viennacl::enable_if<is_matrix_expression_t<LHS>::value && is_matrix_expression_t<RHS>::value
-                            ,matmat_prod_wrapper<LHS,RHS,add_type> >::type
+                            ,matrix_expression_wrapper<LHS,matmat_prod_type<add_type>,RHS> >::type
 prod_based(LHS const & lhs, RHS const & rhs, std::string const & expression)
 {
-    return matmat_prod_wrapper<LHS,RHS,add_type>(lhs,rhs,expression,OP_TYPE());
+    return matrix_expression_wrapper<LHS,matmat_prod_type<OP_TYPE>,RHS>(lhs,rhs,expression);
 }
 
 template<class T>

@@ -68,6 +68,7 @@ static void autotuned_prod_impl_2(Mat1 & mat1, Mat2 const & mat2, Mat3 const & m
 //    mat1+=viennacl::linalg::prod(mat2,mat3);
 }
 
+
 /** @brief A dense matrix class - Multiple devices
 *
 * @tparam SCALARTYPE   The underlying scalar type (either float or double)
@@ -208,17 +209,18 @@ public:
           for(unsigned int col = 0 ; col < num_blocks_columns() ; ++ col){
               //First product is not inplace
               viennacl::distributed::task * t1 = scheduler::create_task<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>(fun_t([](gpu_matrix_type & A, gpu_matrix_type1 const & B, gpu_matrix_type2 const & C) { A = viennacl::linalg::prod(B,C); }),
+                                                                        viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_),
                                                                          viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type1>(proxy.lhs().block_matrix(row,0)),
-                                                                         viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type2>(proxy.rhs().block_matrix(0,col)),
-                                                                         viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_));
+                                                                         viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type2>(proxy.rhs().block_matrix(0,col)));
               t1->info("Matrix Product : Block " + viennacl::tools::to_string(row) +  "," + viennacl::tools::to_string(col) + " : Initial assignment " );
 
               //Inplace add of products
               for(unsigned int update = 1 ; update < proxy.lhs().num_blocks_columns() ; ++update){
                   viennacl::distributed::task * t2 = scheduler::create_task<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>(fun_t([](gpu_matrix_type & A, gpu_matrix_type1 const & B, gpu_matrix_type2 const & C) { A += viennacl::linalg::prod(B,C); }),
+                                                                            viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_),
                                                                             viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type1>(proxy.lhs().block_matrix(row,update)),
-                                                                            viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type2>(proxy.rhs().block_matrix(update,col)),
-                                                                            viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_));
+                                                                            viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type2>(proxy.rhs().block_matrix(update,col))
+                                                                            );
                   t2->info("Matrix Product : Block " + viennacl::tools::to_string(row) +  "," + viennacl::tools::to_string(col) + " : " + viennacl::tools::to_string(update));
                   scheduler::connect(t1,t2);
                   t1 = t2;
@@ -232,9 +234,9 @@ public:
 
 
 template <typename MatrixType1, typename MatrixType2, class ReduceType>
-multi_matrix<SCALARTYPE, F, ALIGNMENT> & operator = (const generator::matmat_prod_wrapper< MatrixType1,
-                                                                        MatrixType2,
-                                                                        ReduceType > & proxy)
+multi_matrix<SCALARTYPE, F, ALIGNMENT> & operator = (const generator::matrix_expression_wrapper< MatrixType1,
+                                                                        generator::matmat_prod_type<ReduceType>,
+                                                                        MatrixType2> & proxy)
 {
     typedef const typename MatrixType1::gpu_matrix_type gpu_matrix_type1;
     typedef const typename MatrixType2::gpu_matrix_type gpu_matrix_type2;
@@ -244,17 +246,19 @@ multi_matrix<SCALARTYPE, F, ALIGNMENT> & operator = (const generator::matmat_pro
         for(unsigned int col = 0 ; col < num_blocks_columns() ; ++ col){
             //First product is not inplace
             viennacl::distributed::task * t1 = scheduler::create_task<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>(fun_t(autotuned_prod_impl_1<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>),
+                                                                                                                         viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_),
                                                                        viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type1>(proxy.lhs().block_matrix(row,0)),
-                                                                       viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type2>(proxy.rhs().block_matrix(0,col)),
-                                                                       viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_));
+                                                                       viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type2>(proxy.rhs().block_matrix(0,col))
+                                                                       );
             t1->info("Matrix Product : Block " + viennacl::tools::to_string(row) +  "," + viennacl::tools::to_string(col) + " : Initial assignment " );
 
             //Inplace add of products
             for(unsigned int update = 1 ; update < proxy.lhs().num_blocks_columns() ; ++update){
                 viennacl::distributed::task * t2 = scheduler::create_task<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>(fun_t(autotuned_prod_impl_2<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>),
+                                                                                                                             viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_),
                                                                           viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type1>(proxy.lhs().block_matrix(row,update)),
-                                                                          viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type2>(proxy.rhs().block_matrix(update,col)),
-                                                                          viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_));
+                                                                          viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type2>(proxy.rhs().block_matrix(update,col))
+                                                                          );
                 t2->info("Matrix Product : Block " + viennacl::tools::to_string(row) +  "," + viennacl::tools::to_string(col) + " : " + viennacl::tools::to_string(update));
                 scheduler::connect(t1,t2);
                 t1 = t2;

@@ -187,9 +187,17 @@ namespace viennacl{
             inner_prod_type() : nonarithmetic_op_infos_base("inprod"){ }
         };
 
+        template<class REDUCE_TYPE>
         class matmat_prod_type : public nonarithmetic_op_infos_base{
         public:
-            matmat_prod_type() : nonarithmetic_op_infos_base("prod"){ }
+            matmat_prod_type() : nonarithmetic_op_infos_base("prod"), op_reduce_(new REDUCE_TYPE()){ }
+
+            op_infos_base* op_reduce(){ return op_reduce_.get(); }
+
+            std::string generate(unsigned int i) const{ return op_reduce_->generate(i); }
+
+        private:
+            viennacl::tools::shared_ptr<op_infos_base> op_reduce_;
         };
 
         class trans_type : public nonarithmetic_op_infos_base{
@@ -307,8 +315,8 @@ namespace viennacl{
 
         class matmat_prod_infos_base : public matrix_expression_infos_base{
         public:
-            matmat_prod_infos_base( infos_base * lhs, infos_base * rhs, std::string const & f_expr, op_infos_base* op_reduce) :
-                matrix_expression_infos_base(lhs,new matmat_prod_type(),rhs),f_expr_(f_expr), op_reduce_(op_reduce){
+            matmat_prod_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs, std::string const & f_expr) :
+                matrix_expression_infos_base(lhs,op,rhs),f_expr_(f_expr){
                 val_name_ = repr() + "_val";
             }
 
@@ -320,7 +328,7 @@ namespace viennacl{
                 std::string expr(f_expr_);
                 replace_all_occurences(expr,"#1",lhs);
                 replace_all_occurences(expr,"#2",rhs);
-                return res + " = " + res + op_reduce_->generate(0) + "(" + expr + ")";
+                return res + " = " + res + op_->generate(0) + "(" + expr + ")";
 
             }
 
@@ -331,12 +339,11 @@ namespace viennacl{
                 return res;
             }
 
-            op_infos_base const & op_reduce(){ return *op_reduce_; }
+//            op_infos_base const & op_reduce(){ return *op_reduce_; }
 
 
         private:
             std::string f_expr_;
-            viennacl::tools::shared_ptr<op_infos_base> op_reduce_;
             std::string val_name_;
         };
 

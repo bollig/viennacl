@@ -19,6 +19,8 @@ class inplace_scal_div_type;
 class elementwise_prod_type;
 class elementwise_div_type;
 class trans_type;
+template<class REDUCE_TYPE>
+class matmat_prod_type;
 
 template<class LHS, class OP, class RHS>
 class compile_time_beast;

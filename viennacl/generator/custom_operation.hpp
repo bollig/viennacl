@@ -82,7 +82,7 @@ namespace viennacl
       };
 
       template<class LHS, class RHS, class OP_REDUCE>
-      struct dummy2exptree_impl<matmat_prod_wrapper<LHS,RHS, OP_REDUCE> >{
+      struct dummy2exptree_impl<matrix_expression_wrapper<LHS, matmat_prod_type<OP_REDUCE>, RHS> >{
       private:
           typedef typename dummy2exptree_impl<LHS>::result_type LhsResult;
           typedef typename dummy2exptree_impl<RHS>::result_type RhsResult;
@@ -90,10 +90,10 @@ namespace viennacl
           typedef matmat_prod_infos<LhsResult,RhsResult, OP_REDUCE> result_type;
           static result_type execute(shared_infos_map_t & shared_infos,
                                      temporaries_map_t & temporaries,
-                                     matmat_prod_wrapper<LHS,RHS, OP_REDUCE> const & v){
+                                     matrix_expression_wrapper<LHS, matmat_prod_type<OP_REDUCE>, RHS> const & v){
               return result_type(dummy2exptree_impl<LHS>::execute(shared_infos,temporaries,v.lhs()),
                                  dummy2exptree_impl<RHS>::execute(shared_infos,temporaries,v.rhs()),
-                                 v.expr(), v.op_reduce());
+                                 v.expr());
           }
       };
 

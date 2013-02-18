@@ -149,8 +149,8 @@ public:
     }
 
     template<class RES, class ARG0, class ARG1>
-    static task* create_task(std::function<void (RES&, ARG0 const &, ARG1 const &)> fun, utils::gpu_wrapper<ARG0> arg0, utils::gpu_wrapper<ARG1> arg1, utils::gpu_wrapper<RES> res){
-        pending_tasks_.push_back(boost::shared_ptr<task2<ARG0,ARG1,RES> >(new task2<ARG0,ARG1,RES>(fun,arg0,arg1,res)));
+    static task* create_task(std::function<void (RES&, ARG0 const &, ARG1 const &)> fun,  utils::gpu_wrapper<RES> res, utils::gpu_wrapper<ARG0> arg0, utils::gpu_wrapper<ARG1> arg1){
+        pending_tasks_.push_back(boost::shared_ptr<task2<RES,ARG0,ARG1> >(new task2<RES,ARG0,ARG1>(fun,res,arg0,arg1)));
         return pending_tasks_.back().get();
     }
 

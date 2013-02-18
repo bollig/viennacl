@@ -84,7 +84,7 @@ protected:
 };
 
 
-template<class ARG0, class ARG1, class RES>
+template<class RES, class ARG0, class ARG1>
 class task2 : public task{
 private:
     typedef std::function<void (RES&, ARG0 const &, ARG1 const &)> fun_t;
@@ -92,7 +92,7 @@ private:
     typedef viennacl::distributed::utils::gpu_wrapper<const ARG1> gwrap1_t;
     typedef viennacl::distributed::utils::gpu_wrapper<RES> gwrapres_t;
 public:
-    task2(fun_t fun, gwrap0_t arg0, gwrap1_t arg1, gwrapres_t  res) : arg0_(arg0),arg1_(arg1), res_(res), fun_(fun){ }
+    task2(fun_t fun, gwrapres_t  res, gwrap0_t arg0, gwrap1_t arg1) : res_(res),arg0_(arg0),arg1_(arg1), fun_(fun){ }
 
     viennacl::ocl::event * run(){
 #ifdef VIENNACL_DEBUG_SCHEDULER
@@ -109,9 +109,9 @@ public:
         return viennacl::ocl::get_queue().last_event();
     }
 private:
+    gwrapres_t  res_;
     gwrap0_t arg0_;
     gwrap1_t arg1_;
-    gwrapres_t  res_;
     fun_t fun_;
 };
 

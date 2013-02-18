@@ -39,7 +39,7 @@ namespace viennacl
       class matmat_prod_infos : public matmat_prod_infos_base{
       public:
           typedef typename LHS::ScalarType ScalarType;
-          matmat_prod_infos(LHS const & lhs, RHS const & rhs, std::string const & f_expr, OP_REDUCE op) : matmat_prod_infos_base(new LHS(lhs), new RHS(rhs), f_expr ,new OP_REDUCE(op)){ }
+          matmat_prod_infos(LHS const & lhs, RHS const & rhs, std::string const & f_expr) : matmat_prod_infos_base(new LHS(lhs), new matmat_prod_type<OP_REDUCE>(), new RHS(rhs), f_expr){ }
       private:
 
       };
