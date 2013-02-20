@@ -148,9 +148,9 @@ public:
         return context_map_.size();
     }
 
-    template<class RES, class ARG0, class ARG1>
-    static task* create_task(std::function<void (RES&, ARG0 const &, ARG1 const &)> fun,  utils::gpu_wrapper<RES> res, utils::gpu_wrapper<ARG0> arg0, utils::gpu_wrapper<ARG1> arg1){
-        pending_tasks_.push_back(boost::shared_ptr<task2<RES,ARG0,ARG1> >(new task2<RES,ARG0,ARG1>(fun,res,arg0,arg1)));
+    template<class F, class A>
+    static task* create_task(std::function<F> fun, A const & args){
+        pending_tasks_.push_back(boost::shared_ptr<task2<F,A> >(new task2<F,A>(fun,args)));
         return pending_tasks_.back().get();
     }
 

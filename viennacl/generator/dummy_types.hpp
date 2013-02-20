@@ -5,6 +5,7 @@
 #include "viennacl/generator/forwards.h"
 //#include "viennacl/forwards.h"
 #include "viennacl/generator/utils.hpp"
+#include "viennacl/distributed/forwards.hpp"
 #include "viennacl/vector.hpp"
 #include <set>
 
@@ -12,8 +13,26 @@ namespace viennacl{
 
 namespace generator{
 
-template<class LHS, class OP, class RHS>
+template<class T, bool deep_copy>
+struct member_storage{
+    typedef T const & type;
+};
+
+template<class T>
+struct member_storage<T,true>{
+    typedef T type;
+};
+
+template<class LHS, class OP, class RHS, bool deep_copy>
+struct member_storage<matrix_expression_wrapper<LHS,OP,RHS,deep_copy>, false>{
+    typedef matrix_expression_wrapper<LHS,OP,RHS,deep_copy> type;
+};
+
+template<class LHS, class OP, class RHS, bool deep_copy>
 class compile_time_beast{
+private:
+    typedef typename member_storage<LHS, deep_copy>::type LhsStorage;
+    typedef typename member_storage<RHS, deep_copy>::type RhsStorage;
 public:
     typedef LHS Lhs;
     typedef OP Op;
@@ -22,10 +41,10 @@ public:
     RHS const & rhs() const{return rhs_;}
     OP const & op() const{ return op_; }
 protected:
-    compile_time_beast(LHS const & lhs, RHS const & rhs) : lhs_(lhs), rhs_(rhs){ }
+    compile_time_beast(LHS const & lhs, RHS const & rhs) : lhs_(lhs), rhs_(rhs){}
 private:
-    LHS const & lhs_;
-    RHS const & rhs_;
+    LhsStorage lhs_;
+    RhsStorage rhs_;
     OP  op_;
 };
 
@@ -33,21 +52,21 @@ struct inprod_type{ };
 struct matmat_prod_type_wrapper{ };
 
 
-template<class LHS, class OP, class RHS>
-class vector_expression_wrapper : public compile_time_beast<LHS,OP,RHS>{
-public: vector_expression_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,OP,RHS>(lhs,rhs){ }
+template<class LHS, class OP, class RHS, bool deep_copy>
+class vector_expression_wrapper : public compile_time_beast<LHS,OP,RHS, deep_copy>{
+public: vector_expression_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,OP,RHS, deep_copy>(lhs,rhs){ }
 };
-template<class LHS, class OP, class RHS>
-class scalar_expression_wrapper : public compile_time_beast<LHS,OP,RHS>{
-public: scalar_expression_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,OP,RHS>(lhs,rhs){ }
+template<class LHS, class OP, class RHS, bool deep_copy>
+class scalar_expression_wrapper : public compile_time_beast<LHS,OP,RHS, deep_copy>{
+public: scalar_expression_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,OP,RHS, deep_copy>(lhs,rhs){ }
 };
-template<class LHS, class OP, class RHS>
-class matrix_expression_wrapper : public compile_time_beast<LHS,OP,RHS>{
-public: matrix_expression_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,OP,RHS>(lhs,rhs){ }
+template<class LHS, class OP, class RHS,  bool deep_copy>
+class matrix_expression_wrapper : public compile_time_beast<LHS,OP,RHS, deep_copy>{
+public: matrix_expression_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,OP,RHS, deep_copy>(lhs,rhs){ }
 };
-template<class LHS, class RHS>
-class inner_prod_wrapper : public compile_time_beast<LHS,inprod_type,RHS>{
-public: inner_prod_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,inprod_type, RHS>(lhs,rhs){ }
+template<class LHS, class RHS,  bool deep_copy>
+class inner_prod_wrapper : public compile_time_beast<LHS,inprod_type,RHS, deep_copy>{
+public: inner_prod_wrapper(LHS const & lhs, RHS const & rhs) : compile_time_beast<LHS,inprod_type, RHS, deep_copy>(lhs,rhs){ }
 };
 
 
@@ -115,10 +134,10 @@ private:
     unsigned int n_args_;
 };
 
-template<class LHS, class RHS, class OP_REDUCE>
-class matrix_expression_wrapper<LHS,matmat_prod_type<OP_REDUCE>,RHS> : public compile_time_beast<LHS,matmat_prod_type<OP_REDUCE>,RHS>{
+template<class LHS, class RHS, class OP_REDUCE,  bool deep_copy>
+class matrix_expression_wrapper<LHS,matmat_prod_type<OP_REDUCE>,RHS, deep_copy> : public compile_time_beast<LHS,matmat_prod_type<OP_REDUCE>,RHS, deep_copy>{
 public:
-    matrix_expression_wrapper(LHS const & lhs, RHS const & rhs, std::string expr) : compile_time_beast<LHS,matmat_prod_type<OP_REDUCE>, RHS>(lhs,rhs) ,f_("",expr){ }
+    matrix_expression_wrapper(LHS const & lhs, RHS const & rhs, std::string expr = "#1*#2") : compile_time_beast<LHS,matmat_prod_type<OP_REDUCE>, RHS, deep_copy>(lhs,rhs) ,f_("",expr){ }
 
     std::string expr() const { return f_.expr(); }
 private:
@@ -269,13 +288,16 @@ struct is_scalar_expression_t<function_wrapper_impl<T1,T2,T3> >{ enum { value = 
 
 
 template<class T>
-struct is_matrix_expression_t{ enum { value = 0 }; };
+struct is_matrix_expression_t{ enum { value = 0}; };
 template<class VCL_MATRIX>
 struct is_matrix_expression_t<dummy_matrix<VCL_MATRIX> >{ enum { value = 1}; };
 template<class Scalartype, class F>
 struct is_matrix_expression_t<viennacl::distributed::multi_matrix<Scalartype, F> >{ enum { value = 1}; };
 template<class LHS, class OP, class RHS>
 struct is_matrix_expression_t<matrix_expression_wrapper<LHS,OP,RHS> >{ enum { value = 1}; };
+template<class T>
+struct is_matrix_expression_t<viennacl::distributed::utils::gpu_wrapper<T> > { enum { value = 1 }; };
+
 //template<class LHS, class RHS, class OP_REDUCE>
 //struct is_matrix_expression_t<matmat_prod_wrapper<LHS,RHS, OP_REDUCE> >{ enum { value = 1}; };
 
@@ -344,7 +366,7 @@ typename viennacl::enable_if<is_matrix_expression_t<LHS>::value && is_matrix_exp
                             ,matrix_expression_wrapper<LHS,matmat_prod_type<add_type>,RHS> >::type
 prod(LHS const & lhs, RHS const & rhs)
 {
-    return matrix_expression_wrapper<LHS,matmat_prod_type<add_type>,RHS>(lhs,rhs,"#1*#2");
+    return matrix_expression_wrapper<LHS,matmat_prod_type<add_type>,RHS>(lhs,rhs);
 }
 
 template<class OP_TYPE, class LHS, class RHS>
@@ -427,6 +449,7 @@ template<> static unsigned long get_operation_id<dummy_matrix<float> >(dummy_mat
 template<> static unsigned long get_operation_id<dummy_scalar<float> >(dummy_scalar<float> const &){ return 2; }
 template<class T1> static unsigned long get_operation_id<function_wrapper_impl<T1> >(function_wrapper_impl<T1> const &){ return 3; }
 */
+
 
 
 #define MAKE_BUILTIN_FUNCTION1(name) static function_wrapper name = function_wrapper(#name,#name "(#1)")

@@ -15,7 +15,7 @@
 ============================================================================= */
 
 #define VIENNACL_PROFILING_ENABLE
-//#define VIENNACL_DEBUG_SCHEDULER
+#define VIENNACL_DEBUG_SCHEDULER
 //#define VIENNACL_DEBUG_ALL
 
 //#define VIENNACL_WITH_OPENCL

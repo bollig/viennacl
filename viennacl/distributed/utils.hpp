@@ -25,6 +25,7 @@
 #include "boost/shared_ptr.hpp"
 #include "viennacl/matrix.hpp"
 #include "viennacl/ocl/backend.hpp"
+#include "viennacl/generator/forwards.h"
 
 namespace viennacl{
 
@@ -61,6 +62,13 @@ struct layout_wrapper<viennacl::row_major>{ typedef boost::numeric::ublas::row_m
 
 template<>
 struct layout_wrapper<viennacl::column_major>{ typedef boost::numeric::ublas::column_major Result ; };
+
+template<>
+struct layout_wrapper<boost::numeric::ublas::row_major>{ typedef viennacl::row_major Result ; };
+
+template<>
+struct layout_wrapper<boost::numeric::ublas::column_major>{ typedef viennacl::column_major Result ; };
+
 
 template<class T>
 struct get_cpu_type;
@@ -135,34 +143,129 @@ template<class T>
 class gpu_wrapper{
 public:
     typedef typename get_cpu_type<T>::type cpu_t;
-    gpu_wrapper(cpu_t & _cpu_data) : cpu_data(_cpu_data){ }
+    gpu_wrapper(cpu_t const & _cpu_data) : cpu_data(_cpu_data){
+    }
 
-    gpu_wrapper(gpu_wrapper const & other) : cpu_data(other.cpu_data){
+    gpu_wrapper(gpu_wrapper const & other) : cpu_data(other.cpu_data), gpu_structure_(other.gpu_structure_){
         assert(gpu_structure_.get() == NULL);
     }
 
-    void alloc(){
+    void alloc() const {
         gpu_structure_.reset(alloc_impl<T,cpu_t>()(cpu_data));
     }
 
-    void free(){
+    void free() const{
         gpu_structure_.reset();
     }
 
-    void transfer_back(){
+    void transfer_back() const {
         size_t internal_size = cpu_data.size1() * cpu_data.size2();
-        clEnqueueReadBuffer(viennacl::ocl::current_context().get_queue().handle().get(),gpu_structure_->handle().opencl_handle(),true,0,internal_size,&cpu_data(0,0),0,NULL,NULL);
+        clEnqueueReadBuffer(viennacl::ocl::current_context().get_queue().handle().get(),gpu_structure_->handle().opencl_handle(),true,0,internal_size,(void*)&cpu_data(0,0),0,NULL,NULL);
     }
 
-    T * gpu_structure_ptr(){
+    T * gpu_structure_ptr() const {
         return gpu_structure_.get();
     }
 
 
-private:
-    cpu_t & cpu_data;
-    boost::shared_ptr<T> gpu_structure_;
+//private:
+    cpu_t const & cpu_data;
+    mutable boost::shared_ptr<T> gpu_structure_;
 };
+
+
+template<class T, template<class> class Fun>
+struct replace_type{
+    typedef typename Fun<T>::type result_type;
+};
+
+template<class LHS, class OP, class RHS, template<class> class Fun>
+struct replace_type<generator::matrix_expression_wrapper<LHS,OP,RHS>,Fun >{
+private:
+    typedef typename replace_type<LHS,Fun>::result_type lhs_result_type;
+    typedef typename replace_type<RHS,Fun>::result_type rhs_result_type;
+public:
+    typedef generator::matrix_expression_wrapper<lhs_result_type, OP, rhs_result_type> result_type;
+};
+
+template<class T, template<class> class TypeFun, class Fun>
+struct transform{
+    typedef typename TypeFun<T>::type result_type;
+    static result_type result(T const & t, Fun fun){
+        return fun(t);
+    }
+};
+
+template<class LHS, class OP, class RHS, bool deep_copy, template<class> class TypeFun, class Fun>
+struct transform<generator::matrix_expression_wrapper<LHS,OP,RHS, deep_copy>, TypeFun, Fun>{
+    typedef typename transform<LHS,TypeFun, Fun>::result_type lhs_result_type;
+    typedef typename transform<RHS,TypeFun, Fun>::result_type rhs_result_type;
+    typedef generator::matrix_expression_wrapper<lhs_result_type, OP, rhs_result_type, true> result_type;
+
+    static result_type result(generator::matrix_expression_wrapper<LHS,OP,RHS, deep_copy> const & mat, Fun fun){
+        return result_type(transform<LHS,TypeFun,Fun>::result(mat.lhs(), fun),transform<RHS,TypeFun,Fun>::result(mat.rhs(),fun));
+    }
+};
+
+template<class T>
+struct make_deep_copy{
+    typedef T result_type;
+    static result_type result(T const & t){
+        return t;
+    }
+};
+
+template<class LHS, class OP, class RHS, bool deep_copy>
+struct make_deep_copy<generator::matrix_expression_wrapper<LHS,OP,RHS,deep_copy> >{
+    typedef typename make_deep_copy<LHS>::result_type lhs_result_type;
+    typedef typename make_deep_copy<RHS>::result_type rhs_result_type;
+    typedef generator::matrix_expression_wrapper<lhs_result_type, OP, rhs_result_type, true> result_type;
+
+    static result_type result(generator::matrix_expression_wrapper<LHS,OP,RHS, deep_copy> const & mat){
+        return result_type(make_deep_copy<LHS>::result(mat.lhs()),make_deep_copy<RHS>::result(mat.rhs()));
+    }
+};
+
+
+template<class T>
+struct make_shallow_copy{
+    typedef T result_type;
+    static result_type const & result(T const & t){
+        return t;
+    }
+};
+
+template<class LHS, class OP, class RHS, bool deep_copy>
+struct make_shallow_copy<generator::matrix_expression_wrapper<LHS,OP,RHS,deep_copy> >{
+    typedef typename make_shallow_copy<LHS>::result_type lhs_result_type;
+    typedef typename make_shallow_copy<RHS>::result_type rhs_result_type;
+    typedef generator::matrix_expression_wrapper<lhs_result_type, OP, rhs_result_type, false> result_type;
+
+    static result_type result(generator::matrix_expression_wrapper<LHS,OP,RHS, deep_copy> const & mat){
+        return result_type(make_shallow_copy<LHS>::result(mat.lhs()),make_shallow_copy<RHS>::result(mat.rhs()));
+    }
+};
+
+
+
+
+template<class T>
+struct execute{
+    template<class Fun>
+    void operator()(T const & t, Fun fun){
+        return fun(t);
+    }
+};
+
+template<class LHS, class OP, class RHS, bool deep_copy>
+struct execute<generator::matrix_expression_wrapper<LHS,OP,RHS, deep_copy> >{
+    template<class Fun>
+    void operator()(generator::matrix_expression_wrapper<LHS,OP,RHS, deep_copy> const & mat, Fun fun){
+        execute<LHS>()(mat.lhs(),fun);
+        execute<RHS>()(mat.rhs(),fun);
+    }
+};
+
 
 
 }

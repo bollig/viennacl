@@ -23,6 +23,7 @@
 #include <boost/type_traits/is_const.hpp>
 #include "viennacl/ocl/utils.hpp"
 #include "viennacl/ocl/event.hpp"
+#include "viennacl/generator/forwards.h"
 
 /** @file task.hpp
     @brief Implementation of a task
@@ -32,36 +33,36 @@ namespace viennacl{
 
 namespace distributed{
 
-template<class GPU_WRAPPER_T>
-class transfer_handler;
+//template<class GPU_WRAPPER_T>
+//class transfer_handler;
 
-template<class T>
-class transfer_handler< viennacl::distributed::utils::gpu_wrapper<T> >{
-private:
-    template<class MAT_T>
-    void transfer_back(viennacl::distributed::utils::gpu_wrapper<MAT_T const> & ){ }
+//template<class T>
+//class transfer_handler< viennacl::distributed::utils::gpu_wrapper<T> >{
+//private:
+//    template<class MAT_T>
+//    void transfer_back(viennacl::distributed::utils::gpu_wrapper<MAT_T const> & ){ }
 
-    template<class MAT_T>
-    void transfer_back(viennacl::distributed::utils::gpu_wrapper<MAT_T>  & ){
-        wrapper_.transfer_back();
-    }
-public:
-    transfer_handler(viennacl::distributed::utils::gpu_wrapper<T> & wrapper) : wrapper_(wrapper){
-        wrapper_.alloc();
-    }
+//    template<class MAT_T>
+//    void transfer_back(viennacl::distributed::utils::gpu_wrapper<MAT_T>  & ){
+//        wrapper_.transfer_back();
+//    }
+//public:
+//    transfer_handler(viennacl::distributed::utils::gpu_wrapper<T> & wrapper) : wrapper_(wrapper){
+//        wrapper_.alloc();
+//    }
 
-    T & gpu_structure(){
-        return *wrapper_.gpu_structure_ptr();
-    }
+//    T & gpu_structure(){
+//        return *wrapper_.gpu_structure_ptr();
+//    }
 
-    ~transfer_handler(){
-        transfer_back(wrapper_);
-        wrapper_.free();
-    }
+//    ~transfer_handler(){
+//        transfer_back(wrapper_);
+//        wrapper_.free();
+//    }
 
-private:
-    viennacl::distributed::utils::gpu_wrapper<T> & wrapper_;
-};
+//private:
+//    viennacl::distributed::utils::gpu_wrapper<T> & wrapper_;
+//};
 
 
 class task{
@@ -84,35 +85,59 @@ protected:
 };
 
 
-template<class RES, class ARG0, class ARG1>
+template<class T>
+struct wrapper_to_matrix;
+
+template<class T>
+struct wrapper_to_matrix<utils::gpu_wrapper<T> >{
+    typedef generator::dummy_matrix<T> type;
+};
+
+class wrapper_to_matrix_fun{
+public:
+    template<class T>
+    generator::dummy_matrix<T> operator()(utils::gpu_wrapper<T> const & t) const{
+        return generator::dummy_matrix<T>(*t.gpu_structure_ptr());
+    }
+};
+
+struct alloc_fun{
+    template<class T>
+    void operator()(utils::gpu_wrapper<T> const & t){ t.alloc(); }
+};
+
+struct free_fun{
+    template<class T>
+    void operator()(utils::gpu_wrapper<T> const & t){ t.free(); }
+};
+
+template<class T, class A>
 class task2 : public task{
 private:
-    typedef std::function<void (RES&, ARG0 const &, ARG1 const &)> fun_t;
-    typedef viennacl::distributed::utils::gpu_wrapper<const ARG0> gwrap0_t;
-    typedef viennacl::distributed::utils::gpu_wrapper<const ARG1> gwrap1_t;
-    typedef viennacl::distributed::utils::gpu_wrapper<RES> gwrapres_t;
+    typedef std::function<T> fun_t;
+    typedef typename utils::make_deep_copy<A>::result_type ArgsT;
 public:
-    task2(fun_t fun, gwrapres_t  res, gwrap0_t arg0, gwrap1_t arg1) : res_(res),arg0_(arg0),arg1_(arg1), fun_(fun){ }
+    task2(fun_t fun, A const & args) : fun_(fun), args_(utils::make_deep_copy<A>::result(args)){ }
 
     viennacl::ocl::event * run(){
 #ifdef VIENNACL_DEBUG_SCHEDULER
         std::cout << "Running " << info() << std::endl;
 #endif
-        transfer_handler< gwrap0_t > gpu_arg0(arg0_);
-        transfer_handler< gwrap1_t > gpu_arg1(arg1_);
-        transfer_handler< gwrapres_t > gpu_res(res_);
-
-        Timer t;
-        t.start();
-
-        fun_(gpu_res.gpu_structure(), gpu_arg0.gpu_structure(), gpu_arg1.gpu_structure());
+        A tmp(utils::make_shallow_copy<ArgsT>::result(args_));
+        std::cout << "Allocating..." << std::endl;
+        utils::execute<A>()(tmp,alloc_fun());
+        std::cout << "Enequeueing..." << std::endl;
+        typedef typename utils::transform<A,wrapper_to_matrix,wrapper_to_matrix_fun>::result_type Tmp2Type;
+        Tmp2Type tmp2(utils::transform<A,wrapper_to_matrix,wrapper_to_matrix_fun>::result(tmp,wrapper_to_matrix_fun()));
+        fun_(utils::make_shallow_copy<Tmp2Type>::result(tmp2));
+        tmp.lhs().transfer_back();
+        std::cout << "Freeing" << std::endl;
+        utils::execute<A>()(tmp,free_fun());
         return viennacl::ocl::get_queue().last_event();
     }
 private:
-    gwrapres_t  res_;
-    gwrap0_t arg0_;
-    gwrap1_t arg1_;
     fun_t fun_;
+    ArgsT args_;
 };
 
 }

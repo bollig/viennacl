@@ -42,30 +42,59 @@ namespace viennacl
 namespace distributed
 {
 
-template<class Mat1, class Mat2, class Mat3>
-static void autotuned_prod_impl_1(Mat1 & mat1, Mat2 const & mat2, Mat3 const & mat3){
-    viennacl::generator::dummy_matrix<Mat1> m1(mat1);
-    viennacl::generator::dummy_matrix<Mat2> m2(mat2);
-    viennacl::generator::dummy_matrix<Mat3> m3(mat3);
-    assert(mat1.size1()==mat2.size1());
-    assert(mat1.size2()==mat3.size2());
-    assert(mat2.size2()==mat3.size1());
-    viennacl::generator::custom_operation op( m1 = viennacl::generator::prod(m2,m3));
-    op.execute();
-//    mat1=viennacl::linalg::prod(mat2,mat3);
-}
+//template<class Mat1, class Mat2, class Mat3>
+//static void autotuned_prod_impl_1(Mat1 & mat1, Mat2 const & mat2, Mat3 const & mat3){
+//    viennacl::generator::dummy_matrix<Mat1> m1(mat1);
+//    viennacl::generator::dummy_matrix<Mat2> m2(mat2);
+//    viennacl::generator::dummy_matrix<Mat3> m3(mat3);
+//    assert(mat1.size1()==mat2.size1());
+//    assert(mat1.size2()==mat3.size2());
+//    assert(mat2.size2()==mat3.size1());
+//    viennacl::generator::custom_operation op( m1 = viennacl::generator::prod(m2,m3));
+//    op.execute();
+////    mat1=viennacl::linalg::prod(mat2,mat3);
+//}
 
-template<class Mat1, class Mat2, class Mat3>
-static void autotuned_prod_impl_2(Mat1 & mat1, Mat2 const & mat2, Mat3 const & mat3){
-    viennacl::generator::dummy_matrix<Mat1> m1(mat1);
-    viennacl::generator::dummy_matrix<Mat2> m2(mat2);
-    viennacl::generator::dummy_matrix<Mat3> m3(mat3);
-    assert(mat1.size1()==mat2.size1());
-    assert(mat1.size2()==mat3.size2());
-    assert(mat2.size2()==mat3.size1());
-    viennacl::generator::custom_operation op( m1 = viennacl::generator::prod(m2,m3));
+//template<class Mat1, class Mat2, class Mat3>
+//static void autotuned_prod_impl_2(Mat1 & mat1, Mat2 const & mat2, Mat3 const & mat3){
+//    viennacl::generator::dummy_matrix<Mat1> m1(mat1);
+//    viennacl::generator::dummy_matrix<Mat2> m2(mat2);
+//    viennacl::generator::dummy_matrix<Mat3> m3(mat3);
+//    assert(mat1.size1()==mat2.size1());
+//    assert(mat1.size2()==mat3.size2());
+//    assert(mat2.size2()==mat3.size1());
+//    viennacl::generator::custom_operation op( m1 = viennacl::generator::prod(m2,m3));
+//    op.execute();
+////    mat1+=viennacl::linalg::prod(mat2,mat3);
+//}
+
+
+template<class T>
+struct multi_to_wrapper;
+
+template<class ScalarType, class F>
+struct multi_to_wrapper<multi_matrix<ScalarType, F> >{
+    typedef utils::gpu_wrapper<matrix<ScalarType,F> > type;
+};
+
+class multi_to_wrapper_fun{
+public:
+    multi_to_wrapper_fun(unsigned int i, unsigned int j): i_(i), j_(j){ }
+    template<class T>
+    typename multi_to_wrapper<T>::type operator()(T const & t) const{
+        return typename multi_to_wrapper<T>::type(t.block_matrix(i_,j_));
+    }
+
+private:
+    unsigned int i_;
+    unsigned int j_;
+};
+
+
+template<class T>
+static void enqueue_op(T const & t){
+    viennacl::generator::custom_operation op(t);
     op.execute();
-//    mat1+=viennacl::linalg::prod(mat2,mat3);
 }
 
 
@@ -80,6 +109,7 @@ class multi_matrix
 {
 
 public:
+  typedef multi_matrix<SCALARTYPE,F,ALIGNMENT> self_type;
   typedef matrix<SCALARTYPE, F, ALIGNMENT> gpu_matrix_type;
   typedef typename viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type>::cpu_t cpu_matrix_type;
   typedef typename viennacl::tools::CHECK_SCALAR_TEMPLATE_ARGUMENT<SCALARTYPE>::ResultType   value_type;
@@ -196,6 +226,7 @@ public:
       return blocks_[i][j].matrix_;
   }
 
+
   //this = A * B and related (with trans())
   template <typename MatrixType1, typename MatrixType2>
   multi_matrix<SCALARTYPE, F, ALIGNMENT> & operator = (const matrix_expression< MatrixType1,
@@ -233,32 +264,48 @@ public:
   }
 
 
+template<class MatrixType2>
+generator::matrix_expression_wrapper<self_type,generator::add_type,MatrixType2> operator+(MatrixType2 const & other){
+    return generator::matrix_expression_wrapper<self_type,generator::add_type,MatrixType2>(*this,other);
+}
+
 template <typename MatrixType1, typename MatrixType2, class ReduceType>
 multi_matrix<SCALARTYPE, F, ALIGNMENT> & operator = (const generator::matrix_expression_wrapper< MatrixType1,
                                                                         generator::matmat_prod_type<ReduceType>,
                                                                         MatrixType2> & proxy)
 {
-    typedef const typename MatrixType1::gpu_matrix_type gpu_matrix_type1;
-    typedef const typename MatrixType2::gpu_matrix_type gpu_matrix_type2;
+    typedef generator::matrix_expression_wrapper< MatrixType1, generator::matmat_prod_type<ReduceType>,MatrixType2> proxy_t;
+    typedef generator::matrix_expression_wrapper<self_type,generator::assign_type,proxy_t> operation_t;
+    typedef typename utils::replace_type<operation_t,multi_to_wrapper>::result_type arg_t;
+    typedef typename utils::replace_type<arg_t,wrapper_to_matrix>::result_type fun_t;
 
-    typedef std::function<void (gpu_matrix_type & A, gpu_matrix_type1 const & B, gpu_matrix_type2 const & C)> fun_t;
+    typedef generator::matrix_expression_wrapper<self_type,generator::inplace_add_type,proxy_t> operation_t2;
+    typedef typename utils::replace_type<operation_t2,multi_to_wrapper>::result_type arg_t2;
+    typedef typename utils::replace_type<arg_t,wrapper_to_matrix>::result_type fun_t2;
+
+    typedef utils::transform<MatrixType1,multi_to_wrapper,multi_to_wrapper_fun> transform_fun_lhs;
+    typedef utils::transform<MatrixType2,multi_to_wrapper,multi_to_wrapper_fun> transform_fun_rhs;
+
+    typedef generator::matrix_expression_wrapper< typename transform_fun_lhs::result_type,
+            generator::matmat_prod_type<ReduceType>,
+            typename transform_fun_rhs::result_type> prod_type;
+
+
+    typedef std::function<void (fun_t const &)> function_t;
+    typedef std::function<void (fun_t2 const &)> function_t2;
+
     for(unsigned int row = 0 ; row < num_blocks_rows() ; ++row){
         for(unsigned int col = 0 ; col < num_blocks_columns() ; ++ col){
             //First product is not inplace
-            viennacl::distributed::task * t1 = scheduler::create_task<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>(fun_t(autotuned_prod_impl_1<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>),
-                                                                                                                         viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_),
-                                                                       viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type1>(proxy.lhs().block_matrix(row,0)),
-                                                                       viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type2>(proxy.rhs().block_matrix(0,col))
-                                                                       );
+            prod_type prod(transform_fun_lhs::result(proxy.lhs(),multi_to_wrapper_fun(row,0)),transform_fun_rhs::result(proxy.rhs(),multi_to_wrapper_fun(0,col)));
+            arg_t arg(utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_),prod);
+            viennacl::distributed::task * t1 = scheduler::create_task(function_t(enqueue_op<fun_t>),arg);
             t1->info("Matrix Product : Block " + viennacl::tools::to_string(row) +  "," + viennacl::tools::to_string(col) + " : Initial assignment " );
-
-            //Inplace add of products
+//            Inplace add of products
             for(unsigned int update = 1 ; update < proxy.lhs().num_blocks_columns() ; ++update){
-                viennacl::distributed::task * t2 = scheduler::create_task<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>(fun_t(autotuned_prod_impl_2<gpu_matrix_type,gpu_matrix_type1,gpu_matrix_type2>),
-                                                                                                                             viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_),
-                                                                          viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type1>(proxy.lhs().block_matrix(row,update)),
-                                                                          viennacl::distributed::utils::gpu_wrapper<gpu_matrix_type2>(proxy.rhs().block_matrix(update,col))
-                                                                          );
+                prod_type prod2(transform_fun_lhs::result(proxy.lhs(),multi_to_wrapper_fun(row,update)),transform_fun_rhs::result(proxy.rhs(),multi_to_wrapper_fun(update,col)));
+                arg_t arg2(utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_),prod2);
+                viennacl::distributed::task * t2 = scheduler::create_task(function_t2(enqueue_op<fun_t2>),arg2);
                 t2->info("Matrix Product : Block " + viennacl::tools::to_string(row) +  "," + viennacl::tools::to_string(col) + " : " + viennacl::tools::to_string(update));
                 scheduler::connect(t1,t2);
                 t1 = t2;
