@@ -109,7 +109,7 @@ namespace viennacl{
             typedef std::string repr_t;
             virtual std::string generate(unsigned int i) const { return ""; }
             virtual repr_t repr() const = 0;
-            virtual repr_t simplified_repr(){ return repr(); }
+            virtual repr_t simplified_repr() const = 0;
             virtual ~infos_base(){ }
         };
 
@@ -118,6 +118,7 @@ namespace viennacl{
         public:
             bool is_assignment() const { return is_assignment_; }
             repr_t repr() const{ return name_;}
+            repr_t simplified_repr() const { return name_; }
         protected:
             op_infos_base(std::string const & name, bool is_assignment) : name_(name), is_assignment_(is_assignment){ }
         private:
@@ -225,9 +226,9 @@ namespace viennacl{
             infos_base & lhs() const{ return *lhs_; }
             infos_base & rhs() const{ return *rhs_; }
             op_infos_base & op() { return *op_; }
-            infos_base::repr_t repr() const {
-                return "p_"+lhs_->repr() + op_->repr() + rhs_->repr()+"_p";
-            }
+            infos_base::repr_t repr() const { return "p_"+lhs_->repr() + op_->repr() + rhs_->repr()+"_p"; }
+            infos_base::repr_t simplified_repr() const { return "p_"+lhs_->simplified_repr() + op_->repr() + rhs_->simplified_repr()+"_p"; }
+
         protected:
             binary_tree_infos_base(infos_base * lhs, op_infos_base * op, infos_base * rhs) : lhs_(lhs), op_(op), rhs_(rhs){        }
             viennacl::tools::shared_ptr<infos_base> lhs_;
@@ -241,8 +242,12 @@ namespace viennacl{
             std::string generate(unsigned int i) const { return "(" + lhs_->generate(i) + op_->generate(i) + rhs_->generate(i) + ")"; }
             repr_t repr() const{ return binary_tree_infos_base::repr(); }
             infos_base::repr_t simplified_repr() const{
-                if(op_->is_assignment()) return "p_"+lhs_->repr() + assign_type().repr() + rhs_->repr()+"_p";
-                else return lhs_->repr();
+                if(op_->is_assignment()){
+                    return "p_"+lhs_->simplified_repr() + assign_type().repr() + rhs_->simplified_repr()+"_p";
+                }
+                else{
+                    return lhs_->repr();
+                }
             }
             arithmetic_tree_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) :  binary_tree_infos_base(lhs,op,rhs){        }
         private:
@@ -274,6 +279,7 @@ namespace viennacl{
             std::string name() const { return infos_->name(); }
             std::string const & scalartype() const { return infos_->scalartype(); }
             unsigned int scalartype_size() const { return infos_->scalartype_size(); }
+            infos_base::repr_t simplified_repr() const { return repr(); }
             std::string aligned_scalartype() const {
                 unsigned int alignment = infos_->alignment();
                 std::string const & scalartype = infos_->scalartype();
@@ -319,6 +325,8 @@ namespace viennacl{
                 matrix_expression_infos_base(lhs,op,rhs),f_expr_(f_expr){
                 val_name_ = repr() + "_val";
             }
+
+            repr_t simplified_repr() const { return binary_tree_infos_base::simplified_repr(); }
 
             std::string val_name(unsigned int m, unsigned int n){
                 return val_name_ +  '_' + to_string(m) + '_' + to_string(n);
@@ -369,6 +377,8 @@ namespace viennacl{
             }
 
             repr_t repr() const{ return binary_tree_infos_base::repr(); }
+
+            repr_t simplified_repr() const { return binary_tree_infos_base::simplified_repr(); }
 
             unsigned int n_groupsize_used_for_compute(){ return 0; }
 

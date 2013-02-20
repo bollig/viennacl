@@ -117,27 +117,26 @@ private:
     typedef std::function<T> fun_t;
     typedef typename utils::make_deep_copy<A>::result_type ArgsT;
 public:
-    task2(fun_t fun, A const & args) : fun_(fun), args_(utils::make_deep_copy<A>::result(args)){ }
+    task2(fun_t fun, A const & args) : fun_(fun), args_(args){ }
 
     viennacl::ocl::event * run(){
 #ifdef VIENNACL_DEBUG_SCHEDULER
         std::cout << "Running " << info() << std::endl;
 #endif
-        A tmp(utils::make_shallow_copy<ArgsT>::result(args_));
         std::cout << "Allocating..." << std::endl;
-        utils::execute<A>()(tmp,alloc_fun());
+        utils::execute<A>()(args_,alloc_fun());
         std::cout << "Enequeueing..." << std::endl;
         typedef typename utils::transform<A,wrapper_to_matrix,wrapper_to_matrix_fun>::result_type Tmp2Type;
-        Tmp2Type tmp2(utils::transform<A,wrapper_to_matrix,wrapper_to_matrix_fun>::result(tmp,wrapper_to_matrix_fun()));
+        Tmp2Type tmp2(utils::transform<A,wrapper_to_matrix,wrapper_to_matrix_fun>::result(args_,wrapper_to_matrix_fun()));
         fun_(utils::make_shallow_copy<Tmp2Type>::result(tmp2));
-        tmp.lhs().transfer_back();
+        args_.lhs().transfer_back();
         std::cout << "Freeing" << std::endl;
-        utils::execute<A>()(tmp,free_fun());
+        utils::execute<A>()(args_,free_fun());
         return viennacl::ocl::get_queue().last_event();
     }
 private:
     fun_t fun_;
-    ArgsT args_;
+    A args_;
 };
 
 }

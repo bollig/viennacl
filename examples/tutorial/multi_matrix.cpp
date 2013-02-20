@@ -41,9 +41,9 @@
 #include "boost/numeric/ublas/matrix.hpp"
 
 int main(){
-    unsigned int size1 = 12800;
-    unsigned int size2 = 12800;
-    unsigned int size3 = 12800;
+    unsigned int size1 = 2560;
+    unsigned int size2 = 2560;
+    unsigned int size3 = 2560;
     typedef float ScalarType;
 
     typedef viennacl::distributed::multi_matrix<ScalarType> gpu_mat_t;
@@ -75,7 +75,7 @@ int main(){
 //    res = viennacl::linalg::prod(mat,vec);
 
 //    mat2+mat2;
-    mat=viennacl::generator::prod(mat2,mat3);
+    mat=viennacl::generator::prod(mat2+mat2,mat3);
     viennacl::distributed::scheduler::finish();
 
     std::cout << "\n\n////////////\n\n" << std::endl;

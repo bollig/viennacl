@@ -179,13 +179,13 @@ struct replace_type{
     typedef typename Fun<T>::type result_type;
 };
 
-template<class LHS, class OP, class RHS, template<class> class Fun>
-struct replace_type<generator::matrix_expression_wrapper<LHS,OP,RHS>,Fun >{
+template<class LHS, class OP, class RHS, bool deep_copy, template<class> class Fun>
+struct replace_type<generator::matrix_expression_wrapper<LHS,OP,RHS, deep_copy>,Fun >{
 private:
     typedef typename replace_type<LHS,Fun>::result_type lhs_result_type;
     typedef typename replace_type<RHS,Fun>::result_type rhs_result_type;
 public:
-    typedef generator::matrix_expression_wrapper<lhs_result_type, OP, rhs_result_type> result_type;
+    typedef generator::matrix_expression_wrapper<lhs_result_type, OP, rhs_result_type,true> result_type;
 };
 
 template<class T, template<class> class TypeFun, class Fun>

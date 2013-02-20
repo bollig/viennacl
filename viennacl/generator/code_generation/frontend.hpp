@@ -244,7 +244,7 @@ namespace viennacl{
                     pugi::xpath_node_set name_res = paras.doc.select_nodes(name_str.c_str());
 
                     if(name_res.size() == 0){
-                        std::cerr << "Tuner: There are no parameters for the kernel : " << operation->repr() << "! ... Falling back on default" << std::endl;
+                        std::cerr << "Tuner: There are no parameters for the kernel : " << operation->simplified_repr() << "! ... Falling back on default" << std::endl;
                         return blas3_model_;
                     }
 
