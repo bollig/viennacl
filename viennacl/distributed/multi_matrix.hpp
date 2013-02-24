@@ -179,7 +179,7 @@ private:
           viennacl::ocl::platform pf(i);
           std::vector<viennacl::ocl::device> devices = pf.devices(CL_DEVICE_TYPE_ALL);
           for(std::vector<viennacl::ocl::device>::const_iterator it = devices.begin(); it!=devices.end(); ++it){
-              max_allocable_sizes.push_back(it->max_allocable_memory());
+              max_allocable_sizes.push_back(std::max((size_t)128*1024*1024, ocl::info<CL_DEVICE_GLOBAL_MEM_SIZE>(viennacl::ocl::current_device().id())));
           }
       }
       return  *std::min_element(max_allocable_sizes.begin(),max_allocable_sizes.end());
@@ -196,6 +196,7 @@ public:
       rows_(rows), columns_(columns)
   {
     size_t max_allocable_size = global_max_allocable_memory_size();
+    max_allocable_size=128*1024*1024;
     size_type max_block_size_ = viennacl::tools::roundDownToPreviousMultiple<vcl_size_t>(sqrt(max_allocable_size/(sizeof(SCALARTYPE))),256);
 //    block_size_ = std::min(max_block_size_,rows/scheduler::n_devices());
     block_size_ = max_block_size_;
@@ -293,7 +294,7 @@ multi_matrix<SCALARTYPE, F, ALIGNMENT> & operator = (const generator::matrix_exp
 
 
     typedef std::function<void (typename utils::make_shallow_copy<fun_t>::result_type const &)> function_t;
-    typedef std::function<void (fun_t2 const &)> function_t2;
+    typedef std::function<void (typename utils::make_shallow_copy<fun_t2>::result_type  const &)> function_t2;
 
     for(unsigned int row = 0 ; row < num_blocks_rows() ; ++row){
         for(unsigned int col = 0 ; col < num_blocks_columns() ; ++ col){
@@ -304,14 +305,14 @@ multi_matrix<SCALARTYPE, F, ALIGNMENT> & operator = (const generator::matrix_exp
             viennacl::distributed::task * t1 = scheduler::create_task(function_t(enqueue_op<typename utils::make_shallow_copy<fun_t>::result_type >),arg);
             t1->info("Matrix Product : Block " + viennacl::tools::to_string(row) +  "," + viennacl::tools::to_string(col) + " : Initial assignment " );
 //            Inplace add of products
-//            for(unsigned int update = 1 ; update < proxy.lhs().num_blocks_columns() ; ++update){
-//                prod_type prod2(transform_fun_lhs::result(proxy.lhs(),multi_to_wrapper_fun(row,update)),transform_fun_rhs::result(proxy.rhs(),multi_to_wrapper_fun(update,col)));
-//                arg_t arg2(utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_),prod2);
-//                viennacl::distributed::task * t2 = scheduler::create_task(function_t2(enqueue_op<fun_t2>),arg2);
-//                t2->info("Matrix Product : Block " + viennacl::tools::to_string(row) +  "," + viennacl::tools::to_string(col) + " : " + viennacl::tools::to_string(update));
-//                scheduler::connect(t1,t2);
-//                t1 = t2;
-//            }
+            for(unsigned int update = 1 ; update < proxy.lhs().lhs().num_blocks_columns() ; ++update){
+                prod_type prod2(transform_fun_lhs::result(proxy.lhs(),multi_to_wrapper_fun(row,update)),transform_fun_rhs::result(proxy.rhs(),multi_to_wrapper_fun(update,col)));
+                arg_t arg2(utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_),prod2);
+                viennacl::distributed::task * t2 = scheduler::create_task(function_t2(enqueue_op<typename utils::make_shallow_copy<fun_t2>::result_type>),arg2);
+                t2->info("Matrix Product : Block " + viennacl::tools::to_string(row) +  "," + viennacl::tools::to_string(col) + " : " + viennacl::tools::to_string(update));
+                scheduler::connect(t1,t2);
+                t1 = t2;
+            }
 
         }
     }

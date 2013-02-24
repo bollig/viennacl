@@ -123,14 +123,11 @@ public:
 #ifdef VIENNACL_DEBUG_SCHEDULER
         std::cout << "Running " << info() << std::endl;
 #endif
-        std::cout << "Allocating..." << std::endl;
         utils::execute<A>()(args_,alloc_fun());
-        std::cout << "Enequeueing..." << std::endl;
         typedef typename utils::transform<A,wrapper_to_matrix,wrapper_to_matrix_fun>::result_type Tmp2Type;
         Tmp2Type tmp2(utils::transform<A,wrapper_to_matrix,wrapper_to_matrix_fun>::result(args_,wrapper_to_matrix_fun()));
         fun_(utils::make_shallow_copy<Tmp2Type>::result(tmp2));
         args_.lhs().transfer_back();
-        std::cout << "Freeing" << std::endl;
         utils::execute<A>()(args_,free_fun());
         return viennacl::ocl::get_queue().last_event();
     }
