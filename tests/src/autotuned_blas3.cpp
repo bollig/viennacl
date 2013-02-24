@@ -466,47 +466,67 @@ int main()
    int retval = EXIT_SUCCESS;
 
    srand(time(NULL));
+
+
    unsigned int n_profiles = 10;
 
-   std::cout << std::endl;
-   std::cout << "----------------------------------------------" << std::endl;
-   std::cout << std::endl;
+   typedef std::vector< viennacl::ocl::platform > platforms_type;
+   typedef std::vector<viennacl::ocl::device> devices_type;
+   typedef std::vector<cl_device_id> cl_devices_type;
+
+   platforms_type platforms = viennacl::ocl::get_platforms();
+   size_t num_platforms = platforms.size();
+   for(unsigned int k=0 ; k < num_platforms ; ++k)
    {
-      typedef float NumericT;
-      NumericT epsilon = NumericT(1.0E-3);
-      std::cout << "# Testing setup:" << std::endl;
-      std::cout << "  n_profiles: " << n_profiles << std::endl;
-      std::cout << "  eps:     " << epsilon << std::endl;
-      std::cout << "  numeric: float" << std::endl;
-      retval = test<NumericT>(epsilon,n_profiles);
-      if( retval == EXIT_SUCCESS )
-        std::cout << "# Test passed" << std::endl;
-      else
-        return retval;
-   }
-   std::cout << std::endl;
-   std::cout << "----------------------------------------------" << std::endl;
-   std::cout << std::endl;
-#ifdef VIENNACL_HAVE_OPENCL
-   if( viennacl::ocl::current_device().double_support() )
-#endif
-   {
-      {
-        typedef double NumericT;
-        NumericT epsilon = 1.0E-11;
-        std::cout << "# Testing setup:" << std::endl;
-        std::cout << "  n_profiles: " << n_profiles << std::endl;
-        std::cout << "  eps:     " << epsilon << std::endl;
-        std::cout << "  numeric: double" << std::endl;
-        retval = test<NumericT>(epsilon,n_profiles);
-        if( retval == EXIT_SUCCESS )
-          std::cout << "# Test passed" << std::endl;
-        else
-          return retval;
-      }
-      std::cout << std::endl;
-      std::cout << "----------------------------------------------" << std::endl;
-      std::cout << std::endl;
+       viennacl::ocl::platform pf(k);
+       viennacl::ocl::set_context_platform_index(k,k);
+       viennacl::ocl::switch_context(k);
+       devices_type dev = viennacl::ocl::current_context().devices();
+       for(devices_type::iterator it = dev.begin() ; it != dev.end() ; ++it){
+           viennacl::ocl::switch_device(*it);
+           if(it->type()==CL_DEVICE_TYPE_GPU){
+               std::cout << std::endl;
+               std::cout << "----------------------------------------------" << std::endl;
+               std::cout << std::endl;
+               {
+                  typedef float NumericT;
+                  NumericT epsilon = NumericT(1.0E-3);
+                  std::cout << "# Testing setup:" << std::endl;
+                  std::cout << "  n_profiles: " << n_profiles << std::endl;
+                  std::cout << "  eps:     " << epsilon << std::endl;
+                  std::cout << "  numeric: float" << std::endl;
+                  retval = test<NumericT>(epsilon,n_profiles);
+                  if( retval == EXIT_SUCCESS )
+                    std::cout << "# Test passed" << std::endl;
+                  else
+                    return retval;
+               }
+               std::cout << std::endl;
+               std::cout << "----------------------------------------------" << std::endl;
+               std::cout << std::endl;
+            #ifdef VIENNACL_HAVE_OPENCL
+               if( viennacl::ocl::current_device().double_support() )
+            #endif
+               {
+                  {
+                    typedef double NumericT;
+                    NumericT epsilon = 1.0E-11;
+                    std::cout << "# Testing setup:" << std::endl;
+                    std::cout << "  n_profiles: " << n_profiles << std::endl;
+                    std::cout << "  eps:     " << epsilon << std::endl;
+                    std::cout << "  numeric: double" << std::endl;
+                    retval = test<NumericT>(epsilon,n_profiles);
+                    if( retval == EXIT_SUCCESS )
+                      std::cout << "# Test passed" << std::endl;
+                    else
+                      return retval;
+                  }
+                  std::cout << std::endl;
+                  std::cout << "----------------------------------------------" << std::endl;
+                  std::cout << std::endl;
+               }
+           }
+       }
    }
 
    std::cout << std::endl;
