@@ -44,8 +44,6 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
 
     if(alignment>ms || alignment>ks || alignment>ns) return;
     double lmem_size = 0;
-//    bool is_lhs_transposed = lhs->is_transposed();
-//    bool is_rhs_transposed = rhs->is_transposed();
     if(lhs_storage){
         lmem_size += (double)(kl+1)*(ml+1)*lhs->scalartype_size()/1024;
     }

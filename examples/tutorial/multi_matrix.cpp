@@ -66,16 +66,10 @@ int main(){
 //        }
 //    }
 
-
-//    mat=viennacl::generator::prod(mat2,mat3);
-//    viennacl::distributed::scheduler::finish();
-
     Timer t;
     t.start();
-//    res = viennacl::linalg::prod(mat,vec);
 
-//    mat2+mat2;
-    mat=viennacl::generator::prod(mat2+mat3,mat2+mat3);
+    mat=viennacl::generator::prod(mat2+mat3,mat2-mat3);
     viennacl::distributed::scheduler::finish();
 
     std::cout << "\n\n////////////\n\n" << std::endl;

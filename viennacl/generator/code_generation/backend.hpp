@@ -25,7 +25,9 @@ namespace viennacl{
 
                     optimization_profile() : alignment_(1), loop_unroll_(1){
                         local_work_size_[0] = 128;
+                        local_work_size_[1] = 0;
                         global_work_size_[0] = 128*128;
+                        global_work_size_[1] = 0;
                     }
 
                     void load(viennacl::ocl::device const & d){

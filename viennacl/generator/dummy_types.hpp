@@ -228,6 +228,8 @@ class dummy_matrix{
     typedef dummy_matrix<VCL_MATRIX> self_type;
 public:
 
+    typedef VCL_MATRIX gpu_type;
+
     dummy_matrix(VCL_MATRIX & mat) : mat_(mat){ }
 
     VCL_MATRIX const & mat() const{

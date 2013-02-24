@@ -168,7 +168,7 @@ public:
     }
 
 
-//private:
+private:
     cpu_t const & cpu_data;
     mutable boost::shared_ptr<T> gpu_structure_;
 };

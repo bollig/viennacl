@@ -91,10 +91,48 @@ private:
 };
 
 
+
+
+template<class T>
+struct get_first_leave{
+    typedef T result_type;
+    static result_type result(T const & t) { return t; }
+};
+
+template<class LHS, class OP, class RHS>
+struct get_first_leave<generator::matrix_expression_wrapper<LHS,OP,RHS> >{
+    typedef typename get_first_leave<LHS>::result_type result_type;
+    static result_type result(generator::matrix_expression_wrapper<LHS,OP,RHS> const & t){
+        return get_first_leave<LHS>::result(t.lhs());
+    }
+};
+
 template<class T>
 static void enqueue_op(T const & t){
-    viennacl::generator::custom_operation op(t);
-    op.execute();
+    typedef typename T::Rhs::Lhs ProdLhs;
+    typedef typename T::Rhs::Rhs ProdRhs;
+
+    typedef typename get_first_leave<ProdLhs>::result_type TmpLhsT;
+    typedef typename get_first_leave<ProdRhs>::result_type TmpRhsT;
+
+    TmpLhsT first_lhs = get_first_leave<ProdLhs>::result(t.rhs().lhs());
+    TmpRhsT first_rhs = get_first_leave<ProdRhs>::result(t.rhs().rhs());
+
+    typename TmpLhsT::gpu_type tmp_lhs(first_lhs.mat().size1(), first_lhs.mat().size2());
+    TmpLhsT dummy_tmp_lhs(tmp_lhs);
+
+    typename TmpRhsT::gpu_type tmp_rhs(first_rhs.mat().size1(), first_rhs.mat().size2());
+    TmpRhsT dummy_tmp_rhs(tmp_rhs);
+
+    typename T::Lhs dummy_res(t.lhs());
+
+    viennacl::generator::custom_operation op0(dummy_tmp_lhs = t.rhs().lhs());
+    op0.execute();
+    viennacl::generator::custom_operation op1(dummy_tmp_rhs = t.rhs().rhs());
+    op1.execute();
+    viennacl::generator::custom_operation op2(dummy_res = generator::prod(dummy_tmp_lhs,dummy_tmp_rhs));
+    op2.execute();
+    viennacl::ocl::get_queue().finish();
 }
 
 
@@ -268,6 +306,11 @@ public:
 template<class MatrixType2>
 generator::matrix_expression_wrapper<self_type,generator::add_type,MatrixType2> operator+(MatrixType2 const & other){
     return generator::matrix_expression_wrapper<self_type,generator::add_type,MatrixType2>(*this,other);
+}
+
+template<class MatrixType2>
+generator::matrix_expression_wrapper<self_type,generator::sub_type,MatrixType2> operator-(MatrixType2 const & other){
+    return generator::matrix_expression_wrapper<self_type,generator::sub_type,MatrixType2>(*this,other);
 }
 
 template <typename MatrixType1, typename MatrixType2, class ReduceType>

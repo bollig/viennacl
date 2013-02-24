@@ -64,27 +64,6 @@ namespace distributed{
 //    viennacl::distributed::utils::gpu_wrapper<T> & wrapper_;
 //};
 
-
-class task{
-protected:
-public:
-    virtual viennacl::ocl::event * run() = 0;
-
-    std::string const & info() const{
-        return info_;
-    }
-
-    void info(std::string const & new_info){
-        info_ = new_info;
-    }
-
-    virtual ~task(){    }
-
-protected:
-    std::string info_;
-};
-
-
 template<class T>
 struct wrapper_to_matrix;
 
@@ -111,6 +90,28 @@ struct free_fun{
     void operator()(utils::gpu_wrapper<T> const & t){ t.free(); }
 };
 
+class task{
+protected:
+public:
+    virtual viennacl::ocl::event * run() = 0;
+
+    std::string const & info() const{
+        return info_;
+    }
+
+    void info(std::string const & new_info){
+        info_ = new_info;
+    }
+
+    virtual ~task(){    }
+
+protected:
+    std::string info_;
+};
+
+
+
+
 template<class T, class A>
 class task2 : public task{
 private:
@@ -126,7 +127,9 @@ public:
         utils::execute<A>()(args_,alloc_fun());
         typedef typename utils::transform<A,wrapper_to_matrix,wrapper_to_matrix_fun>::result_type Tmp2Type;
         Tmp2Type tmp2(utils::transform<A,wrapper_to_matrix,wrapper_to_matrix_fun>::result(args_,wrapper_to_matrix_fun()));
+
         fun_(utils::make_shallow_copy<Tmp2Type>::result(tmp2));
+
         args_.lhs().transfer_back();
         utils::execute<A>()(args_,free_fun());
         return viennacl::ocl::get_queue().last_event();
