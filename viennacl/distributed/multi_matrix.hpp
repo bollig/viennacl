@@ -107,31 +107,58 @@ struct get_first_leave<generator::matrix_expression_wrapper<LHS,OP,RHS> >{
     }
 };
 
+
+template<class T>
+static void enqueue_op_prod(T const & expr){
+
+    typedef typename T::Rhs::Lhs MatType1;
+    typedef typename T::Rhs::Rhs MatType2;
+    typedef typename T::Lhs Res;
+    typedef typename get_first_leave<MatType1>::result_type FirstLhsT;
+    typedef typename get_first_leave<MatType2>::result_type FirstRhsT;
+
+    FirstLhsT first_lhs = get_first_leave<MatType1>::result(expr.rhs().lhs());
+    FirstRhsT first_rhs = get_first_leave<MatType2>::result(expr.rhs().rhs());
+
+    bool make_lhs_tmp = utils::n_handles(expr.lhs())>1;
+    bool make_rhs_tmp = utils::n_handles(expr.rhs())>1;
+
+
+    typename FirstLhsT::gpu_type * lhs_ptr = NULL;
+    if(make_lhs_tmp){
+        lhs_ptr = new typename FirstLhsT::gpu_type(first_lhs.mat().size1(), first_lhs.mat().size2());
+        viennacl::generator::custom_operation op( (FirstLhsT(*lhs_ptr) = expr.rhs().lhs()) );
+        op.execute();
+    }
+    else{
+        lhs_ptr = &first_lhs.mat();
+    }
+
+    typename FirstLhsT::gpu_type * rhs_ptr = NULL;
+    if(make_rhs_tmp){
+        rhs_ptr = new typename FirstRhsT::gpu_type(first_rhs.mat().size1(), first_rhs.mat().size2());
+        viennacl::generator::custom_operation op( (FirstRhsT(*lhs_ptr) = expr.rhs().lhs()) );
+        op.execute();
+    }
+    else{
+        rhs_ptr = &first_rhs.mat();
+    }
+
+    viennacl::generator::custom_operation op(Res(expr.lhs()) = generator::prod(FirstLhsT(*lhs_ptr),FirstRhsT(*rhs_ptr)));
+    op.execute();
+
+    viennacl::ocl::get_queue().finish();
+
+    std::cout << "Deleting" << std::endl;
+    if(make_lhs_tmp) delete lhs_ptr;
+    if(make_rhs_tmp) delete rhs_ptr;
+}
+
+
 template<class T>
 static void enqueue_op(T const & t){
-    typedef typename T::Rhs::Lhs ProdLhs;
-    typedef typename T::Rhs::Rhs ProdRhs;
-
-    typedef typename get_first_leave<ProdLhs>::result_type TmpLhsT;
-    typedef typename get_first_leave<ProdRhs>::result_type TmpRhsT;
-
-    TmpLhsT first_lhs = get_first_leave<ProdLhs>::result(t.rhs().lhs());
-    TmpRhsT first_rhs = get_first_leave<ProdRhs>::result(t.rhs().rhs());
-
-    typename TmpLhsT::gpu_type tmp_lhs(first_lhs.mat().size1(), first_lhs.mat().size2());
-    TmpLhsT dummy_tmp_lhs(tmp_lhs);
-
-    typename TmpRhsT::gpu_type tmp_rhs(first_rhs.mat().size1(), first_rhs.mat().size2());
-    TmpRhsT dummy_tmp_rhs(tmp_rhs);
-
-    typename T::Lhs dummy_res(t.lhs());
-
-    viennacl::generator::custom_operation op0(dummy_tmp_lhs = t.rhs().lhs());
-    op0.execute();
-    viennacl::generator::custom_operation op1(dummy_tmp_rhs = t.rhs().rhs());
-    op1.execute();
-    viennacl::generator::custom_operation op2(dummy_res = generator::prod(dummy_tmp_lhs,dummy_tmp_rhs));
-    op2.execute();
+    viennacl::generator::custom_operation op(t);
+    op.execute();
     viennacl::ocl::get_queue().finish();
 }
 
@@ -313,6 +340,30 @@ generator::matrix_expression_wrapper<self_type,generator::sub_type,MatrixType2> 
     return generator::matrix_expression_wrapper<self_type,generator::sub_type,MatrixType2>(*this,other);
 }
 
+
+template <typename MatrixType1, typename MatrixType2, class OP>
+multi_matrix<SCALARTYPE, F, ALIGNMENT> & operator = (const generator::matrix_expression_wrapper< MatrixType1,
+                                                                        OP,
+                                                                        MatrixType2> & proxy)
+{
+    typedef generator::matrix_expression_wrapper< MatrixType1, OP, MatrixType2> proxy_t;
+    typedef generator::matrix_expression_wrapper<self_type,generator::assign_type,proxy_t> operation_t;
+    typedef typename utils::replace_type<operation_t,multi_to_wrapper>::result_type arg_t;
+    typedef typename utils::replace_type<arg_t,wrapper_to_matrix>::result_type fun_t;
+    typedef utils::transform<proxy_t,multi_to_wrapper,multi_to_wrapper_fun> transform_fun;
+    typedef std::function<void (typename utils::make_shallow_copy<fun_t>::result_type const &)> function_t;
+
+    for(unsigned int row = 0 ; row < num_blocks_rows() ; ++row){
+        for(unsigned int col = 0 ; col < num_blocks_columns() ; ++ col){
+            arg_t arg(utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_),transform_fun::result(proxy,multi_to_wrapper_fun(row,col)));
+            viennacl::distributed::task * t1 = scheduler::create_task(function_t(enqueue_op<typename utils::make_shallow_copy<fun_t>::result_type >),arg);
+            t1->info("Matrix " + proxy.op().repr() + " : Block " + viennacl::tools::to_string(row) +  "," + viennacl::tools::to_string(col) );
+        }
+    }
+    scheduler::init();
+  return *this;
+}
+
 template <typename MatrixType1, typename MatrixType2, class ReduceType>
 multi_matrix<SCALARTYPE, F, ALIGNMENT> & operator = (const generator::matrix_expression_wrapper< MatrixType1,
                                                                         generator::matmat_prod_type<ReduceType>,
@@ -345,13 +396,13 @@ multi_matrix<SCALARTYPE, F, ALIGNMENT> & operator = (const generator::matrix_exp
             prod_type prod(transform_fun_lhs::result(proxy.lhs(),multi_to_wrapper_fun(row,0))
                            ,transform_fun_rhs::result(proxy.rhs(),multi_to_wrapper_fun(0,col)));
             arg_t arg(utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_),prod);
-            viennacl::distributed::task * t1 = scheduler::create_task(function_t(enqueue_op<typename utils::make_shallow_copy<fun_t>::result_type >),arg);
+            viennacl::distributed::task * t1 = scheduler::create_task(function_t(enqueue_op_prod<typename utils::make_shallow_copy<fun_t>::result_type >),arg);
             t1->info("Matrix Product : Block " + viennacl::tools::to_string(row) +  "," + viennacl::tools::to_string(col) + " : Initial assignment " );
 //            Inplace add of products
-            for(unsigned int update = 1 ; update < proxy.lhs().lhs().num_blocks_columns() ; ++update){
+            for(unsigned int update = 1 ; update < get_first_leave<MatrixType1>::result(proxy.lhs()).num_blocks_columns() ; ++update){
                 prod_type prod2(transform_fun_lhs::result(proxy.lhs(),multi_to_wrapper_fun(row,update)),transform_fun_rhs::result(proxy.rhs(),multi_to_wrapper_fun(update,col)));
                 arg_t arg2(utils::gpu_wrapper<gpu_matrix_type>(blocks_[row][col].matrix_),prod2);
-                viennacl::distributed::task * t2 = scheduler::create_task(function_t2(enqueue_op<typename utils::make_shallow_copy<fun_t2>::result_type>),arg2);
+                viennacl::distributed::task * t2 = scheduler::create_task(function_t2(enqueue_op_prod<typename utils::make_shallow_copy<fun_t2>::result_type>),arg2);
                 t2->info("Matrix Product : Block " + viennacl::tools::to_string(row) +  "," + viennacl::tools::to_string(col) + " : " + viennacl::tools::to_string(update));
                 scheduler::connect(t1,t2);
                 t1 = t2;

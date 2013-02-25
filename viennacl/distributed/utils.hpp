@@ -27,6 +27,8 @@
 #include "viennacl/ocl/backend.hpp"
 #include "viennacl/generator/forwards.h"
 
+#include <set>
+
 namespace viennacl{
 
 namespace distributed{
@@ -266,7 +268,23 @@ struct execute<generator::matrix_expression_wrapper<LHS,OP,RHS, deep_copy> >{
     }
 };
 
+template<class T>
+void fill_handle(T const & t, std::set<cl_mem> & mems){
+    mems.insert(t.mat().handle().opencl_handle());
+}
 
+template<class LHS, class OP, class RHS, bool deep_copy>
+void fill_handle(generator::matrix_expression_wrapper<LHS,OP,RHS, deep_copy> const & t, std::set<cl_mem> & mems){
+    fill_handle(t.lhs(),mems);
+    fill_handle(t.rhs(),mems);
+}
+
+template<class T>
+unsigned int n_handles(T const & t){
+    std::set<cl_mem> garbage;
+    fill_handle(t,garbage);
+    return garbage.size();
+}
 
 }
 

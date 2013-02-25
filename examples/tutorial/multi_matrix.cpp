@@ -41,36 +41,36 @@
 #include "boost/numeric/ublas/matrix.hpp"
 
 int main(){
-    unsigned int size1 = 15360;
-    unsigned int size2 = 15360;
-    unsigned int size3 = 15360;
+    unsigned int size = 15360;
     typedef float ScalarType;
 
     typedef viennacl::distributed::multi_matrix<ScalarType> gpu_mat_t;
-//    typedef viennacl::distributed::multi_vector<ScalarType,1> gpu_vec_t;
 
     viennacl::distributed::scheduler::add_all_available_devices(CL_DEVICE_TYPE_GPU);
 
-    gpu_mat_t mat(size1,size3);
-    gpu_mat_t mat2(size1,size2);
-    gpu_mat_t mat3(size2,size3);
+    gpu_mat_t C(size,size);
+    gpu_mat_t A(size,size);
+    gpu_mat_t B(size,size);
 
-//    gpu_vec_t vec(size2);
-//    gpu_vec_t res(size2);
+    gpu_mat_t D(size,size);
+    gpu_mat_t E(size,size);
 
-//    for(unsigned int i = 0 ; i < size1 ; ++i){
-//        for(unsigned int j=0 ; j < size2 ; ++j){
-//            mat(i,j) = 0;
-//            mat2(i,j) = i;
-//            mat3(i,j) = i;
-//        }
-//    }
 
     Timer t;
     t.start();
 
-    mat=viennacl::generator::prod(mat2+mat3,mat2-mat3);
+//    C=viennacl::generator::prod(A,B);
+//    viennacl::distributed::scheduler::finish();
+
+    D = A+B;
     viennacl::distributed::scheduler::finish();
+    E = A-B;
+    viennacl::distributed::scheduler::finish();
+    C = viennacl::generator::prod(D,E);
+    viennacl::distributed::scheduler::finish();
+
+
+
 
     std::cout << "\n\n////////////\n\n" << std::endl;
     std::cout << "Total Time : " << t.get() << std::endl;

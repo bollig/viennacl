@@ -232,7 +232,7 @@ public:
 
     dummy_matrix(VCL_MATRIX & mat) : mat_(mat){ }
 
-    VCL_MATRIX const & mat() const{
+    VCL_MATRIX & mat() const{
         return mat_;
     }
 
@@ -240,6 +240,11 @@ public:
     matrix_expression_wrapper<self_type, assign_type, RHS_TYPE >
     operator= ( RHS_TYPE const & rhs ){
       return matrix_expression_wrapper<self_type,assign_type,RHS_TYPE >(*this,rhs);
+    }
+
+    matrix_expression_wrapper<self_type, assign_type, self_type>
+    operator= ( self_type const & rhs ){
+      return matrix_expression_wrapper<self_type,assign_type, self_type >(*this,rhs);
     }
 
     template<typename RHS_TYPE>
