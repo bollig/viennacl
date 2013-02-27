@@ -114,7 +114,7 @@ namespace viennacl{
             virtual std::string arguments_string(std::set<std::string> & processed, unsigned int size_id) = 0;
             virtual void enqueue(viennacl::ocl::kernel & k, unsigned int & arg, std::set<std::string> & processed, unsigned int size_id) const = 0;
             virtual std::string size_arguments(std::set<std::string> & processed, unsigned int size_id){ return ""; }
-            virtual void enqueue_size_arguments(viennacl::ocl::kernel & k, unsigned int & arg, std::set<std::string> & processed, unsigned int size_id) const = 0;
+//            virtual void enqueue_size_arguments(viennacl::ocl::kernel & k, unsigned int & arg, std::set<std::string> & processed, unsigned int size_id) const = 0;
 
         };
 
@@ -277,7 +277,7 @@ namespace viennacl{
             }
 
             virtual void enqueue(viennacl::ocl::kernel & k, unsigned int & arg, std::set<std::string> & processed, unsigned int size_id) const{
-                enqueue_size_arguments(k,arg,processed,size_id);
+//                enqueue_size_arguments(k,arg,processed,size_id);
                 lhs_->enqueue(k,arg,processed,size_id);
                 rhs_->enqueue(k,arg,processed,size_id);
             }
@@ -293,9 +293,9 @@ namespace viennacl{
                 if(processed.insert(size_).second) return "unsigned int " + size_;
                 return "";
             }
-            virtual void enqueue_size_arguments(viennacl::ocl::kernel & k, unsigned int & arg, std::set<std::string> & processed, unsigned int size_id) const{
-                lhs_->enqueue_size_arguments(k,arg,processed,size_id);
-            }
+//            virtual void enqueue_size_arguments(viennacl::ocl::kernel & k, unsigned int & arg, std::set<std::string> & processed, unsigned int size_id) const{
+//                lhs_->enqueue_size_arguments(k,arg,processed,size_id);
+//            }
 
         public:
             vector_expression_infos_base( infos_base * lhs, op_infos_base* op, infos_base * rhs) : arithmetic_tree_infos_base( lhs,op,rhs){ }
@@ -548,10 +548,10 @@ namespace viennacl{
                 }
             }
 
-            void enqueue_size_arguments(viennacl::ocl::kernel & k, unsigned int & arg, std::set<std::string> & processed, unsigned int size_id) const{
-                for(args_map_t::const_iterator it = args_map_.begin() ; it!= args_map_.end() ; ++it)
-                    it->second->enqueue_size_arguments(k,arg,processed,size_id);
-            }
+//            void enqueue_size_arguments(viennacl::ocl::kernel & k, unsigned int & arg, std::set<std::string> & processed, unsigned int size_id) const{
+//                for(args_map_t::const_iterator it = args_map_.begin() ; it!= args_map_.end() ; ++it)
+//                    it->second->enqueue_size_arguments(k,arg,processed,size_id);
+//            }
 
 
         protected:

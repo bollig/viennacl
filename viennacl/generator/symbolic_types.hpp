@@ -154,9 +154,7 @@ namespace viennacl
       class symbolic_vector : public vec_infos_base{
         private:
           typedef symbolic_vector<SCALARTYPE> self_type;
-          virtual void enqueue_size_arguments(viennacl::ocl::kernel & k, unsigned int & arg, std::set<std::string> & processed, unsigned int size_id) const{
-              if(processed.insert("size"+to_string(size_id)).second) k.arg(arg++, (cl_uint)vcl_vec_.size());
-          }
+
         public:
           typedef viennacl::vector<SCALARTYPE> vcl_vec_t;
           typedef SCALARTYPE ScalarType;
@@ -169,6 +167,7 @@ namespace viennacl
           virtual viennacl::backend::mem_handle const & handle() const{ return vcl_vec_.handle(); }
 
           void enqueue(viennacl::ocl::kernel & k, unsigned int & arg, std::set<std::string> & processed, unsigned int size_id) const{
+              if(processed.insert("size"+to_string(size_id)).second) k.arg(arg++, (cl_uint)vcl_vec_.size());
               if(processed.insert(infos_->name()).second) k.arg(arg++,vcl_vec_);
           }
 
