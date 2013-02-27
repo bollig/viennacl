@@ -198,17 +198,17 @@ int main()
             std::cout << "   ---------------------------------"<< std::endl;
             run_benchmark<float,viennacl::row_major,viennacl::row_major>();
             std::cout << "   ---------------------------------"<< std::endl;
-//            std::cout << "   LHS : Column-Major | RHS : Row-Major"<< std::endl;
-//            std::cout << "   ---------------------------------"<< std::endl;
-//            run_benchmark<float,viennacl::column_major,viennacl::row_major>();
+            std::cout << "   LHS : Column-Major | RHS : Row-Major"<< std::endl;
+            std::cout << "   ---------------------------------"<< std::endl;
+            run_benchmark<float,viennacl::column_major,viennacl::row_major>();
             std::cout << "   ---------------------------------"<< std::endl;
             std::cout << "   LHS : Row-Major | RHS : Column-Major"<< std::endl;
             std::cout << "   ---------------------------------"<< std::endl;
             run_benchmark<float,viennacl::row_major,viennacl::column_major>();
-//            std::cout << "   ---------------------------------"<< std::endl;
-//            std::cout << "   LHS : Column-Major | RHS : Column-Major"<< std::endl;
-//            std::cout << "   ---------------------------------"<< std::endl;
-//            run_benchmark<float,viennacl::column_major,viennacl::column_major>();
+            std::cout << "   ---------------------------------"<< std::endl;
+            std::cout << "   LHS : Column-Major | RHS : Column-Major"<< std::endl;
+            std::cout << "   ---------------------------------"<< std::endl;
+            run_benchmark<float,viennacl::column_major,viennacl::column_major>();
 
             //#ifdef VIENNACL_WITH_OPENCL
             //  if( viennacl::ocl::current_device().double_support() )

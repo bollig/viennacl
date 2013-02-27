@@ -394,6 +394,21 @@ template<class LHS, class RHS>
 typename viennacl::enable_if< (is_scalar_expression_t<LHS>::value || is_scalar_expression_t<RHS>::value)
                              ||(is_vector_expression_t<LHS>::value && is_vector_expression_t<RHS>::value)
                              ||(is_matrix_expression_t<LHS>::value && is_matrix_expression_t<RHS>::value)
+                            ,typename convert_to_expr<LHS,elementwise_prod_type,RHS
+                                                    ,create_vector<LHS,RHS>::value
+                                                    ,create_scalar<LHS,RHS>::value
+                                                    ,create_matrix<LHS,RHS>::value>::type>::type
+element_prod(LHS const & lhs, RHS const & rhs){
+    return typename convert_to_expr<LHS,elementwise_prod_type,RHS
+            ,create_vector<LHS,RHS>::value
+            ,create_scalar<LHS,RHS>::value
+            ,create_matrix<LHS,RHS>::value>::type(lhs,rhs);
+}
+
+template<class LHS, class RHS>
+typename viennacl::enable_if< (is_scalar_expression_t<LHS>::value || is_scalar_expression_t<RHS>::value)
+                             ||(is_vector_expression_t<LHS>::value && is_vector_expression_t<RHS>::value)
+                             ||(is_matrix_expression_t<LHS>::value && is_matrix_expression_t<RHS>::value)
                             ,typename convert_to_expr<LHS,add_type,RHS
                                                     ,create_vector<LHS,RHS>::value
                                                     ,create_scalar<LHS,RHS>::value

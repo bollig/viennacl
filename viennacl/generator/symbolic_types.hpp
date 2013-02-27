@@ -31,8 +31,8 @@ namespace viennacl
 
 
       template<class T> struct repr_of;
-      template<> struct repr_of<float>{ static const infos_base::repr_t value(){ return "f"; } };
-      template<> struct repr_of<double>{ static const infos_base::repr_t value(){ return "d"; } };
+      template<> struct repr_of<float>{ static const std::string value(){ return "f"; } };
+      template<> struct repr_of<double>{ static const std::string value(){ return "d"; } };
 
 
       template<class LHS, class RHS, class OP_REDUCE>
@@ -154,6 +154,9 @@ namespace viennacl
       class symbolic_vector : public vec_infos_base{
         private:
           typedef symbolic_vector<SCALARTYPE> self_type;
+          virtual void enqueue_size_arguments(viennacl::ocl::kernel & k, unsigned int & arg, std::set<std::string> & processed, unsigned int size_id) const{
+              if(processed.insert("size"+to_string(size_id)).second) k.arg(arg++, (cl_uint)vcl_vec_.size());
+          }
         public:
           typedef viennacl::vector<SCALARTYPE> vcl_vec_t;
           typedef SCALARTYPE ScalarType;
@@ -161,16 +164,20 @@ namespace viennacl
           template<class SharedInfosMapT>
           symbolic_vector(SharedInfosMapT & map
                           ,vcl_vec_t const & vcl_vec) : vcl_vec_(vcl_vec){
-            infos_= &map.insert(std::make_pair(vcl_vec_.handle(),shared_infos_t(map.size(),print_type<ScalarType>::value()))).first->second;
+              infos_= &map.insert(std::make_pair(vcl_vec_.handle(),shared_infos_t(map.size(),print_type<ScalarType>::value(), sizeof(ScalarType)))).first->second;
           }
           virtual viennacl::backend::mem_handle const & handle() const{ return vcl_vec_.handle(); }
-          void enqueue(unsigned int & n_arg, viennacl::ocl::kernel & k) const{
-              k.arg(n_arg++,vcl_vec_);
-              k.arg(n_arg++,cl_uint(vcl_vec_.internal_size()));
+
+          void enqueue(viennacl::ocl::kernel & k, unsigned int & arg, std::set<std::string> & processed, unsigned int size_id) const{
+              if(processed.insert(infos_->name()).second) k.arg(arg++,vcl_vec_);
           }
 
-          repr_t repr() const{
+          std::string repr() const{
               return "v"+repr_of<SCALARTYPE>::value();
+          }
+
+          size_t real_size() const{
+              return vcl_vec_.size();
           }
 
         private:
@@ -224,7 +231,7 @@ namespace viennacl
 
           viennacl::backend::mem_handle const & handle() const{ return vcl_mat_.handle(); }
 
-          repr_t repr() const{
+          std::string repr() const{
               return "m"+repr_of<typename VCL_MATRIX::value_type::value_type>::value()+'_'+to_string((int)is_rowmajor_)+'_'+to_string((int)is_transposed_);
           }
       private:

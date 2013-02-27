@@ -19,13 +19,13 @@ namespace viennacl{
     namespace generator{
 
 
-        template<class ArgumentsT>
-        void set_arguments(viennacl::ocl::kernel & k, ArgumentsT const & args){
-            unsigned int counter=0;
-            for(typename ArgumentsT::const_iterator iit = args.begin(); iit != args.end() ; ++iit){
-                (*iit)->enqueue(counter,k);
-            }
-        }
+//        template<class ArgumentsT>
+//        void set_arguments(viennacl::ocl::kernel & k, ArgumentsT const & args){
+//            unsigned int counter=0;
+//            for(typename ArgumentsT::const_iterator iit = args.begin(); iit != args.end() ; ++iit){
+//                (*iit)->enqueue(counter,k);
+//            }
+//        }
 
 
 
@@ -59,14 +59,9 @@ namespace viennacl{
                     trees_.push_back(op);
                 }
 
-
-                typedef std::list<kernel_argument*> arguments_t;
-
                 kernel_type_t type(){ return type_; }
 
                 std::list<infos_base*> & trees(){ return trees_; }
-
-                arguments_t & arguments(){ return arguments_; }
 
                 code_generation::optimization_profile* profile() { return optimization_profile_.get(); }
 
@@ -81,7 +76,6 @@ namespace viennacl{
                 }
 
             private:
-                arguments_t arguments_;
                 std::list<infos_base*> trees_;
                 kernel_type_t type_;
                 viennacl::tools::shared_ptr<code_generation::optimization_profile> optimization_profile_;
@@ -125,13 +119,14 @@ namespace viennacl{
             private:
 
                 void generate_headers(){
+                    std::set<std::string> garbage;
+
                     kss_ << "__kernel void " + kernel_name_ + "(";
+                    std::string last;
                     for(std::list<infos_base*>::iterator it = kernel_infos_.trees().begin() ; it!= kernel_infos_.trees().end() ; ++it){
-                        extract_to_list(*it,kernel_infos_.arguments(),utils::is_type<kernel_argument>());
-                    }
-                    for(std::list<kernel_argument*>::iterator it=kernel_infos_.arguments().begin(); it!=kernel_infos_.arguments().end();++it){
-                        if(it!=kernel_infos_.arguments().begin()) kss_ << ',';
-                        kss_ << (*it)->arguments_string() << std::endl ;
+                        if(!last.empty()) kss_ << "," ;
+                        last = (*it)->arguments_string(garbage,0);
+                        kss_ << last << std::endl;
                     }
                     kss_ << ")" << std::endl;
                 }
@@ -139,17 +134,17 @@ namespace viennacl{
                 void generate_sources(){
                     kss_<<"{"<< std::endl;
                     kss_.inc_tab();
-                    std::list<infos_base *> vec_exprs;
-                    std::list<infos_base *> scal_exprs;
-                    std::list<infos_base *> mat_exprs;
+                    std::list<vector_expression_infos_base *> vec_exprs;
+                    std::list<scalar_expression_infos_base *> scal_exprs;
+                    std::list<matrix_expression_infos_base *> mat_exprs;
                     for(std::list<infos_base*>::const_iterator it = kernel_infos_.trees().begin(); it!=kernel_infos_.trees().end();++it){
                         if(utils::is_type<vector_expression_infos_base>()(*it))
-                            vec_exprs.push_back(*it);
+                            vec_exprs.push_back((vector_expression_infos_base*)*it);
                         else if(utils::is_type<scalar_expression_infos_base>()(*it)
-                                ||utils::is_type<inprod_infos_base>()(*it))
-                            scal_exprs.push_back(*it);
+                                ||utils::is_type<inprod_infos_base>()((scalar_expression_infos_base*)*it))
+                            scal_exprs.push_back((scalar_expression_infos_base*)*it);
                         else
-                            mat_exprs.push_back(*it);
+                            mat_exprs.push_back((matrix_expression_infos_base*)*it);
                     }
                     kernel_infos_.profile()->load(viennacl::ocl::current_device());
                     if(kernel_infos_.type()==BLAS1_TYPE){
