@@ -231,31 +231,38 @@ namespace viennacl{
                                                    , std::string upper_bound
                                                    ,ExprT & expressions
                                                    , CacheExpr & cache ){
-                    kss << "{" << std::endl;
+                    std::string bound1 = upper_bound;
+                    if(n_unroll>1){
+                        kss << "unsigned int upper_unroll_bound= " << "select(" << upper_bound << "," <<  upper_bound << "/" << n_unroll << " * " << n_unroll << ",  " << upper_bound << "%" << n_unroll << ");" << std::endl;
+                        bound1 = "upper_unroll_bound";
+                    }
+
+                    std::string init = "get_global_id(0)"; if(n_unroll>1) init+= "*" + to_string(n_unroll);
+                    std::string inc =  "get_global_size(0)"; if(n_unroll>1) init+= "*" + to_string(n_unroll);
+
+                    kss << "for(unsigned int i = " << init << " ; i < " << bound1 << " ; i +=  " << inc << " ){" << std::endl;
                     kss.inc_tab();
-                    kss << "unsigned int inc = get_global_size(0)*" << n_unroll << ";" << std::endl;
-                    kss << "unsigned int upper_bound = " << upper_bound << ";" << std::endl;
-                    kss << "unsigned int upper_unroll_bound= " << "select(" << "upper_bound, upper_bound/" << n_unroll << " * " << n_unroll << ",  upper_bound%" << n_unroll << ");" << std::endl;
-                    kss << "for(unsigned int i = get_global_id(0)*" << n_unroll << " ; i < upper_unroll_bound ; i +=  inc ){" << std::endl;
-                    kss.inc_tab();
-                    for(unsigned int j=0 ; j<n_unroll  ; ++j){
+
+                    cache.fetch_entries(0, "i");
+                    for(unsigned int j=1 ; j<n_unroll  ; ++j){
                         cache.fetch_entries(j, "i + " + to_string(j));
                     }
 
-                    for(unsigned int j=0 ; j < n_unroll ; ++j){
-                        for(typename ExprT::iterator it=expressions.begin() ; it!=expressions.end();++it){
+                    for(typename ExprT::iterator it=expressions.begin() ; it!=expressions.end();++it){
+                        for(unsigned int j=0 ; j < n_unroll ; ++j){
                             kss << (*it)->generate(j) << ";" << std::endl;
                         }
                     }
 
-                    for(unsigned int j=0 ; j<n_unroll  ; ++j){
+                    cache.writeback_entries(0,"i");
+                    for(unsigned int j=1 ; j<n_unroll  ; ++j){
                         cache.writeback_entries(j,"i + " + to_string(j));
                     }
                     kss.dec_tab();
                     kss << "}" << std::endl;
 
                     if(n_unroll>1){
-                        kss << "for(unsigned int i = upper_unroll_bound + get_global_id(0) ; i < upper_bound ; i +=  get_global_size(0) ){" << std::endl;
+                        kss << "for(unsigned int i = upper_unroll_bound + get_global_id(0) ; i < " << upper_bound << " ; i +=  get_global_size(0) ){" << std::endl;
                         kss.inc_tab();
                         cache.fetch_entries(0, "i");
                         for(typename ExprT::iterator it=expressions.begin() ; it!=expressions.end();++it){
@@ -265,9 +272,6 @@ namespace viennacl{
                         kss.dec_tab();
                         kss << "}" << std::endl;
                     }
-                    kss.dec_tab();
-                    kss << "}" << std::endl;
-
                 }
 
             }

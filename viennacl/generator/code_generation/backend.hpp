@@ -89,6 +89,14 @@ namespace viennacl{
 
                 class blas1_optimization_profile : public optimization_profile{
                 public:
+
+                    blas1_optimization_profile(unsigned int alignment, unsigned int loop_unroll, size_t local_size, size_t global_size){
+                        alignment_ = alignment;
+                        loop_unroll_ = loop_unroll;
+                        local_work_size_[0] = local_size;
+                        global_work_size_[0] = global_size;
+                    }
+
                     virtual std::string repr() const{
                         std::ostringstream oss;
                         oss << " A" << alignment_
@@ -187,23 +195,23 @@ namespace viennacl{
                     struct is_reduce : public std::unary_function<inprod_infos_base*, bool>{ bool  operator()(inprod_infos_base* p) const{ return p->step() == inprod_infos_base::reduce; } };
 
                 public:
-                    blas1_generator(std::list<vector_expression_infos_base * > const & vector_expressions
-                                    , std::list<matrix_expression_infos_base * > const & matrix_expressions
-                                    , std::list<scalar_expression_infos_base * > const & scalar_expressions
+                    blas1_generator(std::list<infos_base * > const & vector_expressions
+                                    , std::list<infos_base * > const & matrix_expressions
+                                    , std::list<infos_base * > const & scalar_expressions
                                     , optimization_profile * kernel_config): vector_expressions_(vector_expressions), matrix_expressions_(matrix_expressions), scalar_expressions_(scalar_expressions), optimization_profile_(kernel_config)
                     {
                         std::set<inprod_infos_base*> inprods;
-                        for(std::list<vector_expression_infos_base*>::const_iterator it=vector_expressions.begin() ; it!= vector_expressions.end() ; ++it){
+                        for(std::list<infos_base*>::const_iterator it=vector_expressions.begin() ; it!= vector_expressions.end() ; ++it){
                             extract_as(*it,vectors_,utils::is_type<vec_infos_base>());
                             extract_as(*it,inner_prods_compute_,is_compute());
                             extract_as(*it,inner_prods_reduce_,is_reduce());
                         }
-                        for(std::list<matrix_expression_infos_base*>::const_iterator it=matrix_expressions.begin() ; it!= matrix_expressions.end() ; ++it){
+                        for(std::list<infos_base*>::const_iterator it=matrix_expressions.begin() ; it!= matrix_expressions.end() ; ++it){
                             extract_as(*it,matrices_,utils::is_type<mat_infos_base>());
                             extract_as(*it,inner_prods_compute_,is_compute());
                             extract_as(*it,inner_prods_reduce_,is_reduce());
                         }
-                        for(std::list<scalar_expression_infos_base*>::const_iterator it=scalar_expressions.begin() ; it!= scalar_expressions.end() ; ++it){
+                        for(std::list<infos_base*>::const_iterator it=scalar_expressions.begin() ; it!= scalar_expressions.end() ; ++it){
                             extract_as(*it,vectors_,utils::is_type<vec_infos_base>());
                             extract_as(*it,matrices_,utils::is_type<mat_infos_base>());
                             extract_as(*it,gpu_scalars_,utils::is_type<gpu_scal_infos_base>());
@@ -218,20 +226,21 @@ namespace viennacl{
                         unsigned int local_work_size0 = optimization_profile_->local_work_size(0);
                         unsigned int alignment = optimization_profile_->alignment();
                         unsigned int n_unroll = optimization_profile_->loop_unroll();
+
                         std::list<vec_infos_base *> assigned_vec;
-                        for(std::list<vector_expression_infos_base*>::iterator it=vector_expressions_.begin(); it!= vector_expressions_.end();++it){
+                        for(std::list<infos_base*>::iterator it=vector_expressions_.begin(); it!= vector_expressions_.end();++it){
                             vector_expression_infos_base* p=static_cast<vector_expression_infos_base*>(*it);
                             if(p->op().is_assignment()==true) assigned_vec.push_back(dynamic_cast<vec_infos_base*>(&p->lhs()));
                         }
 
                         std::list<mat_infos_base *> assigned_mat;
-                        for(std::list<matrix_expression_infos_base*>::iterator it=matrix_expressions_.begin(); it!= matrix_expressions_.end();++it){
+                        for(std::list<infos_base*>::iterator it=matrix_expressions_.begin(); it!= matrix_expressions_.end();++it){
                             matrix_expression_infos_base* p=static_cast<matrix_expression_infos_base*>(*it);
                             if(p->op().is_assignment()==true) assigned_mat.push_back(dynamic_cast<mat_infos_base*>(&p->lhs()));
                         }
 
                         std::list<gpu_scal_infos_base *> assigned_scal;
-                        for(std::list<scalar_expression_infos_base*>::iterator it=scalar_expressions_.begin(); it!= scalar_expressions_.end();++it){
+                        for(std::list<infos_base*>::iterator it=scalar_expressions_.begin(); it!= scalar_expressions_.end();++it){
                             if(scalar_expression_infos_base* p=dynamic_cast<scalar_expression_infos_base*>(*it)){
                                 if(p->op().is_assignment()==true){
                                     assigned_scal.push_back(dynamic_cast<gpu_scal_infos_base*>(&p->lhs()));
@@ -242,12 +251,12 @@ namespace viennacl{
                         code_generation::utils::cache_manager<vec_infos_base> vector_cache(vectors_,assigned_vec,kss);
                         code_generation::utils::cache_manager<mat_infos_base> matrix_cache(matrices_,assigned_mat,kss);
                         code_generation::utils::cache_manager<gpu_scal_infos_base> scalar_cache(gpu_scalars_,assigned_scal,kss);
-                        vector_expression_infos_base * first_vector = NULL;
-                        matrix_expression_infos_base * first_matrix = NULL;
-                        if(vector_expressions_.size())
-                            first_vector = *vector_expressions_.begin();
-                        if(matrix_expressions_.size())
-                            first_matrix = *matrix_expressions_.begin();
+                        vec_infos_base * first_vector =  NULL;
+                        mat_infos_base * first_matrix = NULL;
+                        if(vectors_.size())
+                            first_vector = *vectors_.begin();
+                        if(matrices_.size())
+                            first_matrix = *matrices_.begin();
 //                        //Assumes same size...
 
                         if(inner_prods_reduce_.size()){
@@ -283,11 +292,11 @@ namespace viennacl{
                             std::list<infos_base*> expressions;
                             std::transform(inner_prods_compute_.begin(), inner_prods_compute_.end(),std::back_inserter(expressions),UnsafeBase2Target<inprod_infos_base,infos_base>());
                             std::copy(vector_expressions_.begin(),vector_expressions_.end(),std::back_inserter(expressions));
-                            utils::unroll_gid_loop_contiguous(kss,n_unroll,first_vector->size() + "/" +to_string(alignment) ,expressions,vector_cache);
+                            utils::unroll_gid_loop_contiguous(kss,n_unroll,first_vector->size(),expressions,vector_cache);
                         }
 
                         if(first_matrix){
-                            utils::unroll_gid_loop_contiguous(kss,n_unroll,first_matrix->size1()+"*"+first_matrix->size2()+ "/" +to_string(alignment) , matrix_expressions_, matrix_cache);
+                            utils::unroll_gid_loop_contiguous(kss,n_unroll,first_matrix->internal_size1()+"*"+first_matrix->internal_size2(), matrix_expressions_, matrix_cache);
                         }
                         scalar_cache.writeback_entries(0,"0");
 
@@ -307,9 +316,9 @@ namespace viennacl{
                     }
 
                 private:
-                    std::list<vector_expression_infos_base * >  vector_expressions_;
-                    std::list<matrix_expression_infos_base * >  matrix_expressions_;
-                    std::list<scalar_expression_infos_base * > scalar_expressions_;
+                    std::list<infos_base * >  vector_expressions_;
+                    std::list<infos_base * >  matrix_expressions_;
+                    std::list<infos_base* > scalar_expressions_;
                     std::set<vec_infos_base *, viennacl::generator::deref_less >  vectors_;
                     std::set<mat_infos_base *, viennacl::generator::deref_less >  matrices_;
                     std::set<gpu_scal_infos_base *, viennacl::generator::deref_less > gpu_scalars_;
@@ -347,15 +356,7 @@ namespace viennacl{
                     }
 
 
-                    static void transform_size(utils::kernel_generation_stream & kss,
-                                               mat_infos_base const * mat_infos){
-                        if(mat_infos->is_rowmajor()){
-                            kss << mat_infos->internal_size2() << "/=" << mat_infos->alignment() << ";" << std::endl;
-                        }
-                        else{
-                            kss << mat_infos->internal_size1() << "/=" << mat_infos->alignment() << ";" << std::endl;
-                        }
-                    }
+
 
                     struct declare_rhs_global_ptr{
 
@@ -550,10 +551,10 @@ namespace viennacl{
                     }
 
                 public:
-                    blas3_generator(std::list<matrix_expression_infos_base * > const & blas3_expressions
+                    blas3_generator(std::list<infos_base * > const & blas3_expressions
                                     , blas3_optimization_profile * kernel_config): blas3_expressions_(blas3_expressions), optimization_profile_(kernel_config)
                     {
-                        for(std::list<matrix_expression_infos_base*>::const_iterator it=blas3_expressions_.begin() ; it!= blas3_expressions_.end() ; ++it){
+                        for(std::list<infos_base*>::const_iterator it=blas3_expressions_.begin() ; it!= blas3_expressions_.end() ; ++it){
                             extract_as(*it, matmat_prods_, utils::is_type<matmat_prod_infos_base>());
                             extract_as(*it ,gpu_scalars_,  utils::is_type<gpu_scal_infos_base>());
                             extract_as(*it,matrices_, utils::is_type<mat_infos_base>());
@@ -568,7 +569,7 @@ namespace viennacl{
                         std::set<mat_infos_base*,viennacl::generator::deref_less> rhss;
 
                         //Fills assigned matrices set
-                        for(std::list<matrix_expression_infos_base*>::iterator it = blas3_expressions_.begin() ; it!=blas3_expressions_.end(); ++it){
+                        for(std::list<infos_base*>::iterator it = blas3_expressions_.begin() ; it!=blas3_expressions_.end(); ++it){
                             matrix_expression_infos_base* p=static_cast<matrix_expression_infos_base*>(*it);
                             if(p->op().is_assignment()) assigned.push_back(static_cast<mat_infos_base*>(&p->lhs()));
                         }
@@ -647,9 +648,6 @@ namespace viennacl{
                         if(use_RHS_shared) kss << lmem_rhs.declare() << ";" << std::endl;
 
                         //Declaration of helpers
-                        std::for_each(lhss.begin(),lhss.end(),std::bind1st(std::ptr_fun(transform_size),kss));
-                        std::for_each(rhss.begin(),rhss.end(),std::bind1st(std::ptr_fun(transform_size),kss));
-                        std::for_each(assigned.begin(),assigned.end(),std::bind1st(std::ptr_fun(transform_size),kss));
                         std::string offset_m = helper_variable(kss,false,"unsigned int", "offset_m", "get_local_id(0)*" + to_string(ms_lhs));
                         std::string offset_n = helper_variable(kss,false,"unsigned int", "offset_n", "get_local_id(1)*" + to_string(ns_rhs));
                         std::string block_num = helper_variable(kss,true,"unsigned int", "block_num", (is_lhs_transposed?internal_size1_lhs:internal_size2_lhs) + '/' + to_string(kl_lhs));
@@ -947,7 +945,7 @@ namespace viennacl{
                     }
 
                 private:
-                    std::list<matrix_expression_infos_base*>  blas3_expressions_;
+                    std::list<infos_base*>  blas3_expressions_;
                     matmat_prods_t matmat_prods_;
                     std::set<mat_infos_base *, viennacl::generator::deref_less >  matrices_;
                     std::set<gpu_scal_infos_base *, viennacl::generator::deref_less > gpu_scalars_;

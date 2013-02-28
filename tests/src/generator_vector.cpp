@@ -102,18 +102,18 @@ int test ( Epsilon const& epsilon, std::string vecfile) {
 
     std::cout << "Running tests for vector of size " << vec.size() << std::endl;
 
-    viennacl::vector<NumericT> vcl_vec ( vec.size() );
-    viennacl::vector<NumericT> vcl_vec2( vec.size() );
-    viennacl::vector<NumericT> vcl_vec3( vec.size() );
-    viennacl::vector<NumericT> vcl_vec4( vec.size() );
+    viennacl::vector<NumericT> w ( vec.size() );
+    viennacl::vector<NumericT> x ( vec.size() );
+    viennacl::vector<NumericT> y ( vec.size() );
+    viennacl::vector<NumericT> z ( vec.size() );
 
     vec2 = vec;
     vec3 = 5.0 * vec;
     vec4 = 3.14 * vec;
-    viennacl::copy ( vec.begin(), vec.end(), vcl_vec.begin() );
-    viennacl::copy ( vec2.begin(), vec2.end(), vcl_vec2.begin() );
-    viennacl::copy ( vec3.begin(), vec3.end(), vcl_vec3.begin() );
-    viennacl::copy ( vec4.begin(), vec4.end(), vcl_vec4.begin() );
+    viennacl::copy ( vec.begin(), vec.end(), w.begin() );
+    viennacl::copy ( vec2.begin(), vec2.end(), x.begin() );
+    viennacl::copy ( vec3.begin(), vec3.end(), y.begin() );
+    viennacl::copy ( vec4.begin(), vec4.end(), z.begin() );
 
     unsigned int SIZE = vec.size();
     // --------------------------------------------------------------------------
@@ -124,15 +124,17 @@ int test ( Epsilon const& epsilon, std::string vecfile) {
             vec[i] = 1/(1+exp(-vec[i]*vec2[i]));
         generator::function_wrapper sigmoid("sigmoid","1 / (1 + exp(-#1))");
         generator::custom_operation op;
-//        op.add(dv_t(vcl_vec4) = dv_t(vcl_vec) + dv_t(vcl_vec2));
-//        op.add(dv_t(vcl_vec2) = dv_t(vcl_vec4) - dv_t(vcl_vec3));
-        op.add(dv_t(vcl_vec) = sigmoid(generator::element_prod(dv_t(vcl_vec),dv_t(vcl_vec2))));
+        op.add(dv_t(w) = dv_t(x) + dv_t(y) + dv_t(z));
+        op.add(dv_t(y) = dv_t(w) - dv_t(z));
+        op.add(dv_t(z) = sigmoid(generator::element_prod(dv_t(x),dv_t(y))));
 
         op.execute();
         viennacl::ocl::get_queue().finish();
-        if ( fabs ( diff ( vec, vcl_vec ) ) > epsilon ) {
+
+        std::cout << op.source_code() << std::endl;
+        if ( fabs ( diff ( vec, x ) ) > epsilon ) {
             std::cout << "# Error at operation: Elementwise operation" << std::endl;
-            std::cout << "  diff: " << fabs ( diff ( vec, vcl_vec ) ) << std::endl;
+            std::cout << "  diff: " << fabs ( diff ( vec, x) ) << std::endl;
             retval = EXIT_FAILURE;
         }
     }
@@ -140,12 +142,12 @@ int test ( Epsilon const& epsilon, std::string vecfile) {
     {
         std::cout << "testing addition..." << std::endl;
         vec     = ( vec2 + vec3 );
-        generator::custom_operation op((dv_t(vcl_vec) = dv_t(vcl_vec2) + dv_t(vcl_vec3)));
+        generator::custom_operation op((dv_t(x) = dv_t(y) + dv_t(z)));
         op.execute();
         viennacl::ocl::get_queue().finish();
-        if ( fabs ( diff ( vec, vcl_vec ) ) > epsilon ) {
+        if ( fabs ( diff ( vec, x) ) > epsilon ) {
             std::cout << "# Error at operation: addition" << std::endl;
-            std::cout << "  diff: " << fabs ( diff ( vec, vcl_vec ) ) << std::endl;
+            std::cout << "  diff: " << fabs ( diff ( vec, x ) ) << std::endl;
             retval = EXIT_FAILURE;
         }
     }

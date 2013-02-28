@@ -152,7 +152,6 @@ void benchmark_blas3(timings_t & timings, OpT const & op, std::list<viennacl::ge
 
 
 
-
 }
 
 }
