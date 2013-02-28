@@ -32,7 +32,7 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
 
     std::ostringstream oss;
     viennacl::generator::custom_operation op(operation);
-    op.operations_manager().blas3_model() = prof;
+    op.operations_manager().override_blas3_model(prof);
 
     matrix_expression_infos_base * expr = static_cast<matrix_expression_infos_base *>(op.kernels_list().front().trees().front());
     matrix_expression_infos_base * prod = static_cast<matrix_expression_infos_base *>(&expr->rhs());

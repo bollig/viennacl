@@ -3,6 +3,8 @@
 
 #include "viennacl/generator/symbolic_types_base.hpp"
 #include "viennacl/generator/code_generation/utils.hpp"
+#include "viennacl/generator/code_generation/optimization_profile.hpp"
+#include "viennacl/generator/code_generation/builtin_database.hpp"
 #include <algorithm>
 
 namespace viennacl{
@@ -16,162 +18,7 @@ namespace viennacl{
                 };
 
 
-                class optimization_profile{
-                protected:
-                    typedef unsigned int size_type;
 
-
-                public:
-
-                    optimization_profile() : alignment_(1), loop_unroll_(1){
-                        local_work_size_[0] = 128;
-                        local_work_size_[1] = 0;
-                        global_work_size_[0] = 128*128;
-                        global_work_size_[1] = 0;
-                    }
-
-                    void load(viennacl::ocl::device const & d){
-
-                    }
-
-                    virtual std::string repr() const = 0;
-
-                    void config_nd_range(viennacl::ocl::kernel & k) const{
-                        k.local_work_size(0,local_work_size_[0]);
-                        k.local_work_size(1,local_work_size_[1]);
-                        k.global_work_size(0,global_work_size_[0]);
-                        k.global_work_size(1,global_work_size_[1]);
-                    }
-
-                    void apply(std::list<infos_base*> & expressions){
-                        std::set<kernel_argument*,viennacl::generator::deref_less> kernel_arguments;
-                        for(std::list<infos_base*>::iterator it = expressions.begin() ; it!=expressions.end() ; ++it){
-                            extract_as(*it,kernel_arguments,utils::is_type<kernel_argument>());
-                        }
-                        for(std::set<kernel_argument*,viennacl::generator::deref_less>::iterator it=kernel_arguments.begin() ; it!= kernel_arguments.end() ; ++it){
-                            (*it)->alignment(alignment_);
-                        }
-                    }
-
-                    unsigned int alignment() const{ return alignment_; }
-                    unsigned int loop_unroll(){ return loop_unroll_; }
-
-//                    friend std::ostream& operator<<(std::ostream& os, optimization_profile const & );
-
-                    void local_work_size(unsigned int index, size_type val){
-                        assert(index==0 || index==1);
-                        local_work_size_[index]=val;
-                    }
-
-                    size_type local_work_size(unsigned int index) const{
-                        assert(index==0 || index==1);
-                        return local_work_size_[index];
-                    }
-
-                    void global_work_size(unsigned int index, size_type val){
-                        assert(index==0 || index==1);
-                        global_work_size_[index]=val;
-                    }
-
-                    size_type global_work_size(unsigned int index) const{
-                        assert(index==0 || index==1);
-                        return global_work_size_[index];
-                    }
-
-                    virtual ~optimization_profile(){ }
-
-                protected:
-                    size_type local_work_size_[2];
-                    size_type global_work_size_[2];
-                    unsigned int alignment_;
-                    unsigned int loop_unroll_;
-                };
-
-                class blas1_optimization_profile : public optimization_profile{
-                public:
-
-                    blas1_optimization_profile(unsigned int alignment, unsigned int loop_unroll, size_t local_size, size_t global_size){
-                        alignment_ = alignment;
-                        loop_unroll_ = loop_unroll;
-                        local_work_size_[0] = local_size;
-                        global_work_size_[0] = global_size;
-                    }
-
-                    virtual std::string repr() const{
-                        std::ostringstream oss;
-                        oss << " A" << alignment_
-                           << " U" << loop_unroll_
-                           << " L0" << local_work_size_[0]
-                           << " G0" << global_work_size_[0]
-                           << " L1" << local_work_size_[1]
-                           << " G1" << global_work_size_[1] ;
-                        return oss.str();
-                    }
-                };
-
-                class blas3_optimization_profile : public optimization_profile{
-                private:
-
-                public:
-
-                    blas3_optimization_profile(unsigned int ml, unsigned int kl, unsigned int nl
-                                               , unsigned int ms, unsigned int ks, unsigned int ns
-                                               , bool use_LHS_shared, bool use_RHS_shared
-                                               , unsigned int alignment) : ml_(ml), kl_(kl), nl_(nl), ms_(ms), ks_(ks), ns_(ns), use_LHS_shared_(use_LHS_shared), use_RHS_shared_(use_RHS_shared){
-                        alignment_ = alignment;
-
-                        local_work_size_[0] =ml_/ms_;
-                        local_work_size_[1] = nl_/ns_;
-                    }
-
-                    virtual std::string repr() const{
-                        std::ostringstream oss;
-                        oss << "ML" << ml_
-                           << "KL" << kl_
-                           << "NL" << nl_
-                           << "MS" << ms_
-                           << "KS" << ks_
-                           << "NS" << ns_
-                           << "A" << alignment_
-                           << "LHS" << use_LHS_shared_
-                           << "RHS" << use_RHS_shared_;
-                        return oss.str();
-                    }
-
-
-                    void set_global_sizes(mat_infos_base* mat){
-                        local_work_size_[0] =ml_/ms_;
-                        global_work_size_[0] = mat->real_size1()/ml_*local_work_size_[0];
-                        local_work_size_[1] = nl_/ns_;
-                        global_work_size_[1] = mat->real_size2()/nl_*local_work_size_[1];
-                    }
-
-                    unsigned int ml() const{ return ml_ ; }
-                    unsigned int kl() const{ return kl_ ; }
-                    unsigned int nl() const{ return nl_ ; }
-                    unsigned int ms() const{ return ms_ ; }
-                    unsigned int ks() const{ return ks_ ; }
-                    unsigned int ns() const{ return ns_ ; }
-                    bool use_LHS_shared() const{ return use_LHS_shared_; }
-                    bool use_RHS_shared() const{ return use_RHS_shared_; }
-
-                private:
-                    unsigned int ml_;
-                    unsigned int kl_;
-                    unsigned int nl_;
-
-                    unsigned int ms_;
-                    unsigned int ks_;
-                    unsigned int ns_;
-
-                    bool use_LHS_shared_;
-                    bool use_RHS_shared_;
-                };
-
-                static std::ostream& operator<<(std::ostream& os, optimization_profile const & prof){
-                    os << prof.repr();
-                    return os;
-                }
 
                 static void compute_reductions_samesize(utils::kernel_generation_stream& kss, std::list<local_memory<1> > const & lmems){
                    //Same size assumption
@@ -198,7 +45,7 @@ namespace viennacl{
                     blas1_generator(std::list<infos_base * > const & vector_expressions
                                     , std::list<infos_base * > const & matrix_expressions
                                     , std::list<infos_base * > const & scalar_expressions
-                                    , optimization_profile * kernel_config): vector_expressions_(vector_expressions), matrix_expressions_(matrix_expressions), scalar_expressions_(scalar_expressions), optimization_profile_(kernel_config)
+                                    , blas1_optimization_profile * kernel_config): vector_expressions_(vector_expressions), matrix_expressions_(matrix_expressions), scalar_expressions_(scalar_expressions), blas1_optimization_profile_(kernel_config)
                     {
                         std::set<inprod_infos_base*> inprods;
                         for(std::list<infos_base*>::const_iterator it=vector_expressions.begin() ; it!= vector_expressions.end() ; ++it){
@@ -223,9 +70,9 @@ namespace viennacl{
 
                     void operator()(utils::kernel_generation_stream& kss){
 
-                        unsigned int local_work_size0 = optimization_profile_->local_work_size(0);
-                        unsigned int alignment = optimization_profile_->alignment();
-                        unsigned int n_unroll = optimization_profile_->loop_unroll();
+                        unsigned int local_work_size0 = blas1_optimization_profile_->local_work_size(0);
+                        unsigned int alignment = blas1_optimization_profile_->alignment();
+                        unsigned int n_unroll = blas1_optimization_profile_->loop_unroll();
 
                         std::list<vec_infos_base *> assigned_vec;
                         for(std::list<infos_base*>::iterator it=vector_expressions_.begin(); it!= vector_expressions_.end();++it){
@@ -264,7 +111,7 @@ namespace viennacl{
                             for( std::set<inprod_infos_base *, viennacl::generator::deref_less>::const_iterator it = inner_prods_reduce_.begin(); it != inner_prods_reduce_.end() ; ++it){
                                 kss <<  (*it)->scalartype() <<  " " << (*it)->sum_name()<< " = 0 ;" << std::endl;
                             }
-                            kss << "for(unsigned int i = get_global_id(0) ; i <" << optimization_profile_->global_work_size(0)/optimization_profile_->local_work_size(0) << " ; i += get_global_size(0)){" << std::endl;
+                            kss << "for(unsigned int i = get_global_id(0) ; i <" << blas1_optimization_profile_->global_work_size(0)/blas1_optimization_profile_->local_work_size(0) << " ; i += get_global_size(0)){" << std::endl;
                             kss.inc_tab();
                             for( std::set<inprod_infos_base *, viennacl::generator::deref_less>::const_iterator it = inner_prods_reduce_.begin(); it != inner_prods_reduce_.end() ; ++it){
                                 kss << (*it)->sum_name() << " += " << (*it)->name() << "[i];" << std::endl;
@@ -324,7 +171,7 @@ namespace viennacl{
                     std::set<gpu_scal_infos_base *, viennacl::generator::deref_less > gpu_scalars_;
                     std::set<inprod_infos_base *, viennacl::generator::deref_less > inner_prods_compute_;
                     std::set<inprod_infos_base *, viennacl::generator::deref_less > inner_prods_reduce_;
-                    optimization_profile * optimization_profile_;
+                    blas1_optimization_profile * blas1_optimization_profile_;
 
 
                 };

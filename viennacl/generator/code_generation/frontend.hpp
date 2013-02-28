@@ -10,6 +10,8 @@
 #include "viennacl/generator/code_generation/backend.hpp"
 #include "viennacl/generator/code_generation/utils.hpp"
 
+#include "boost/shared_ptr.hpp"
+
 #ifdef VIENNACL_ENABLE_AUTOTUNE
 #include "viennacl/io/kernel_parameters.hpp"
 #endif
@@ -151,9 +153,8 @@ namespace viennacl{
                         else
                             mat_exprs.push_back(*it);
                     }
-                    kernel_infos_.profile()->load(viennacl::ocl::current_device());
                     if(kernel_infos_.type()==BLAS1_TYPE){
-                        code_generation::blas1_generator gen(vec_exprs,mat_exprs,scal_exprs,kernel_infos_.profile());
+                        code_generation::blas1_generator gen(vec_exprs,mat_exprs,scal_exprs,static_cast<blas1_optimization_profile *>(kernel_infos_.profile()));
                         gen(kss_);
                     }
                     else if(kernel_infos_.type()==BLAS3_TYPE){
@@ -205,13 +206,17 @@ namespace viennacl{
 #endif
 
                 blas3_optimization_profile load_blas3_profile(matrix_expression_infos_base const * operation) const{
+                    cl_device_id id = viennacl::ocl::current_device().id();
+                    blas3_optimization_profile default_profile = builtin_dabase[std::make_pair(ocl::info<CL_DEVICE_VENDOR_ID>(id), ocl::info<CL_DEVICE_TYPE>(id))][operation->simplified_repr()];
+
 #ifndef VIENNACL_ENABLE_AUTOTUNE
-                    return blas3_model_;
+                    return default_profile;
 #else
+
                     const char * tmp = std::getenv("VIENNACL_PARAMS_PATH");
                     if(tmp==NULL){
 //                        std::cerr << "Tuner: Environment variable VIENNACL_PARAMS_PATH not set ... Falling back on default" << std::endl;
-//                        return blas3_model_;
+//                        return default_profile;
                         tmp = "./";
                     }
                     std::string VCL_PARAMS_PATH(tmp);
@@ -222,7 +227,7 @@ namespace viennacl{
 
                     if(paras.doc.empty()){
                         std::cerr << "Tuner : XML Results are empty or nonexistant ... Falling back on default" << std::endl;
-                        return blas3_model_;
+                        return default_profile;
                     }
 
                     std::string devname = viennacl::ocl::current_device().name();
@@ -232,11 +237,11 @@ namespace viennacl{
 
                     if(device_res.empty()){
                         std::cerr << "Tuner: There are no parameters existing for the device : " << devname << " ! ... Falling back on default" << std::endl;
-                        return blas3_model_;
+                        return default_profile;
                     }
                     else if(device_res.size()>1){
                         std::cerr << "Tuner: Existing multiple definitions for the device : " << devname << " ! ... Falling back on default" << std::endl;
-                        return blas3_model_;
+                        return default_profile;
                     }
 
                     // check if tune parameters for float exist
@@ -245,7 +250,7 @@ namespace viennacl{
 
                     if(name_res.size() == 0){
                         std::cerr << "Tuner: There are no parameters for the kernel : " << operation->simplified_repr() << "! ... Falling back on default" << std::endl;
-                        return blas3_model_;
+                        return default_profile;
                     }
 
                     blas3_optimization_profile res(get_param<unsigned int>(paras,name_str,"ml"),get_param<unsigned int>(paras,name_str,"kl"),get_param<unsigned int>(paras,name_str,"nl"),
@@ -265,20 +270,26 @@ namespace viennacl{
                         std::list<infos_base*> inprods(utils::filter<utils::EXTRACT_IF>(p,utils::is_type<inprod_infos_base>()));
                         std::list<infos_base*> matmatprods(utils::filter<utils::EXTRACT_IF>(p,utils::is_type<matmat_prod_infos_base>()));
                         kernel_infos_t* last = NULL;
+
+                        blas1_optimization_profile blas1_model;
+                        if(overriden_blas1_model_.get()) blas1_model = *overriden_blas1_model_;
+
                         if(inprods.size()){
                             assert(matmatprods.size()==0 && "INVALID KERNEL !");
                             if(kernels_list_.size()){
                                 if(kernels_list_.back().type() != BLAS1_TYPE)
-                                    kernels_list_.push_back(kernel_infos_t(p,blas1_model_));
+                                    kernels_list_.push_back(kernel_infos_t(p,blas1_model));
                                 else
                                     kernels_list_.back().trees().merge(inprods);
                             }
                             else{
-                                kernels_list_.push_back(kernel_infos_t(p,blas1_model_));
+                                kernels_list_.push_back(kernel_infos_t(p,blas1_model));
                             }
                         }
                         else if(matmatprods.size()){
-                            blas3_optimization_profile prof( load_blas3_profile(static_cast<matrix_expression_infos_base*>(p)));
+                            blas3_optimization_profile blas3_model = load_blas3_profile(static_cast<matrix_expression_infos_base*>(p));
+                            if(overriden_blas3_model_.get()) blas3_model = *overriden_blas3_model_;
+                            blas3_optimization_profile prof(blas3_model);
                             if(kernels_list_.size()){
                                 if(kernels_list_.back().type() != BLAS3_TYPE)
                                     kernels_list_.push_back(kernel_infos_t(p,prof));
@@ -292,12 +303,12 @@ namespace viennacl{
                         else{
                             if(kernels_list_.size()){
                                 if(kernels_list_.back().type() != BLAS1_TYPE)
-                                    kernels_list_.push_back(kernel_infos_t(p,blas1_model_));
+                                    kernels_list_.push_back(kernel_infos_t(p,blas1_model));
                                 else
                                     kernels_list_.back().trees().push_back(p);
                             }
                             else{
-                                kernels_list_.push_back(kernel_infos_t(p,blas1_model_));
+                                kernels_list_.push_back(kernel_infos_t(p,blas1_model));
                             }
                         }
 
@@ -306,15 +317,16 @@ namespace viennacl{
 
             public:
 
-                operations_manager() : blas3_model_(32,32,32,4,4,4,true,false,4){
+                operations_manager(){
+
                 }
 
-                blas1_optimization_profile& blas1_model(){
-                    return blas1_model_;
+                void override_blas1_model(blas1_optimization_profile const & o){
+                    overriden_blas1_model_.reset(new blas1_optimization_profile(o));
                 }
 
-                blas3_optimization_profile& blas3_model(){
-                    return blas3_model_;
+                void override_blas3_model(blas3_optimization_profile const & o){
+                    overriden_blas3_model_.reset(new blas3_optimization_profile(o));
                 }
 
                 template<class T>
@@ -368,8 +380,8 @@ namespace viennacl{
 
             private:
                 operations_t operations_;
-                blas1_optimization_profile blas1_model_;
-                blas3_optimization_profile blas3_model_;
+                boost::shared_ptr<blas1_optimization_profile> overriden_blas1_model_;
+                boost::shared_ptr<blas3_optimization_profile> overriden_blas3_model_;
                 std::list<kernel_infos_t> kernels_list_;
 
             };
