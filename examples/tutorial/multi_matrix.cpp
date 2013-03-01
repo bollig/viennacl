@@ -59,15 +59,15 @@ int main(){
     Timer t;
     t.start();
 
-//    C=viennacl::generator::prod(A,B);
-//    viennacl::distributed::scheduler::finish();
+    C=viennacl::generator::prod(A,B);
+    viennacl::distributed::scheduler::finish();
 
-    D = A+B;
-    viennacl::distributed::scheduler::finish();
-    E = A-B;
-    viennacl::distributed::scheduler::finish();
-    C = viennacl::generator::prod(D,E);
-    viennacl::distributed::scheduler::finish();
+//    D = A+B;
+//    viennacl::distributed::scheduler::finish();
+//    E = A-B;
+//    viennacl::distributed::scheduler::finish();
+//    C = viennacl::generator::prod(D,E);
+//    viennacl::distributed::scheduler::finish();
 
 
 

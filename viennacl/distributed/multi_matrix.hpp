@@ -96,13 +96,13 @@ private:
 template<class T>
 struct get_first_leave{
     typedef T result_type;
-    static result_type result(T const & t) { return t; }
+    static result_type const & result(T const & t) { return t; }
 };
 
 template<class LHS, class OP, class RHS>
 struct get_first_leave<generator::matrix_expression_wrapper<LHS,OP,RHS> >{
     typedef typename get_first_leave<LHS>::result_type result_type;
-    static result_type result(generator::matrix_expression_wrapper<LHS,OP,RHS> const & t){
+    static result_type  const & result(generator::matrix_expression_wrapper<LHS,OP,RHS> const & t){
         return get_first_leave<LHS>::result(t.lhs());
     }
 };
