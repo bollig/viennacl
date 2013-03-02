@@ -415,6 +415,7 @@ namespace viennacl{
             std::string arguments_string() const{ return  " __global " + aligned_scalartype() + "*"  + " " + name()
                                                                      + ", unsigned int " + size();                                                                     ;
                                                 }
+            virtual size_t real_size() const = 0;
             virtual ~vec_infos_base(){ }
         protected:
             vec_infos_base() : user_kernel_argument() { }

@@ -70,8 +70,7 @@ namespace viennacl{
 
                     void operator()(utils::kernel_generation_stream& kss){
 
-                        unsigned int local_work_size0 = blas1_optimization_profile_->local_work_size(0);
-                        unsigned int alignment = blas1_optimization_profile_->alignment();
+                        unsigned int local_work_size0 = blas1_optimization_profile_->local_work_size().first;
                         unsigned int n_unroll = blas1_optimization_profile_->loop_unroll();
 
                         std::list<vec_infos_base *> assigned_vec;
@@ -111,7 +110,7 @@ namespace viennacl{
                             for( std::set<inprod_infos_base *, viennacl::generator::deref_less>::const_iterator it = inner_prods_reduce_.begin(); it != inner_prods_reduce_.end() ; ++it){
                                 kss <<  (*it)->scalartype() <<  " " << (*it)->sum_name()<< " = 0 ;" << std::endl;
                             }
-                            kss << "for(unsigned int i = get_global_id(0) ; i <" << blas1_optimization_profile_->global_work_size(0)/blas1_optimization_profile_->local_work_size(0) << " ; i += get_global_size(0)){" << std::endl;
+                            kss << "for(unsigned int i = get_global_id(0) ; i < get_group_size(0) ; i += get_global_size(0)){" << std::endl;
                             kss.inc_tab();
                             for( std::set<inprod_infos_base *, viennacl::generator::deref_less>::const_iterator it = inner_prods_reduce_.begin(); it != inner_prods_reduce_.end() ; ++it){
                                 kss << (*it)->sum_name() << " += " << (*it)->name() << "[i];" << std::endl;

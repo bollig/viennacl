@@ -173,6 +173,8 @@ namespace viennacl
               return "v"+repr_of<SCALARTYPE>::value();
           }
 
+          size_t real_size() const{ return vcl_vec_.size(); }
+
         private:
           vcl_vec_t const & vcl_vec_;
       };

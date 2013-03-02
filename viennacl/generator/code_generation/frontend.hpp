@@ -73,13 +73,13 @@ namespace viennacl{
                 code_generation::optimization_profile* profile() { return optimization_profile_.get(); }
 
                 void config_nd_range(viennacl::ocl::kernel & k) const{
-                    if(type_==BLAS3_TYPE){
-                        matrix_expression_infos_base * p = static_cast<matrix_expression_infos_base*>(trees_.front());
-                        mat_infos_base * mat = static_cast<mat_infos_base*>(&p->lhs());
-                        blas3_optimization_profile* prof = static_cast<blas3_optimization_profile*>(optimization_profile_.get());
-                        prof->set_global_sizes(mat);
-                    }
-                    optimization_profile_->config_nd_range(k);
+//                    if(type_==BLAS3_TYPE){
+//                        matrix_expression_infos_base * p = static_cast<matrix_expression_infos_base*>(trees_.front());
+//                        mat_infos_base * mat = static_cast<mat_infos_base*>(&p->lhs());
+//                        blas3_optimization_profile* prof = static_cast<blas3_optimization_profile*>(optimization_profile_.get());
+//                        prof->set_global_sizes(mat);
+//                    }
+                    optimization_profile_->config_nd_range(k, &static_cast<arithmetic_tree_infos_base*>(trees_.front())->lhs());
                 }
 
             private:
@@ -369,8 +369,8 @@ namespace viennacl{
                     for(std::list<kernel_infos_t>::iterator it = kernels_list_.begin() ; it !=kernels_list_.end() ; ++it){
                         std::string name("_k"+to_string(std::distance(kernels_list_.begin(),it)));
                         kernel_infos_t & infos = kernels_infos.insert(std::make_pair(name,*it)).first->second;
-                        kss <<  "__attribute__((reqd_work_group_size(" << infos.profile()->local_work_size(0)
-                                                                        << "," << std::max(infos.profile()->local_work_size(1),(unsigned int)1)
+                        kss <<  "__attribute__((reqd_work_group_size(" << infos.profile()->local_work_size().first
+                                                                        << "," << infos.profile()->local_work_size().second
                                                                         << ",1)))" << std::endl;
                         code_generation::kernel_generator kg(infos,name,kss);
                         kg.generate() ;
