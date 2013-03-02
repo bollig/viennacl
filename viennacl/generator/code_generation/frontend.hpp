@@ -10,7 +10,7 @@
 #include "viennacl/generator/code_generation/backend.hpp"
 #include "viennacl/generator/code_generation/utils.hpp"
 
-#include "boost/shared_ptr.hpp"
+#include "viennacl/tools/shared_ptr.hpp"
 
 #ifdef VIENNACL_ENABLE_AUTOTUNE
 #include "viennacl/io/kernel_parameters.hpp"
@@ -380,8 +380,8 @@ namespace viennacl{
 
             private:
                 operations_t operations_;
-                boost::shared_ptr<blas1_optimization_profile> overriden_blas1_model_;
-                boost::shared_ptr<blas3_optimization_profile> overriden_blas3_model_;
+                viennacl::tools::shared_ptr<blas1_optimization_profile> overriden_blas1_model_;
+                viennacl::tools::shared_ptr<blas3_optimization_profile> overriden_blas3_model_;
                 std::list<kernel_infos_t> kernels_list_;
 
             };

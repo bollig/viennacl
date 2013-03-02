@@ -22,10 +22,13 @@
 */
 
 #include "viennacl/tools/tools.hpp"
-#include "boost/shared_ptr.hpp"
+#include "viennacl/tools/shared_ptr.hpp"
+
 #include "viennacl/matrix.hpp"
 #include "viennacl/ocl/backend.hpp"
 #include "viennacl/generator/forwards.h"
+
+#include "viennacl/distributed/cpu_matrix.hpp"
 
 #include <set>
 
@@ -54,35 +57,17 @@ vcl_size_t vector_block_size(){
     return matrix_block_size<ScalarType>()*matrix_block_size<ScalarType>();
 }
 
-
-/** @brief Conversion between viennacl layout types and boost layout types */
-template<class T>
-struct layout_wrapper;
-
-template<>
-struct layout_wrapper<viennacl::row_major>{ typedef boost::numeric::ublas::row_major Result ; };
-
-template<>
-struct layout_wrapper<viennacl::column_major>{ typedef boost::numeric::ublas::column_major Result ; };
-
-template<>
-struct layout_wrapper<boost::numeric::ublas::row_major>{ typedef viennacl::row_major Result ; };
-
-template<>
-struct layout_wrapper<boost::numeric::ublas::column_major>{ typedef viennacl::column_major Result ; };
-
-
 template<class T>
 struct get_cpu_type;
 
 template<class SCALARTYPE, class F, unsigned int Alignment>
 struct get_cpu_type<viennacl::matrix<SCALARTYPE,F,Alignment> >{
-    typedef boost::numeric::ublas::matrix<SCALARTYPE, typename layout_wrapper<F>::Result> type;
+    typedef cpu_matrix<SCALARTYPE, F> type;
 };
 
 template<class SCALARTYPE, class F, unsigned int Alignment>
 struct get_cpu_type<const viennacl::matrix<SCALARTYPE,F,Alignment> >{
-    typedef const boost::numeric::ublas::matrix<SCALARTYPE, typename layout_wrapper<F>::Result> type;
+    typedef const cpu_matrix<SCALARTYPE, F> type;
 };
 
 
@@ -145,6 +130,7 @@ template<class T>
 class gpu_wrapper{
 public:
     typedef typename get_cpu_type<T>::type cpu_t;
+
     gpu_wrapper(cpu_t const & _cpu_data) : cpu_data(_cpu_data){
     }
 
@@ -172,7 +158,7 @@ public:
 
 private:
     cpu_t const & cpu_data;
-    mutable boost::shared_ptr<T> gpu_structure_;
+    mutable viennacl::tools::shared_ptr<T> gpu_structure_;
 };
 
 

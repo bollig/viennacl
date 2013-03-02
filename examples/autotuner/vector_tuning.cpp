@@ -155,7 +155,7 @@ void fill_timings(TimingsT & timings, OpT const & op_template){
                 for(unsigned int lsize = min_local_size ; lsize <= max_local_size ; lsize *= 2){
                     viennacl::generator::custom_operation op;
                     viennacl::generator::code_generation::blas1_optimization_profile prof(a,u,lsize,lsize*wg);
-                    op.operations_manager().blas1_model() = prof;
+                    op.operations_manager().override_blas1_model(prof);
                     op.add(op_template);
                     op.execute();
                     viennacl::ocl::get_queue().finish();

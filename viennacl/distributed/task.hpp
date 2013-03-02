@@ -19,11 +19,11 @@
 ============================================================================= */
 
 #include "viennacl/distributed/utils.hpp"
-#include "boost/thread/mutex.hpp"
-#include <boost/type_traits/is_const.hpp>
 #include "viennacl/ocl/utils.hpp"
 #include "viennacl/ocl/event.hpp"
 #include "viennacl/generator/forwards.h"
+
+#include <mutex>
 
 /** @file task.hpp
     @brief Implementation of a task

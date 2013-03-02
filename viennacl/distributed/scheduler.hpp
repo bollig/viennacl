@@ -25,9 +25,6 @@
 
 #include "CL/cl.h"
 
-#include "boost/shared_ptr.hpp"
-#include "boost/thread/mutex.hpp"
-#include "boost/thread/locks.hpp"
 
 #include "viennacl/ocl/device.hpp"
 #include "viennacl/ocl/utils.hpp"
@@ -37,10 +34,15 @@
 
 #include "viennacl/distributed/timer.hpp"
 
+#include "viennacl/tools/shared_ptr.hpp"
+
 #include <thread>
 #include <pthread.h>
 #include <chrono>
 #include <functional>
+
+#include <mutex>
+#include <thread>
 
 namespace viennacl{
 
@@ -49,9 +51,9 @@ namespace distributed{
 
 class scheduler{
 private:
-    typedef std::vector<boost::shared_ptr<task> > pending_tasks_t;
+    typedef std::vector<viennacl::tools::shared_ptr<task> > pending_tasks_t;
     typedef std::multimap<task*, task*> active_dependancies_t;
-    typedef std::map<cl_device_id, boost::shared_ptr<std::thread> > context_map_t;
+    typedef std::map<cl_device_id, viennacl::tools::shared_ptr<std::thread> > context_map_t;
 
 private:
 
@@ -63,16 +65,16 @@ private:
         }
     }
 
-    static boost::shared_ptr<task> pop_task(){
+    static viennacl::tools::shared_ptr<task> pop_task(){
         pending_tasks_t::iterator it = pending_tasks_.begin();
         for( ; it!=pending_tasks_.end() ; ++it){
             if(active_dependancies_.find(it->get())==active_dependancies_.end()){
-                boost::shared_ptr<task> res(*it);
+                viennacl::tools::shared_ptr<task> res(*it);
                 pending_tasks_.erase(it);
                 return res;
             }
         }
-        return boost::shared_ptr<task>();
+        return viennacl::tools::shared_ptr<task>();
     }
 
    static  void print_dep(){
@@ -90,7 +92,7 @@ private:
         viennacl::ocl::device const & device = context.devices()[0];
         while(!pending_tasks_.empty()){
             mutex_.lock();
-            boost::shared_ptr<task> tsk(pop_task());
+            viennacl::tools::shared_ptr<task> tsk(pop_task());
             mutex_.unlock();
             if(tsk.get()==NULL){
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -129,7 +131,7 @@ public:
 //        viennacl::ocl::setup_context(id,devs);
 //        viennacl::ocl::switch_context(id);
 //        viennacl::ocl::current_context().add_queue(device);
-        context_map_.insert(std::make_pair(device.id(),boost::shared_ptr<std::thread>()));
+        context_map_.insert(std::make_pair(device.id(),viennacl::tools::shared_ptr<std::thread>()));
 
     }
 
@@ -150,7 +152,7 @@ public:
 
     template<class F, class A>
     static task* create_task(std::function<F> fun, A const & args){
-        pending_tasks_.push_back(boost::shared_ptr<task2<F,A> >(new task2<F,A>(fun,args)));
+        pending_tasks_.push_back(viennacl::tools::shared_ptr<task2<F,A> >(new task2<F,A>(fun,args)));
         return pending_tasks_.back().get();
     }
 
@@ -185,7 +187,7 @@ private:
     static pending_tasks_t pending_tasks_;
     static std::map<cl_mem, unsigned int> handle_in_use_;
     static active_dependancies_t active_dependancies_;
-    static boost::mutex mutex_;
+    static std::mutex mutex_;
     static viennacl::distributed::timer timeline_;
 };
 
@@ -193,7 +195,7 @@ scheduler::context_map_t scheduler::context_map_;
 scheduler::pending_tasks_t scheduler::pending_tasks_;
 std::map<cl_mem, unsigned int> scheduler::handle_in_use_;
 scheduler::active_dependancies_t scheduler::active_dependancies_;
-boost::mutex scheduler::mutex_;
+std::mutex scheduler::mutex_;
 viennacl::distributed::timer scheduler::timeline_;
 
 }

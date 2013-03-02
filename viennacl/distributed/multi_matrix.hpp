@@ -21,8 +21,6 @@
     @brief Implementation of the distributed dense matrix class
 */
 
-#include "boost/numeric/ublas/matrix.hpp"
-
 #include "viennacl/distributed/scheduler.hpp"
 #include "viennacl/distributed/forwards.hpp"
 #include "viennacl/distributed/utils.hpp"
@@ -411,11 +409,11 @@ multi_matrix<SCALARTYPE, F, ALIGNMENT> & operator = (const generator::matrix_exp
         }
     }
     scheduler::init();
-  return *this;
+    return *this;
 }
 
-  template <typename SCALARTYPE1, typename F1, class A1, typename SCALARTYPE2, typename F2, unsigned int ALIGNMENT2>
-  friend void viennacl::copy(const boost::numeric::ublas::matrix<SCALARTYPE1, F1, A1> & cpu_matrix,
+  template <typename SCALARTYPE1, typename F1, typename SCALARTYPE2, typename F2, unsigned int ALIGNMENT2>
+  friend void viennacl::copy(const distributed::cpu_matrix<SCALARTYPE1, F1> & mat,
             multi_matrix<SCALARTYPE2, F2, ALIGNMENT2> & gpu_matrix );
 
 private:

@@ -24,24 +24,21 @@
 #include <iostream>
 
 #include "CL/cl.h"
-#include "../benchmarks/benchmark-utils.hpp"
 
 #include "viennacl/distributed/multi_matrix.hpp"
 //#include "viennacl/distributed/multi_vector.hpp"
 
 #include "viennacl/distributed/scheduler.hpp"
-#include "viennacl/distributed/fission.hpp"
+#include "viennacl/distributed/utils.hpp"
 
 #include "viennacl/linalg/prod.hpp"
 
 #include "viennacl/ocl/backend.hpp"
 #include "viennacl/ocl/event.hpp"
 
-//Boost includes
-#include "boost/numeric/ublas/matrix.hpp"
 
 int main(){
-    unsigned int size = 15360;
+    unsigned int size = 2560;
     typedef float ScalarType;
 
     typedef viennacl::distributed::multi_matrix<ScalarType> gpu_mat_t;
@@ -52,11 +49,13 @@ int main(){
     gpu_mat_t A(size,size);
     gpu_mat_t B(size,size);
 
-    gpu_mat_t D(size,size);
-    gpu_mat_t E(size,size);
+//    gpu_mat_t D(size,size);
+//    gpu_mat_t E(size,size);
 
+    C=viennacl::generator::prod(A,B);
+    viennacl::distributed::scheduler::finish();
 
-    Timer t;
+    viennacl::distributed::timer t;
     t.start();
 
     C=viennacl::generator::prod(A,B);

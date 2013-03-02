@@ -22,7 +22,7 @@
 */
 
 #include "viennacl/ocl/device.hpp"
-#include "boost/shared_ptr.hpp"
+#include <memory>
 
 #include "CL/cl.h"
 
@@ -45,7 +45,7 @@ class fission;
 
 class fission_policy{
 private:
-    typedef std::map<cl_device_id, boost::shared_ptr<fission_base> > map_t;
+    typedef std::map<cl_device_id, viennacl::tools::shared_ptr<fission_base> > map_t;
 public:
     template<cl_device_partition_property PROP>
     void add_device_fission(viennacl::ocl::device const & d, fission<PROP> f){
