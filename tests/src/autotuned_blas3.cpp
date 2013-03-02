@@ -139,9 +139,8 @@ int test_prod(Epsilon const& epsilon,
 
    failed = false;
    for(typename Profiles::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
-       std::cout << *it << std::endl;
        viennacl::generator::custom_operation op;
-       op.operations_manager().blas3_model() = *it;
+       op.operations_manager().override_blas3_model(*it);
        op.add(vcl_C = viennacl::generator::prod(vcl_A,vcl_B));
        op.execute();
        viennacl::ocl::get_queue().finish();
@@ -163,7 +162,7 @@ int test_prod(Epsilon const& epsilon,
    for(typename Profiles::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
 //       std::cout << *it << std::endl;
        viennacl::generator::custom_operation op;
-       op.operations_manager().blas3_model() = *it;
+       op.operations_manager().override_blas3_model(*it);
        op.add(vcl_C = viennacl::generator::prod(trans(vcl_A_trans),vcl_B));
        op.execute();
        viennacl::ocl::get_queue().finish();
@@ -186,7 +185,7 @@ int test_prod(Epsilon const& epsilon,
    for(typename Profiles::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
 
        viennacl::generator::custom_operation op;
-       op.operations_manager().blas3_model() = *it;
+       op.operations_manager().override_blas3_model(*it);
        op.add(vcl_C = viennacl::generator::prod(vcl_A,trans(vcl_B_trans)));
        op.execute();
        viennacl::ocl::get_queue().finish();
@@ -207,7 +206,7 @@ int test_prod(Epsilon const& epsilon,
    failed = false;
    for(typename Profiles::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
        viennacl::generator::custom_operation op;
-       op.operations_manager().blas3_model() = *it;
+       op.operations_manager().override_blas3_model(*it);
        op.add(vcl_C = viennacl::generator::prod(trans(vcl_A_trans),trans(vcl_B_trans)));
        op.execute();
        viennacl::ocl::get_queue().finish();
@@ -229,7 +228,7 @@ int test_prod(Epsilon const& epsilon,
    failed = false;
    for(typename Profiles::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
        viennacl::generator::custom_operation op;
-       op.operations_manager().blas3_model() = *it;
+       op.operations_manager().override_blas3_model(*it);
        op.add(vcl_C = viennacl::generator::prod(vcl_A+vcl_A,vcl_B));
        op.execute();
        viennacl::ocl::get_queue().finish();
@@ -252,7 +251,7 @@ int test_prod(Epsilon const& epsilon,
    failed = false;
    for(typename Profiles::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
        viennacl::generator::custom_operation op;
-       op.operations_manager().blas3_model() = *it;
+       op.operations_manager().override_blas3_model(*it);
        op.add(vcl_C = viennacl::generator::prod(vcl_A,vcl_B + vcl_B));
        op.execute();
        viennacl::ocl::get_queue().finish();
@@ -387,7 +386,7 @@ int test(Epsilon const& epsilon, unsigned int n_profiles)
           if(use_LHS_shared) lmem_size += (double)(kl+1)*(ml+1)*sizeof(NumericT)/1024;
           if(use_RHS_shared) lmem_size += (double)(nl+1)*(kl+1)*sizeof(NumericT)/1024;
           if( lmem_size > 32.0) continue;
-          if(prof.local_work_size(0)*prof.local_work_size(1) > viennacl::ocl::current_device().max_workgroup_size()) continue;
+          if(prof.local_work_size().first*prof.local_work_size().second > viennacl::ocl::current_device().max_workgroup_size()) continue;
 
           profiles.push_back(prof);
 
@@ -477,6 +476,9 @@ int main()
       typedef float NumericT;
       NumericT epsilon = NumericT(1.0E-3);
       std::cout << "# Testing setup:" << std::endl;
+
+      std::cout << viennacl::ocl::current_device().info() << std::endl;
+
       std::cout << "  n_profiles: " << n_profiles << std::endl;
       std::cout << "  eps:     " << epsilon << std::endl;
       std::cout << "  numeric: float" << std::endl;

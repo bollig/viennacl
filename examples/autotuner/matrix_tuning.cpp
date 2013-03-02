@@ -23,7 +23,7 @@
 #include "../tutorial/Random.hpp"
 
 
-typedef float  NumericT;
+typedef double  NumericT;
 typedef std::vector< viennacl::ocl::platform > platforms_type;
 typedef std::vector<viennacl::ocl::device> devices_type;
 typedef std::vector<cl_device_id> cl_devices_type;
@@ -128,8 +128,8 @@ void benchmark(OpT const & operation, config conf, MatTypeA & A, MatTypeB & B, M
     unsigned int size;
 
     std::list<std::pair<unsigned int, unsigned int> > rounds_config;
-    rounds_config.push_back(std::make_pair(512,200));
-    rounds_config.push_back(std::make_pair(3072,20));
+    rounds_config.push_back(std::make_pair(512,70));
+    rounds_config.push_back(std::make_pair(2048,20));
     for(std::list<std::pair<unsigned int, unsigned int> >::iterator it = rounds_config.begin() ; it!= rounds_config.end(); ++it){
         unsigned int k = std::distance(rounds_config.begin(),it);
         timings.clear();
@@ -153,7 +153,7 @@ void benchmark(OpT const & operation, config conf, MatTypeA & A, MatTypeB & B, M
             if(n>n_keep) break;
             fastest_firsts.push_back(*static_cast<viennacl::generator::code_generation::blas3_optimization_profile* >(itt->second.get()));
             if(std::distance(rounds_config.begin(),it)==(int)rounds_config.size()-1){
-                std::cout << std::distance(timings.begin(),itt) << "th Best : " << itt->first << "s | " << std::pow((NumericT)size/1000,3)/itt->first << " GFlops : " << *itt->second << std::endl;
+                std::cout << std::distance(timings.begin(),itt) << "th Best : " << itt->first << "s | " << 2*std::pow((NumericT)size/1000,3)/itt->first << " GFlops : " << *itt->second << std::endl;
             }
         }
     }
@@ -193,18 +193,35 @@ void run_autotune(viennacl::io::parameter_database & paras){
 
     config conf;
 
-    conf.n_runs = 2;
-    conf.ml_min = 32; conf.ml_max=256;
-    conf.kl_min = 32; conf.kl_max=256;
-    conf.nl_min = 32; conf.nl_max=256;
-    conf.ms_min = 2; conf.ms_max=8;
-    conf.ks_min = 2; conf.ks_max=8;
-    conf.ns_min = 2; conf.ns_max=8;
-    conf.alignment_min = 1 ; conf.alignment_max = 4 ;
-    conf.LHS_storages.push_back(true);
-    conf.LHS_storages.push_back(false);
-    conf.RHS_storages.push_back(true);
-    conf.RHS_storages.push_back(false);
+    if(viennacl::ocl::info<CL_DEVICE_TYPE>(viennacl::ocl::current_device().id()) == CL_DEVICE_TYPE_CPU){
+        conf.n_runs = 2;
+        conf.ml_min = 32; conf.ml_max=256;
+        conf.kl_min = 32; conf.kl_max=256;
+        conf.nl_min = 32; conf.nl_max=256;
+        conf.ms_min = 2; conf.ms_max=16;
+        conf.ks_min = 2; conf.ks_max=8;
+        conf.ns_min = 2; conf.ns_max=16;
+        conf.alignment_min = 1 ; conf.alignment_max = 8 ;
+    //    conf.LHS_storages.push_back(true);
+        conf.LHS_storages.push_back(false);
+    //    conf.RHS_storages.push_back(true);
+        conf.RHS_storages.push_back(false);
+    }
+    else{
+        conf.n_runs = 2;
+        conf.ml_min = 32; conf.ml_max=256;
+        conf.kl_min = 32; conf.kl_max=256;
+        conf.nl_min = 32; conf.nl_max=256;
+        conf.ms_min = 2; conf.ms_max=8;
+        conf.ks_min = 2; conf.ks_max=8;
+        conf.ns_min = 2; conf.ns_max=8;
+        conf.alignment_min = 1 ; conf.alignment_max = 4 ;
+        conf.LHS_storages.push_back(true);
+        conf.LHS_storages.push_back(false);
+        conf.RHS_storages.push_back(true);
+        conf.RHS_storages.push_back(false);
+    }
+
 
     VclMatA1 A1(1,1);
     VclMatB1 B1(1,1);
@@ -242,11 +259,19 @@ void run_autotune(viennacl::io::parameter_database & paras){
 
 int main(int argc, char* argv[]){
     std::vector<std::string> args(argv,argv+argc);
-    if(argc<2){
-        std::cerr << "USAGE : PROGRAM_NAME LAYOUT" << std::endl;
+    if(argc<3){
+        std::cerr << "USAGE : PROGRAM_NAME LAYOUT DEV_TYPE" << std::endl;
         exit(1);
     }
     unsigned int layout = atoi(args[1].c_str());
+    cl_device_type dev_type;
+    if(args[2] == "cpu")
+        dev_type = CL_DEVICE_TYPE_CPU;
+    if(args[2] == "gpu")
+        dev_type = CL_DEVICE_TYPE_GPU;
+    if(args[2] == "accel")
+        dev_type = CL_DEVICE_TYPE_ACCELERATOR;
+
     platforms_type platforms = viennacl::ocl::get_platforms();
     size_t num_platforms = platforms.size();
     for(unsigned int k=0 ; k < num_platforms ; ++k)
@@ -255,11 +280,12 @@ int main(int argc, char* argv[]){
         viennacl::ocl::set_context_platform_index(k,k);
         viennacl::ocl::switch_context(k);
         devices_type dev = viennacl::ocl::current_context().devices();
+
         for(devices_type::iterator it = dev.begin() ; it != dev.end() ; ++it){
             viennacl::io::parameter_database  paras;
             viennacl::ocl::switch_device(*it);
             cl_device_id dev_id = it->id();
-            if(viennacl::ocl::info<CL_DEVICE_TYPE>(dev_id)==CL_DEVICE_TYPE_GPU){
+            if(viennacl::ocl::info<CL_DEVICE_TYPE>(dev_id)==dev_type){
                 paras.add_device();
                 paras.add_data_node(viennacl::io::tag::name, viennacl::ocl::info<CL_DEVICE_NAME>(dev_id));
                 paras.add_data_node(viennacl::io::tag::driver, viennacl::ocl::info<CL_DRIVER_VERSION>(dev_id));
@@ -268,8 +294,10 @@ int main(int argc, char* argv[]){
 
                 std::cout << "-------------------" << std::endl;
                 std::cout << "Recording timings for : " << devname << std::endl;
+                std::cout << "Vendor ID : " << viennacl::ocl::info<CL_DEVICE_VENDOR_ID>(viennacl::ocl::current_device().id()) << std::endl;
 
-
+                std::cout << " On " << std::endl;
+                std::cout << pf.info() << std::endl;
 
                 switch(layout){
                 case 1:
@@ -297,5 +325,7 @@ int main(int argc, char* argv[]){
 
             }
         }
+
+        exit(0);
     }
 }

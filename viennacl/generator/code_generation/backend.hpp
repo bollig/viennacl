@@ -138,11 +138,11 @@ namespace viennacl{
                             std::list<infos_base*> expressions;
                             std::transform(inner_prods_compute_.begin(), inner_prods_compute_.end(),std::back_inserter(expressions),UnsafeBase2Target<inprod_infos_base,infos_base>());
                             std::copy(vector_expressions_.begin(),vector_expressions_.end(),std::back_inserter(expressions));
-                            utils::unroll_gid_loop_contiguous(kss,n_unroll,first_vector->size(),expressions,vector_cache);
+                            utils::unroll_gid_loop_contiguous(kss,n_unroll,expressions,vector_cache);
                         }
 
                         if(first_matrix){
-                            utils::unroll_gid_loop_contiguous(kss,n_unroll,first_matrix->internal_size1()+"*"+first_matrix->internal_size2(), matrix_expressions_, matrix_cache);
+                            utils::unroll_gid_loop_contiguous(kss,n_unroll, matrix_expressions_, matrix_cache);
                         }
                         scalar_cache.writeback_entries(0,"0");
 

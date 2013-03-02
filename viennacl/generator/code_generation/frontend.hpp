@@ -375,6 +375,8 @@ namespace viennacl{
                         code_generation::kernel_generator kg(infos,name,kss);
                         kg.generate() ;
                     }
+
+
                     return oss.str();
                 }
 

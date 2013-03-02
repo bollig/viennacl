@@ -52,7 +52,7 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
         lmem_size += (double)(nl+1)*(kl+1)*rhs->scalartype_size()/1024;
     }
     if( lmem_size > 32.0) return;
-    if(prof.local_work_size(0)*prof.local_work_size(1) > dev.max_workgroup_size()) return;
+    if(prof.local_work_size().first*prof.local_work_size().second > dev.max_workgroup_size()) return;
 
     viennacl::ocl::program & pgm = op.program();
     viennacl::ocl::kernel & k = pgm.get_kernel("_k0");
@@ -60,12 +60,12 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
 
     //Anticipates kernel failure
     size_t max_workgroup_size = viennacl::ocl::kernel::info<CL_KERNEL_WORK_GROUP_SIZE>(k,dev);
-    if(prof.local_work_size(0)*prof.local_work_size(1) > max_workgroup_size)
+    if(prof.local_work_size().first*prof.local_work_size().second > max_workgroup_size)
         return;
 
     //Doesn't execute because it would likelily be a waste of time
     size_t prefered_workgroup_size_multiple = viennacl::ocl::kernel::info<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(k,dev);
-    if( (prof.local_work_size(0)*prof.local_work_size(1)) % prefered_workgroup_size_multiple > 0)
+    if( (prof.local_work_size().first*prof.local_work_size().second) % prefered_workgroup_size_multiple > 0)
         return;
 
     op.execute();
@@ -115,10 +115,10 @@ void benchmark_blas3(timings_t & timings, OpT const & op, ConfigT const & config
                             for(unsigned int alignment = config.alignment_min ; alignment <= config.alignment_max; alignment *=2){
                                 for(std::vector<bool>::const_iterator lhs_storage = config.LHS_storages.begin(); lhs_storage!=config.LHS_storages.end(); ++lhs_storage){
                                     for(std::vector<bool>::const_iterator rhs_storage = config.RHS_storages.begin(); rhs_storage!=config.RHS_storages.end(); ++rhs_storage){
-//                                        std::cout << '.' << std::flush;
+                                        std::cout << '.' << std::flush;
                                         prev_perc=perc;
                                         perc += (float)100/total;
-                                        if((int)prev_perc!=(int)perc) std::cout << '\r' << perc << "%" << std::flush;
+                                        if((int)prev_perc!=(int)perc) std::cout << '\n' << perc << "%" << std::endl;
                                         viennacl::generator::code_generation::blas3_optimization_profile prof(ml,kl,nl,ms,ks,ns,*lhs_storage,*rhs_storage,alignment);
                                         benchmark_blas3_profile(timings,dev,op,prof);
                                     }

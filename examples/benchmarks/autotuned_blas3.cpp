@@ -50,8 +50,7 @@
 #include "benchmark-utils.hpp"
 
 
-#define BLAS3_MATRIX_SIZE   3072
-
+#define BLAS3_MATRIX_SIZE   2048
 template<typename ScalarType, class FB, class FC>
 int run_benchmark()
 {
@@ -109,7 +108,7 @@ int run_benchmark()
     viennacl::backend::finish();
     exec_time = timer.get();
     std::cout << " - Execution time on device (no setup time included): " << exec_time << std::endl;
-    std::cout << " - GFLOPs (counting multiply&add as one operation): " << (vcl_A.size1() / 1000.0) * (vcl_A.size2() / 1000.0) * (vcl_B.size2() / 1000.0) / exec_time << std::endl;
+    std::cout << " - GFLOPs : " << 2*(vcl_A.size1() / 1000.0) * (vcl_A.size2() / 1000.0) * (vcl_B.size2() / 1000.0) / exec_time << std::endl;
     std::cout << std::endl;
 
     std::cout << " ----- TA ----- " << std::endl;
@@ -172,7 +171,7 @@ int main()
             viennacl::ocl::switch_device(*it);
             cl_device_id dev_id = it->id();
 
-            if(viennacl::ocl::info<CL_DEVICE_TYPE>(dev_id)==CL_DEVICE_TYPE_GPU){
+//            if(viennacl::ocl::info<CL_DEVICE_TYPE>(dev_id)==CL_DEVICE_TYPE_GPU){
 
             std::cout << std::endl;
             std::cout << "----------------------------------------------" << std::endl;
@@ -226,7 +225,7 @@ int main()
             //    std::cout << "   ---------------------------------"<< std::endl;
             //    run_benchmark<double,viennacl::column_major,viennacl::column_major>();
             //  }
-            }
+//            }
         }
     }
     return 0;

@@ -1,5 +1,6 @@
 //~ #define VIENNACL_DEBUG_BUILD
 #define VIENNACL_WITH_OPENCL
+//#define VIENNACL_DEBUG_ALL
 
 #include <iostream>
 #include "CL/cl.hpp"
@@ -17,7 +18,7 @@ typedef std::vector< viennacl::ocl::platform > platforms_type;
 typedef std::vector<viennacl::ocl::device> devices_type;
 typedef std::vector<cl_device_id> cl_devices_type;
 
-static const unsigned int size = 100000;
+static const unsigned int size = 1024*1024;
 
 //class config
 //{
@@ -112,12 +113,12 @@ void fill_timings(TimingsT & timings, OpT const & op_template){
     cl_device_id id = dev.id();
 
     unsigned int min_unroll = 1;
-    unsigned int max_unroll = 32;
+    unsigned int max_unroll = 64;
 
     unsigned int min_alignment=1;
-    unsigned int max_alignment=8;
+    unsigned int max_alignment=16;
 
-    unsigned int min_local_size = 128;
+    unsigned int min_local_size = 64;
     unsigned int max_local_size = viennacl::ocl::info<CL_DEVICE_MAX_WORK_GROUP_SIZE>(id);
 
 //    unsigned int min_work_groups;
@@ -158,15 +159,16 @@ void fill_timings(TimingsT & timings, OpT const & op_template){
                     op.operations_manager().override_blas1_model(prof);
                     op.add(op_template);
                     op.execute();
-                    viennacl::backend::finish();
+                    viennacl::ocl::get_queue().finish();
                     double total_time = 0;
                     for(unsigned int n = 0 ; n < N_RUNS ; ++n){
                         tim.start();
                         op.execute();
-                        viennacl::backend::finish();
+                        viennacl::ocl::get_queue().finish();
                         total_time+=tim.get();
                     }
                     total_time /= N_RUNS;
+//                    std::cout << total_time << " " << prof << std::endl;
                     std::cout << "." << std::flush;
                     timings.insert(std::make_pair(total_time,prof));
 
