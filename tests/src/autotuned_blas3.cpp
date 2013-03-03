@@ -140,7 +140,7 @@ int test_prod(Epsilon const& epsilon,
    failed = false;
    for(typename Profiles::const_iterator it = profiles.begin(); it!=profiles.end(); ++it){
        viennacl::generator::custom_operation op;
-       op.operations_manager().override_blas3_model(*it);
+       if(it!=profiles.begin()) op.operations_manager().override_blas3_model(*it);
        op.add(vcl_C = viennacl::generator::prod(vcl_A,vcl_B));
        op.execute();
        viennacl::ocl::get_queue().finish();

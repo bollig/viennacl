@@ -43,16 +43,18 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
     unsigned int n_runs = 2;
 
     if(alignment>ms || alignment>ks || alignment>ns) return;
-    double lmem_size = 0;
+    unsigned int lmem_size = 0;
     if(lhs_storage){
-        lmem_size += (double)(kl+1)*(ml+1)*lhs->scalartype_size()/1024;
+        lmem_size += (kl+1)*(ml+1)*lhs->scalartype_size();
     }
 
     if(rhs_storage){
-        lmem_size += (double)(nl+1)*(kl+1)*rhs->scalartype_size()/1024;
+        lmem_size += (nl+1)*(kl+1)*rhs->scalartype_size();
     }
-    if( lmem_size > 32.0) return;
+
+    if( lmem_size > viennacl::ocl::info<CL_DEVICE_LOCAL_MEM_SIZE>(viennacl::ocl::current_device().id()) ) return;
     if(prof.local_work_size().first*prof.local_work_size().second > dev.max_workgroup_size()) return;
+
 
     viennacl::ocl::program & pgm = op.program();
     viennacl::ocl::kernel & k = pgm.get_kernel("_k0");
@@ -84,7 +86,10 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
     }
     exec_time = exec_time/n_runs;
 
-
+    if(exec_time < 1e-4){
+        std::cout << prof << " " << exec_time << std::endl;
+        exit(EXIT_FAILURE);
+    }
     timings.insert(std::make_pair(exec_time, new viennacl::generator::code_generation::blas3_optimization_profile(prof)));
 }
 

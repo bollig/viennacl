@@ -23,7 +23,6 @@
 #include "../tutorial/Random.hpp"
 
 
-typedef double  NumericT;
 typedef std::vector< viennacl::ocl::platform > platforms_type;
 typedef std::vector<viennacl::ocl::device> devices_type;
 typedef std::vector<cl_device_id> cl_devices_type;
@@ -94,7 +93,7 @@ void add_profile(OpT const & OP, viennacl::generator::code_generation::blas3_opt
     paras.add_data_node(viennacl::io::tag::value, prof.alignment());
 }
 
-template<class MatTypeA, class MatTypeB, class MatTypeC>
+template<class NumericT, class MatTypeA, class MatTypeB, class MatTypeC>
 void fill_matrix(MatTypeA & A, MatTypeB & B, MatTypeC & C){
     typedef NumericT ScalarTypeA;
     typedef NumericT ScalarTypeB;
@@ -120,7 +119,7 @@ void fill_matrix(MatTypeA & A, MatTypeB & B, MatTypeC & C){
 }
 
 
-template<class OpT, class MatTypeA, class MatTypeB, class MatTypeC>
+template<class NumericT, class OpT, class MatTypeA, class MatTypeB, class MatTypeC>
 
 void benchmark(OpT const & operation, config conf, MatTypeA & A, MatTypeB & B, MatTypeC & C,
                     std::list<viennacl::generator::code_generation::blas3_optimization_profile> & fastest_firsts){
@@ -139,7 +138,7 @@ void benchmark(OpT const & operation, config conf, MatTypeA & A, MatTypeB & B, M
         B.resize(size,size,false);
         C.resize(size,size,false);
         viennacl::ocl::get_queue().finish();
-        fill_matrix(A,B,C);
+        fill_matrix<NumericT>(A,B,C);
         viennacl::ocl::get_queue().finish();
         if(k==0)
             viennacl::generator::autotune::benchmark_blas3(timings,operation,conf);
@@ -153,7 +152,7 @@ void benchmark(OpT const & operation, config conf, MatTypeA & A, MatTypeB & B, M
             if(n>n_keep) break;
             fastest_firsts.push_back(*static_cast<viennacl::generator::code_generation::blas3_optimization_profile* >(itt->second.get()));
             if(std::distance(rounds_config.begin(),it)==(int)rounds_config.size()-1){
-                std::cout << std::distance(timings.begin(),itt) << "th Best : " << itt->first << "s | " << 2*std::pow((NumericT)size/1000,3)/itt->first << " GFlops : " << *itt->second << std::endl;
+                std::cout << std::distance(timings.begin(),itt) << "th Best : " << itt->first << "s | " << 2*std::pow((double)size/1000,3)/itt->first << " GFlops : " << *itt->second << std::endl;
             }
         }
     }
@@ -208,6 +207,8 @@ void run_autotune(viennacl::io::parameter_database & paras){
         conf.RHS_storages.push_back(false);
     }
     else{
+        //64,128,32,2,2,8,0,0,1
+
         conf.n_runs = 2;
         conf.ml_min = 32; conf.ml_max=256;
         conf.kl_min = 32; conf.kl_max=256;
@@ -236,7 +237,7 @@ void run_autotune(viennacl::io::parameter_database & paras){
 
     //------------AA------------
     std::cout << "Getting best parameters..." << std::endl;
-    benchmark(dma1_t(A1) = prod(dmb1_t(B1),dmc1_t(C1)),conf,A1,B1,C1,fastest_firsts);
+    benchmark<NumericT>(dma1_t(A1) = prod(dmb1_t(B1),dmc1_t(C1)),conf,A1,B1,C1,fastest_firsts);
     //--------------------------
 
     std::cout << "Saving..." << std::endl;
@@ -260,18 +261,14 @@ void run_autotune(viennacl::io::parameter_database & paras){
 int main(int argc, char* argv[]){
     std::vector<std::string> args(argv,argv+argc);
     if(argc<3){
-        std::cerr << "USAGE : PROGRAM_NAME LAYOUT DEV_TYPE" << std::endl;
+        std::cerr << "USAGE : PROGRAM_NAME DEVICE LAYOUT SCALARTYPE" << std::endl;
         exit(1);
     }
-    unsigned int layout = atoi(args[1].c_str());
-    cl_device_type dev_type;
-    if(args[2] == "cpu")
-        dev_type = CL_DEVICE_TYPE_CPU;
-    if(args[2] == "gpu")
-        dev_type = CL_DEVICE_TYPE_GPU;
-    if(args[2] == "accel")
-        dev_type = CL_DEVICE_TYPE_ACCELERATOR;
 
+    unsigned int requested_device = atoi(args[1].c_str());
+    unsigned int layout = atoi(args[2].c_str());
+    std::string scalartype = args[3];
+    unsigned int current_device = 0;
     platforms_type platforms = viennacl::ocl::get_platforms();
     size_t num_platforms = platforms.size();
     for(unsigned int k=0 ; k < num_platforms ; ++k)
@@ -285,7 +282,7 @@ int main(int argc, char* argv[]){
             viennacl::io::parameter_database  paras;
             viennacl::ocl::switch_device(*it);
             cl_device_id dev_id = it->id();
-            if(viennacl::ocl::info<CL_DEVICE_TYPE>(dev_id)==dev_type){
+            if(current_device++==requested_device){
                 paras.add_device();
                 paras.add_data_node(viennacl::io::tag::name, viennacl::ocl::info<CL_DEVICE_NAME>(dev_id));
                 paras.add_data_node(viennacl::io::tag::driver, viennacl::ocl::info<CL_DRIVER_VERSION>(dev_id));
@@ -296,36 +293,45 @@ int main(int argc, char* argv[]){
                 std::cout << "Recording timings for : " << devname << std::endl;
                 std::cout << "Vendor ID : " << viennacl::ocl::info<CL_DEVICE_VENDOR_ID>(viennacl::ocl::current_device().id()) << std::endl;
 
-                std::cout << " On " << std::endl;
-                std::cout << pf.info() << std::endl;
-
+                std::cout << "Matrix - Matrix Multiplication " << std::endl;
+                std::cout << "-------------------" << std::endl;
+                std::cout << " Scalartype : " << scalartype << std::endl;
+                std::cout << "-------------------" << std::endl;
                 switch(layout){
-                case 1:
+                case 0:
                     std::cout << "====== Step 1 : Row - Row and alikes =====" << std::endl;
-                    run_autotune<NumericT,viennacl::row_major,viennacl::row_major>(paras);
+                    if(scalartype=="float") run_autotune<float,viennacl::row_major,viennacl::row_major>(paras);
+                    else if(scalartype=="double") run_autotune<double,viennacl::row_major,viennacl::row_major>(paras);
                     break;
+
+
+                case 1:
+                    std::cout << "====== Step 3 : Column - Row and alikes =====" << std::endl;
+                    if(scalartype=="float") run_autotune<float,viennacl::column_major,viennacl::row_major>(paras);
+                    else if(scalartype=="double") run_autotune<double,viennacl::column_major,viennacl::row_major>(paras);
+                    break;
+
 
                 case 2:
                     std::cout << "====== Step 2 : Row - Column and alikes =====" << std::endl;
-                    run_autotune<NumericT,viennacl::row_major,viennacl::column_major>(paras);
+                    if(scalartype=="float") run_autotune<float,viennacl::row_major,viennacl::column_major>(paras);
+                    else if(scalartype=="double") run_autotune<double,viennacl::row_major,viennacl::column_major>(paras);
                     break;
 
                 case 3:
-                    std::cout << "====== Step 3 : Column - Row and alikes =====" << std::endl;
-                    run_autotune<NumericT,viennacl::column_major,viennacl::row_major>(paras);
-                    break;
-
-                case 4:
                     std::cout << "====== Step 4 : Column - Column and alikes =====" << std::endl;
-                    run_autotune<NumericT,viennacl::column_major,viennacl::column_major>(paras);
+                    if(scalartype=="float") run_autotune<float,viennacl::column_major,viennacl::column_major>(paras);
+                    else if(scalartype=="double") run_autotune<double,viennacl::column_major,viennacl::column_major>(paras);
                     break;
                 }
 
-                paras.dump("blas3_parameters_"+devname+"_"+args[1]+".xml");
+                paras.dump("parameters_gemm_"+devname+"_"+args[1] + "_" + args[2] + "_" + args[3] +".xml");
+
+                exit(0);
 
             }
         }
 
-        exit(0);
+
     }
 }

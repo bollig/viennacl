@@ -120,7 +120,7 @@ int run_benchmark()
     viennacl::backend::finish();
     exec_time = timer.get();
     std::cout << " - Execution time on device (no setup time included): " << exec_time << std::endl;
-    std::cout << " - GFLOPs (counting multiply&add as one operation): " << (vcl_A.size1() / 1000.0) * (vcl_A.size2() / 1000.0) * (vcl_B.size2() / 1000.0) / exec_time << std::endl;
+    std::cout << " - GFLOPs : " << 2*(vcl_A.size1() / 1000.0) * (vcl_A.size2() / 1000.0) * (vcl_B.size2() / 1000.0) / exec_time << std::endl;
     std::cout << std::endl;
 
     std::cout << " ----- AT ----- " << std::endl;
@@ -132,7 +132,7 @@ int run_benchmark()
     viennacl::backend::finish();
     exec_time = timer.get();
     std::cout << " - Execution time on device (no setup time included): " << exec_time << std::endl;
-    std::cout << " - GFLOPs (counting multiply&add as one operation): " << (vcl_A.size1() / 1000.0) * (vcl_A.size2() / 1000.0) * (vcl_B.size2() / 1000.0) / exec_time << std::endl;
+    std::cout << " - GFLOPs : " << 2*(vcl_A.size1() / 1000.0) * (vcl_A.size2() / 1000.0) * (vcl_B.size2() / 1000.0) / exec_time << std::endl;
     std::cout << std::endl;
 
     std::cout << " ----- TT ----- " << std::endl;
@@ -144,7 +144,7 @@ int run_benchmark()
     viennacl::backend::finish();
     exec_time = timer.get();
     std::cout << " - Execution time on device (no setup time included): " << exec_time << std::endl;
-    std::cout << " - GFLOPs (counting multiply&add as one operation): " << (vcl_A.size1() / 1000.0) * (vcl_A.size2() / 1000.0) * (vcl_B.size2() / 1000.0) / exec_time << std::endl;
+    std::cout << " - GFLOPs : " << 2*(vcl_A.size1() / 1000.0) * (vcl_A.size2() / 1000.0) * (vcl_B.size2() / 1000.0) / exec_time << std::endl;
     std::cout << std::endl;
 
 
@@ -195,19 +195,19 @@ int main()
             std::cout << "   -------------------------------" << std::endl;
             std::cout << "   LHS : Row-Major | RHS : Row-Major"<< std::endl;
             std::cout << "   ---------------------------------"<< std::endl;
-            run_benchmark<float,viennacl::row_major,viennacl::row_major>();
+            run_benchmark<double,viennacl::row_major,viennacl::row_major>();
             std::cout << "   ---------------------------------"<< std::endl;
             std::cout << "   LHS : Column-Major | RHS : Row-Major"<< std::endl;
             std::cout << "   ---------------------------------"<< std::endl;
-            run_benchmark<float,viennacl::column_major,viennacl::row_major>();
+            run_benchmark<double,viennacl::column_major,viennacl::row_major>();
             std::cout << "   ---------------------------------"<< std::endl;
             std::cout << "   LHS : Row-Major | RHS : Column-Major"<< std::endl;
             std::cout << "   ---------------------------------"<< std::endl;
-            run_benchmark<float,viennacl::row_major,viennacl::column_major>();
+            run_benchmark<double,viennacl::row_major,viennacl::column_major>();
             std::cout << "   ---------------------------------"<< std::endl;
             std::cout << "   LHS : Column-Major | RHS : Column-Major"<< std::endl;
             std::cout << "   ---------------------------------"<< std::endl;
-            run_benchmark<float,viennacl::column_major,viennacl::column_major>();
+            run_benchmark<double,viennacl::column_major,viennacl::column_major>();
 
             //#ifdef VIENNACL_WITH_OPENCL
             //  if( viennacl::ocl::current_device().double_support() )
