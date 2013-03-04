@@ -229,15 +229,19 @@ namespace viennacl{
                 static void unroll_gid_loop_contiguous(kernel_generation_stream & kss
                                                        ,unsigned int n_unroll
                                                    ,ExprT & expressions
-                                                   , CacheExpr & cache ){
+                                                   , CacheExpr & cache
+                                                   , std::string const & upper_bound){
                         kss << "unsigned int i = get_global_id(0)" ;
                         if(n_unroll>1) kss << "*" << n_unroll;
                         kss << ";" << std::endl;
 
+                        kss << "if(i < " << upper_bound << "){" << std::endl;
+                        kss.inc_tab();
                         cache.fetch_entries(0, "i");
                         for(unsigned int j=1 ; j<n_unroll  ; ++j){
                             cache.fetch_entries(j, "i + " + to_string(j));
                         }
+
 
                         for(typename ExprT::iterator it=expressions.begin() ; it!=expressions.end();++it){
                             for(unsigned int j=0 ; j < n_unroll ; ++j){
@@ -249,6 +253,8 @@ namespace viennacl{
                         for(unsigned int j=1 ; j<n_unroll  ; ++j){
                             cache.writeback_entries(j,"i + " + to_string(j));
                         }
+                        kss.dec_tab();
+                        kss << "}" << std::endl;
 
                 }
 

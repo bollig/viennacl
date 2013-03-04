@@ -138,11 +138,11 @@ namespace viennacl{
                             std::list<infos_base*> expressions;
                             std::transform(inner_prods_compute_.begin(), inner_prods_compute_.end(),std::back_inserter(expressions),UnsafeBase2Target<inprod_infos_base,infos_base>());
                             std::copy(vector_expressions_.begin(),vector_expressions_.end(),std::back_inserter(expressions));
-                            utils::unroll_gid_loop_contiguous(kss,n_unroll,expressions,vector_cache);
+                            utils::unroll_gid_loop_contiguous(kss,n_unroll,expressions,vector_cache, first_vector->size());
                         }
 
                         if(first_matrix){
-                            utils::unroll_gid_loop_contiguous(kss,n_unroll, matrix_expressions_, matrix_cache);
+                            utils::unroll_gid_loop_contiguous(kss,n_unroll, matrix_expressions_, matrix_cache, first_matrix->internal_size1() + "*" + first_matrix->internal_size2());
                         }
                         scalar_cache.writeback_entries(0,"0");
 
@@ -440,6 +440,7 @@ namespace viennacl{
                         unsigned int ms = optimization_profile_->ms();
                         unsigned int nl = optimization_profile_->nl();
                         unsigned int ns = optimization_profile_->ns();
+                        unsigned int unroll = optimization_profile_->unroll();
 
                         bool is_lhs_rowmajor = first_lhs->is_rowmajor();
                         bool is_rhs_rowmajor = first_rhs->is_rowmajor();
@@ -555,6 +556,7 @@ namespace viennacl{
                         }
 
 
+                        if(unroll > 1) kss << "#pragma unroll " << unroll << std::endl;
                         kss << " for(unsigned int bs=0 ; bs < " << kl/ks  << " ; ++bs){" << std::endl;
                         kss.inc_tab();
 

@@ -377,10 +377,12 @@ int test(Epsilon const& epsilon, unsigned int n_profiles)
           unsigned int ns = pow(2,rand()%n_small_blocks)*alignment;
           bool use_LHS_shared = rand()%2;
           bool use_RHS_shared = rand()%2;
+          unsigned int unroll = rand()%(kl/ks);
           viennacl::generator::code_generation::blas3_optimization_profile prof(ml,kl,nl,
                                                                                      ms,ks,ns,
                                                                                      use_LHS_shared, use_RHS_shared,
-                                                                                     alignment);
+                                                                                     alignment,
+                                                                                     unroll);
 
           double lmem_size = 0;
           if(use_LHS_shared) lmem_size += (double)(kl+1)*(ml+1)*sizeof(NumericT)/1024;

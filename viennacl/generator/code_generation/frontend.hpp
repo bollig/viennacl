@@ -192,78 +192,79 @@ namespace viennacl{
             private:
                 typedef std::list<viennacl::tools::shared_ptr<infos_base> > operations_t;
 
-#ifdef VIENNACL_ENABLE_AUTOTUNE
-                template<class T>
-                T get_param(viennacl::io::parameter_database & paras, std::string const & root, std::string const & name) const{
-                    T res;
-                    std::string par_str = root+"/params/param[name='" + name + "']/value/text()";
-                    pugi::xpath_node_set par_res = paras.doc.select_nodes(par_str.c_str());
-                    std::stringstream ss;
-                    ss << par_res[0].node().value();
-                    ss >> res;
-                    return res;
-                }
-#endif
+//#ifdef VIENNACL_ENABLE_AUTOTUNE
+//                template<class T>
+//                T get_param(viennacl::io::parameter_database & paras, std::string const & root, std::string const & name) const{
+//                    T res;
+//                    std::string par_str = root+"/params/param[name='" + name + "']/value/text()";
+//                    pugi::xpath_node_set par_res = paras.doc.select_nodes(par_str.c_str());
+//                    std::stringstream ss;
+//                    ss << par_res[0].node().value();
+//                    ss >> res;
+//                    return res;
+//                }
+//#endif
 
-                blas3_optimization_profile load_blas3_profile(matrix_expression_infos_base const * operation) const{
-                    cl_device_id id = viennacl::ocl::current_device().id();
-                    blas3_optimization_profile default_profile = builtin_dabase[std::make_pair(ocl::info<CL_DEVICE_VENDOR_ID>(id), ocl::info<CL_DEVICE_TYPE>(id))][operation->simplified_repr()];
+//                blas3_optimization_profile load_blas3_profile(matrix_expression_infos_base const * operation) const{
+//                    cl_device_id id = viennacl::ocl::current_device().id();
+//                    blas3_optimization_profile default_profile = * static_cast<blas3_optimization_profile>(builtin_dabase[std::make_pair(ocl::info<CL_DEVICE_VENDOR_ID>(id), ocl::info<CL_DEVICE_TYPE>(id))][operation->simplified_repr()]);
 
-#ifndef VIENNACL_ENABLE_AUTOTUNE
-                    return default_profile;
-#else
+//#ifndef VIENNACL_ENABLE_AUTOTUNE
+//                    return default_profile;
+//#else
 
-                    const char * tmp = std::getenv("VIENNACL_PARAMS_PATH");
-                    if(tmp==NULL){
-//                        std::cerr << "Tuner: Environment variable VIENNACL_PARAMS_PATH not set ... Falling back on default" << std::endl;
+//                    const char * tmp = std::getenv("VIENNACL_PARAMS_PATH");
+//                    if(tmp==NULL){
+////                        std::cerr << "Tuner: Environment variable VIENNACL_PARAMS_PATH not set ... Falling back on default" << std::endl;
+////                        return default_profile;
+//                        tmp = "./";
+//                    }
+//                    std::string VCL_PARAMS_PATH(tmp);
+
+//                    std::string filename(VCL_PARAMS_PATH + "/blas3_parameters.xml");
+//                    viennacl::io::parameter_database  paras;
+//                    paras.load(filename);
+
+//                    if(paras.doc.empty()){
+//                        std::cerr << "Tuner : XML Results are empty or nonexistant ... Falling back on default" << std::endl;
 //                        return default_profile;
-                        tmp = "./";
-                    }
-                    std::string VCL_PARAMS_PATH(tmp);
+//                    }
 
-                    std::string filename(VCL_PARAMS_PATH + "/blas3_parameters.xml");
-                    viennacl::io::parameter_database  paras;
-                    paras.load(filename);
+//                    std::string devname = viennacl::ocl::current_device().name();
+//                    // check if tune parameters for the current device are present
+//                    std::string          device_str = "/parameters/devices/device[contains(name,'"+devname+"')]";
+//                    pugi::xpath_node_set device_res = paras.doc.select_nodes(device_str.c_str());
 
-                    if(paras.doc.empty()){
-                        std::cerr << "Tuner : XML Results are empty or nonexistant ... Falling back on default" << std::endl;
-                        return default_profile;
-                    }
+//                    if(device_res.empty()){
+//                        std::cerr << "Tuner: There are no parameters existing for the device : " << devname << " ! ... Falling back on default" << std::endl;
+//                        return default_profile;
+//                    }
+//                    else if(device_res.size()>1){
+//                        std::cerr << "Tuner: Existing multiple definitions for the device : " << devname << " ! ... Falling back on default" << std::endl;
+//                        return default_profile;
+//                    }
 
-                    std::string devname = viennacl::ocl::current_device().name();
-                    // check if tune parameters for the current device are present
-                    std::string          device_str = "/parameters/devices/device[contains(name,'"+devname+"')]";
-                    pugi::xpath_node_set device_res = paras.doc.select_nodes(device_str.c_str());
+//                    // check if tune parameters for float exist
+//                    std::string          name_str = device_str+"/kernels/kernel[name='"+operation->simplified_repr()+"']";
+//                    pugi::xpath_node_set name_res = paras.doc.select_nodes(name_str.c_str());
 
-                    if(device_res.empty()){
-                        std::cerr << "Tuner: There are no parameters existing for the device : " << devname << " ! ... Falling back on default" << std::endl;
-                        return default_profile;
-                    }
-                    else if(device_res.size()>1){
-                        std::cerr << "Tuner: Existing multiple definitions for the device : " << devname << " ! ... Falling back on default" << std::endl;
-                        return default_profile;
-                    }
+//                    if(name_res.size() == 0){
+//                        std::cerr << "Tuner: There are no parameters for the kernel : " << operation->simplified_repr() << "! ... Falling back on default" << std::endl;
+//                        return default_profile;
+//                    }
 
-                    // check if tune parameters for float exist
-                    std::string          name_str = device_str+"/kernels/kernel[name='"+operation->simplified_repr()+"']";
-                    pugi::xpath_node_set name_res = paras.doc.select_nodes(name_str.c_str());
+//                    blas3_optimization_profile res(get_param<unsigned int>(paras,name_str,"ml"),get_param<unsigned int>(paras,name_str,"kl"),get_param<unsigned int>(paras,name_str,"nl"),
+//                                                      get_param<unsigned int>(paras,name_str,"ms"),get_param<unsigned int>(paras,name_str,"ks"),get_param<unsigned int>(paras,name_str,"ns"),
+//                                                      get_param<bool>(paras,name_str,"lhs_storage"),get_param<bool>(paras,name_str,"rhs_storage"),get_param<unsigned int>(paras,name_str,"alignment")
+//                                );
 
-                    if(name_res.size() == 0){
-                        std::cerr << "Tuner: There are no parameters for the kernel : " << operation->simplified_repr() << "! ... Falling back on default" << std::endl;
-                        return default_profile;
-                    }
-
-                    blas3_optimization_profile res(get_param<unsigned int>(paras,name_str,"ml"),get_param<unsigned int>(paras,name_str,"kl"),get_param<unsigned int>(paras,name_str,"nl"),
-                                                      get_param<unsigned int>(paras,name_str,"ms"),get_param<unsigned int>(paras,name_str,"ks"),get_param<unsigned int>(paras,name_str,"ns"),
-                                                      get_param<bool>(paras,name_str,"lhs_storage"),get_param<bool>(paras,name_str,"rhs_storage"),get_param<unsigned int>(paras,name_str,"alignment")
-                                );
-
-//                    std::cout << operation->repr() << " " << res << std::endl;
-                    return res;
-#endif
-                }
+////                    std::cout << operation->repr() << " " << res << std::endl;
+//                    return res;
+//#endif
+//                }
 
                 void init(){
+                    cl_device_id id = viennacl::ocl::current_device().id();
                     if(!kernels_list_.empty()) return;
                     for(typename operations_t::const_iterator it = operations_.begin() ; it!=operations_.end() ; ++it){
                         infos_base* p = it->get();
@@ -287,7 +288,9 @@ namespace viennacl{
                             }
                         }
                         else if(matmatprods.size()){
-                            blas3_optimization_profile blas3_model = load_blas3_profile(static_cast<matrix_expression_infos_base*>(p));
+
+                            blas3_optimization_profile blas3_model = * static_cast<blas3_optimization_profile *>(builtin_dabase[std::make_pair(ocl::info<CL_DEVICE_VENDOR_ID>(id), ocl::info<CL_DEVICE_TYPE>(id))]
+                                                                                                                 [p->simplified_repr()].get());
                             if(overriden_blas3_model_.get()) blas3_model = *overriden_blas3_model_;
                             blas3_optimization_profile prof(blas3_model);
                             if(kernels_list_.size()){
@@ -301,6 +304,15 @@ namespace viennacl{
                             }
                         }
                         else{
+                            blas1_optimization_profile blas1_model;
+                            builtin_database_t::iterator it = builtin_dabase.find(std::make_pair(ocl::info<CL_DEVICE_VENDOR_ID>(id), ocl::info<CL_DEVICE_TYPE>(id)));
+                            if(it!=builtin_dabase.end()){
+                                builtin_database_t::value_type::second_type::iterator it2 = it->second.find(p->simplified_repr());
+                                if(it2!=it->second.end()){
+                                    blas1_model = *(blas1_optimization_profile*)(it2->second.get());
+                                }
+                            }
+                            if(overriden_blas1_model_.get()) blas1_model = *overriden_blas1_model_;
                             if(kernels_list_.size()){
                                 if(kernels_list_.back().type() != BLAS1_TYPE)
                                     kernels_list_.push_back(kernel_infos_t(p,blas1_model));

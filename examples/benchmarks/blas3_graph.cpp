@@ -26,6 +26,7 @@
 #define NDEBUG
 #endif
 
+//#define VIENNACL_DEBUG_BUILD
 
 //
 // include necessary system headers
@@ -50,9 +51,9 @@
 
 #include "benchmark-utils.hpp"
 
-#define N_RUNS 2
+#define N_RUNS 5
 #define SIZE_INC 256
-#define MAX_SIZE 3072
+#define MAX_SIZE 7936
 
 template<typename ScalarType, class FB, class FC>
 double run_benchmark(size_t matrix_size)
@@ -136,6 +137,7 @@ int main(int argc, char* argv[]){
     for(unsigned int k=0 ; k < num_platforms ; ++k)
     {
         viennacl::ocl::platform pf(k);
+        viennacl::ocl::set_context_device_type(k,CL_DEVICE_TYPE_ALL);
         viennacl::ocl::set_context_platform_index(k,k);
         viennacl::ocl::switch_context(k);
         devices_type dev = viennacl::ocl::current_context().devices();
@@ -148,9 +150,9 @@ int main(int argc, char* argv[]){
                 std::cout << "               Device Info" << std::endl;
                 std::cout << "----------------------------------------------" << std::endl;
                 std::cout << viennacl::ocl::current_device().info() << std::endl;
-
-                std::cout << "Size \t Execution Time \t GFLOPs" << std::endl;
                 std::cout << "Running GEMM for : " << scalartype << std::endl;
+
+                std::cout << "#Size \t Execution Time" << std::endl;
                 for(unsigned int size = SIZE_INC ; size <= MAX_SIZE ; size += SIZE_INC){
                     double exec_time = 0;
                     if(scalartype=="float"){
@@ -173,7 +175,7 @@ int main(int argc, char* argv[]){
                         std::cerr << "Unknown Scalartype ... Aborting" << std::endl;
                         exit(EXIT_FAILURE);
                     }
-                    std::cout << size << "\t" << exec_time << "\t" << 2*pow((double)size/1000,3)/exec_time << std::endl;
+                    std::cout << size << "\t" << exec_time << std::endl;
                 }
             }
         }

@@ -26,6 +26,7 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
     unsigned int kl = prof.kl(); unsigned int ks = prof.ks();
     unsigned int nl = prof.nl(); unsigned int ns = prof.ns();
     unsigned int alignment = prof.alignment();
+    unsigned int unroll = prof.unroll();
 
 
 
@@ -43,6 +44,8 @@ void benchmark_blas3_profile(timings_t & timings, viennacl::ocl::device const & 
     unsigned int n_runs = 2;
 
     if(alignment>ms || alignment>ks || alignment>ns) return;
+    if(unroll > kl/ks) return;
+
     unsigned int lmem_size = 0;
     if(lhs_storage){
         lmem_size += (kl+1)*(ml+1)*lhs->scalartype_size();
@@ -120,12 +123,14 @@ void benchmark_blas3(timings_t & timings, OpT const & op, ConfigT const & config
                             for(unsigned int alignment = config.alignment_min ; alignment <= config.alignment_max; alignment *=2){
                                 for(std::vector<bool>::const_iterator lhs_storage = config.LHS_storages.begin(); lhs_storage!=config.LHS_storages.end(); ++lhs_storage){
                                     for(std::vector<bool>::const_iterator rhs_storage = config.RHS_storages.begin(); rhs_storage!=config.RHS_storages.end(); ++rhs_storage){
-                                        std::cout << '.' << std::flush;
-                                        prev_perc=perc;
-                                        perc += (float)100/total;
-                                        if((int)prev_perc!=(int)perc) std::cout << '\n' << perc << "%" << std::endl;
-                                        viennacl::generator::code_generation::blas3_optimization_profile prof(ml,kl,nl,ms,ks,ns,*lhs_storage,*rhs_storage,alignment);
-                                        benchmark_blas3_profile(timings,dev,op,prof);
+                                        for(unsigned int unroll = config.unroll_min(); unroll < config.unroll_max() ; unroll *= 2){
+                                            std::cout << '.' << std::flush;
+                                            prev_perc=perc;
+                                            perc += (float)100/total;
+                                            if((int)prev_perc!=(int)perc) std::cout << '\n' << perc << "%" << std::endl;
+                                            viennacl::generator::code_generation::blas3_optimization_profile prof(ml,kl,nl,ms,ks,ns,*lhs_storage,*rhs_storage,alignment,unroll);
+                                            benchmark_blas3_profile(timings,dev,op,prof);
+                                        }
                                     }
                                 }
                             }

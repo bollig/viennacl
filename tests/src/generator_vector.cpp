@@ -50,7 +50,7 @@ bool readVectorFromFile ( const std::string & filename, boost::numeric::ublas::v
 
     if ( !file ) return false;
 
-    unsigned int size;
+    unsigned int size = 1024;
     file >> size;
 
     if ( size > 20000 )  //keep execution times short
@@ -94,11 +94,16 @@ int test ( Epsilon const& epsilon, std::string vecfile) {
 
     typedef viennacl::generator::dummy_vector<NumericT> dv_t;
     
-    if ( !readVectorFromFile<NumericT> ( vecfile, vec ) ) {
-        std::cout << "Error reading vec file" << std::endl;
-        retval = EXIT_FAILURE;
-    }
+//    if ( !readVectorFromFile<NumericT> ( vecfile, vec ) ) {
+//        std::cout << "Error reading vec file" << std::endl;
+//        retval = EXIT_FAILURE;
+//    }
 
+    vec.resize(1024);
+
+    for(unsigned int i=0; i<vec.size(); ++i){
+        vec[i]=(double)i/1000;
+    }
 
     std::cout << "Running tests for vector of size " << vec.size() << std::endl;
 
@@ -108,7 +113,7 @@ int test ( Epsilon const& epsilon, std::string vecfile) {
     viennacl::vector<NumericT> z ( vec.size() );
 
     vec2 = vec;
-    vec3 = 5.0 * vec;
+    vec3 = vec;
     vec4 = 3.14 * vec;
     viennacl::copy ( vec.begin(), vec.end(), w.begin() );
     viennacl::copy ( vec2.begin(), vec2.end(), x.begin() );
@@ -118,39 +123,42 @@ int test ( Epsilon const& epsilon, std::string vecfile) {
     unsigned int SIZE = vec.size();
     // --------------------------------------------------------------------------
 
-    {
-        std::cout << "testing elementwise operations : vec = 1/(1+exp(-vec.*vec2))..." << std::endl;
-        for(unsigned int i=0; i < SIZE; ++i)
-            vec[i] = 1/(1+exp(-vec[i]*vec2[i]));
-        generator::function_wrapper sigmoid("sigmoid","1 / (1 + exp(-#1))");
-        generator::custom_operation op;
-        op.add(dv_t(w) = dv_t(x) + dv_t(y) + dv_t(z));
-        op.add(dv_t(y) = dv_t(w) - dv_t(z));
-        op.add(dv_t(z) = sigmoid(generator::element_prod(dv_t(x),dv_t(y))));
+//    {
+//        std::cout << "testing elementwise operations : vec = 1/(1+exp(-vec.*vec2))..." << std::endl;
+//        for(unsigned int i=0; i < SIZE; ++i)
+//            vec[i] = 1/(1+exp(-vec[i]*vec2[i]));
+//        generator::function_wrapper sigmoid("sigmoid","1 / (1 + exp(-#1))");
+//        generator::custom_operation op;
+//        op.add(dv_t(w) = dv_t(x) + dv_t(y) + dv_t(z));
+//        op.add(dv_t(y) = dv_t(w) - dv_t(z));
+//        op.add(dv_t(z) = sigmoid(generator::element_prod(dv_t(x),dv_t(y))));
 
-        op.execute();
-        viennacl::ocl::get_queue().finish();
+//        op.execute();
+//        viennacl::ocl::get_queue().finish();
 
-        std::cout << op.source_code() << std::endl;
-        if ( fabs ( diff ( vec, x ) ) > epsilon ) {
-            std::cout << "# Error at operation: Elementwise operation" << std::endl;
-            std::cout << "  diff: " << fabs ( diff ( vec, x) ) << std::endl;
-            retval = EXIT_FAILURE;
-        }
-    }
+//        std::cout << op.source_code() << std::endl;
+//        if ( fabs ( diff ( vec, x ) ) > epsilon ) {
+//            std::cout << "# Error at operation: Elementwise operation" << std::endl;
+//            std::cout << "  diff: " << fabs ( diff ( vec, x) ) << std::endl;
+//            retval = EXIT_FAILURE;
+//        }
+//    }
 
     {
         std::cout << "testing addition..." << std::endl;
         vec     = ( vec2 + vec3 );
-        generator::custom_operation op((dv_t(x) = dv_t(y) + dv_t(z)));
+        generator::custom_operation op((dv_t(w) = dv_t(x) + dv_t(y)));
+        op.operations_manager().override_blas1_model(viennacl::generator::code_generation::blas1_optimization_profile(1,8,128));
         op.execute();
         viennacl::ocl::get_queue().finish();
-        if ( fabs ( diff ( vec, x) ) > epsilon ) {
+        if ( fabs ( diff ( vec, w) ) > epsilon ) {
             std::cout << "# Error at operation: addition" << std::endl;
             std::cout << "  diff: " << fabs ( diff ( vec, x ) ) << std::endl;
+            std::cout << op.source_code() << std::endl;
             retval = EXIT_FAILURE;
         }
     }
+
 
 //    std::cout << "Testing inplace addition..." << std::endl;
 //    vec     += vec2;

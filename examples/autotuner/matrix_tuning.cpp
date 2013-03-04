@@ -51,6 +51,9 @@ struct config{
     unsigned int alignment_min;
     unsigned int alignment_max;
 
+    unsigned int min_unroll;
+    unsigned int max_unroll;
+
     std::vector<bool> LHS_storages;
     std::vector<bool> RHS_storages;
 };
@@ -205,6 +208,8 @@ void run_autotune(viennacl::io::parameter_database & paras){
         conf.LHS_storages.push_back(false);
     //    conf.RHS_storages.push_back(true);
         conf.RHS_storages.push_back(false);
+        conf.min_unroll = 1;
+        conf.max_unroll = 1;
     }
     else{
         //64,128,32,2,2,8,0,0,1
@@ -221,6 +226,8 @@ void run_autotune(viennacl::io::parameter_database & paras){
         conf.LHS_storages.push_back(false);
         conf.RHS_storages.push_back(true);
         conf.RHS_storages.push_back(false);
+        conf.min_unroll = 1;
+        conf.max_unroll = 1;
     }
 
 
@@ -265,24 +272,27 @@ int main(int argc, char* argv[]){
         exit(1);
     }
 
+
+    unsigned int current_device=0;
     unsigned int requested_device = atoi(args[1].c_str());
     unsigned int layout = atoi(args[2].c_str());
     std::string scalartype = args[3];
-    unsigned int current_device = 0;
     platforms_type platforms = viennacl::ocl::get_platforms();
     size_t num_platforms = platforms.size();
     for(unsigned int k=0 ; k < num_platforms ; ++k)
     {
         viennacl::ocl::platform pf(k);
         viennacl::ocl::set_context_platform_index(k,k);
+        viennacl::ocl::set_context_device_type(k,CL_DEVICE_TYPE_ALL);
         viennacl::ocl::switch_context(k);
         devices_type dev = viennacl::ocl::current_context().devices();
 
         for(devices_type::iterator it = dev.begin() ; it != dev.end() ; ++it){
-            viennacl::io::parameter_database  paras;
-            viennacl::ocl::switch_device(*it);
-            cl_device_id dev_id = it->id();
+
             if(current_device++==requested_device){
+                viennacl::io::parameter_database  paras;
+                viennacl::ocl::switch_device(*it);
+                cl_device_id dev_id = it->id();
                 paras.add_device();
                 paras.add_data_node(viennacl::io::tag::name, viennacl::ocl::info<CL_DEVICE_NAME>(dev_id));
                 paras.add_data_node(viennacl::io::tag::driver, viennacl::ocl::info<CL_DRIVER_VERSION>(dev_id));
