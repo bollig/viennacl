@@ -11,7 +11,7 @@
                             -----------------
 
    Project Head:    Karl Rupp                   rupp@iue.tuwien.ac.at
-               
+
    (A list of authors and contributors can be found in the PDF manual)
 
    License:         MIT (X11), see file LICENSE in the base directory
@@ -29,13 +29,13 @@ namespace viennacl
 {
   namespace ocl
   {
-    
+
     /** @brief A backend that provides contexts for ViennaCL objects (vector, matrix, etc.) */
     template <bool dummy = false>  //never use parameter other than default (introduced for linkage issues only)
     class backend
     {
       public:
-        /** @brief Switches the current context to the context identified by i 
+        /** @brief Switches the current context to the context identified by i
         *
         * @param i   ID of the new active context
         */
@@ -43,7 +43,18 @@ namespace viennacl
         {
           current_context_id_ = i;
         }
-        
+
+        /** @brief Switches the current queue to the queue identified by i
+        *
+        * @param i   ID of the new active queue
+        * Evan Bollig 3/4/13 -- Required for my tests. I want to run multiple
+        * queues asynchronously from the same device
+        */
+        static void switch_queue(long i)
+        {
+          current_queue_id_ = i;
+        }
+
         /** @brief Returns the current active context */
         static viennacl::ocl::context & current_context()
         {
@@ -63,11 +74,11 @@ namespace viennacl
           }
           return contexts_[current_context_id_];
         }
-        
+
         /** @brief Returns the current queue for the active device in the active context */
         static viennacl::ocl::command_queue & get_queue()
         {
-          return current_context().get_queue();
+          return current_context().get_queue(current_device().id(), current_queue_id_);
         }
 
         /** @brief Sets a number of devices for the context.
@@ -101,7 +112,7 @@ namespace viennacl
                                   std::map< cl_device_id, std::vector< cl_command_queue > > const & queues)
         {
           assert(devices.size() == queues.size() && "ViennaCL expects one queue per device!");
-          
+
           if (initialized_[i])
             std::cerr << "ViennaCL: Warning in init_context(): Providing a list of devices has no effect, because context for ViennaCL is already created!" << std::endl;
           else
@@ -109,10 +120,10 @@ namespace viennacl
             //set devices for context:
             for (size_t j = 0; j<devices.size(); ++j)
               contexts_[i].add_device(devices[j]);
-            
+
             //init context:
             contexts_[i].init(c);
-            
+
             //add queues:
             typedef typename std::map< cl_device_id, std::vector< cl_command_queue > >::const_iterator queue_iterator;
             for (queue_iterator qit = queues.begin();
@@ -123,7 +134,7 @@ namespace viennacl
               for (size_t j=0; j<queues_for_device.size(); ++j)
                 contexts_[i].add_queue(qit->first, queues_for_device[j]);
             }
-            
+
             initialized_[i] = true;
           }
         }
@@ -138,12 +149,12 @@ namespace viennacl
         static void setup_context(long i, cl_context c, std::vector<cl_device_id> const & devices, std::vector<cl_command_queue> const & queue)
         {
           assert(devices.size() == queue.size() && "ViennaCL expects one queue per device!");
-          
+
           //wrap queue vector into map
           std::map< cl_device_id, std::vector<cl_command_queue> > queues_map;
           for (size_t j = 0; j<devices.size(); ++j)
             queues_map[devices[j]].push_back(queue[j]);
-          
+
           setup_context(i, c, devices, queues_map);
         }
 
@@ -158,22 +169,25 @@ namespace viennacl
         {
           contexts_[i].platform_index(pf_index);
         }
-        
+
       private:
         static long current_context_id_;
+        static long current_queue_id_;
         static std::map<long, bool> initialized_;
         static std::map<long, viennacl::ocl::context> contexts_;
     };
-    
+
     template <bool dummy>
     long backend<dummy>::current_context_id_ = 0;
+    template <bool dummy>
+    long backend<dummy>::current_queue_id_ = 0;
 
     template <bool dummy>
     std::map<long, bool> backend<dummy>::initialized_;
 
     template <bool dummy>
     std::map<long, viennacl::ocl::context> backend<dummy>::contexts_;
-    
+
     ////////////////////// current context //////////////////
     /** @brief Convenience function for returning the current context */
     inline viennacl::ocl::context & current_context()
@@ -186,7 +200,14 @@ namespace viennacl
     {
       viennacl::ocl::backend<>::switch_context(i);
     }
-    
+
+    /** @brief Convenience function for switching the current queue (Evan
+     * Bollig) */
+    inline void switch_queue(long i)
+    {
+      viennacl::ocl::backend<>::switch_queue(i);
+    }
+
 
     /** @brief Convenience function for setting devices for a context */
     inline void setup_context(long i,
@@ -203,7 +224,7 @@ namespace viennacl
     {
       viennacl::ocl::backend<>::setup_context(i, c, devices, queues);
     }
-    
+
     /** @brief Convenience function for setting up a context in ViennaCL from an existing OpenCL context */
     inline void setup_context(long i, cl_context c, std::vector<cl_device_id> const & devices, std::vector<cl_command_queue> const & queues)
     {
@@ -250,9 +271,9 @@ namespace viennacl
       set_context_device_type(i, CL_DEVICE_TYPE_ACCELERATOR);
     }
 
-    
+
     /** @brief Convenience function for setting the platform index
-     * 
+     *
      * @param i         Context ID
      * @param pf_index  The platform index as returned by clGetPlatformIDs(). This is not the ID of type cl_platform_id!
      */
@@ -260,14 +281,14 @@ namespace viennacl
     {
       viennacl::ocl::backend<>::set_context_platform_index(i, pf_index);
     }
-    
+
     ///////////////////////// get queues ///////////////////
     /** @brief Convenience function for getting the default queue for the currently active device in the active context */
     inline viennacl::ocl::command_queue & get_queue()
     {
       return viennacl::ocl::current_context().get_queue();
     }
-    
+
     /** @brief Convenience function for getting the queue for a particular device in the current active context */
     inline viennacl::ocl::command_queue & get_queue(viennacl::ocl::device d, unsigned int queue_id = 0)
     {
@@ -292,7 +313,7 @@ namespace viennacl
     {
       viennacl::ocl::current_context().switch_device(d);
     }
-    
+
     /** @brief Convenience function for returning the active device in the current context */
     inline viennacl::ocl::device const & current_device()
     {
