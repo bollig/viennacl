@@ -38,7 +38,7 @@
 
 
 int main(){
-    unsigned int size = 2560;
+    unsigned int size = 15360;
     typedef float ScalarType;
 
     typedef viennacl::distributed::multi_matrix<ScalarType> gpu_mat_t;
@@ -52,13 +52,13 @@ int main(){
 //    gpu_mat_t D(size,size);
 //    gpu_mat_t E(size,size);
 
-    C=viennacl::generator::prod(A,B);
+    C=viennacl::generator::prod(A+B,A-B);
     viennacl::distributed::scheduler::finish();
 
     viennacl::distributed::timer t;
     t.start();
 
-    C=viennacl::generator::prod(A,B);
+    C=viennacl::generator::prod(A+B,A-B);
     viennacl::distributed::scheduler::finish();
 
 //    D = A+B;

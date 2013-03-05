@@ -130,6 +130,7 @@ template<class T>
 class gpu_wrapper{
 public:
     typedef typename get_cpu_type<T>::type cpu_t;
+    typedef T gpu_t;
 
     gpu_wrapper(cpu_t const & _cpu_data) : cpu_data(_cpu_data){
     }
