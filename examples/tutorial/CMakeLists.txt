@@ -5,7 +5,8 @@ endforeach()
 
 if(ENABLE_UBLAS)
    include_directories(${Boost_INCLUDE_DIRS})
-   foreach(tut amg blas2 blas3 iterative iterative-ublas lanczos matrix-range power-iter qr solve_weights spai sparse structured-matrices vector-range)
+   foreach(tut amg blas2 blas3 iterative iterative-ublas lanczos matrix-range
+       power-iter qr solve_weights multiple_queues spai sparse structured-matrices vector-range)
       add_executable(${tut} ${tut}.cpp)
       target_link_libraries(${tut} ${OPENCL_LIBRARIES})
    endforeach()
