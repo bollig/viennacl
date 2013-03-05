@@ -83,18 +83,20 @@ int main (int argc, const char * argv[])
   VCLVectorType vcl_v1(dim_large);
   VCLVectorType vcl_v2(dim_small);
 
-  std::cout << "HERE HERE HERE\n";
+  std::cout << "HERE HERE HERE1\n";
 
   // Add a new queue for processing (will output debug msg)
   viennacl::ocl::current_context().add_queue(viennacl::ocl::current_device());
 
+
+  // Need to add Event profiling
   viennacl::ocl::switch_queue(0);
   viennacl::copy(ublas_v1, vcl_v1);
-  std::cout << "HERE HERE HERE\n";
+  std::cout << "HERE HERE HERE2\n";
   viennacl::ocl::switch_queue(1);
   viennacl::copy(ublas_v2, vcl_v2);
 
-  std::cout << "HERE HERE HERE\n";
+  std::cout << "HERE HERE HERE3\n";
 
   //
   // Extract submatrices using the ranges in ViennaCL
