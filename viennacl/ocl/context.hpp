@@ -210,7 +210,11 @@ namespace viennacl
           cl_int err;
           // Evan: switch 0 here to enable profiling (CL_QUEUE_PROFILING_ENABLE)
           // or out of order execution (CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE)
+#ifdef VIENNACL_EVENT_PROFILE
+          viennacl::ocl::handle<cl_command_queue> temp = clCreateCommandQueue(h_.get(), dev, CL_QUEUE_PROFILING_ENABLE, &err);
+#else
           viennacl::ocl::handle<cl_command_queue> temp = clCreateCommandQueue(h_.get(), dev, 0, &err);
+#endif
           VIENNACL_ERR_CHECK(err);
 
           queues_[dev].push_back(viennacl::ocl::command_queue(temp, dev));
