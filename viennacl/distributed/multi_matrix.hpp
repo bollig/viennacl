@@ -180,7 +180,7 @@ static void enqueue_op_prod(A const & wrappers){
     bool make_lhs_tmp = utils::n_handles(real_lhs)>1;
 
     if(make_lhs_tmp){
-        std::cout << "Creating LHS Temporary..." << std::endl;
+//        std::cout << "Creating LHS Temporary..." << std::endl;
         lhs_ptr = new typename FirstLhsT::gpu_type(first_lhs.mat().size1(), first_lhs.mat().size2());
         viennacl::generator::custom_operation op;
         op.add(FirstLhsT(*lhs_ptr) = real_lhs);
@@ -204,7 +204,7 @@ static void enqueue_op_prod(A const & wrappers){
     bool make_rhs_tmp = utils::n_handles(real_rhs)>1;
 
     if(make_rhs_tmp){
-        std::cout << "Creating RHS Temporary .." << std::endl;
+//        std::cout << "Creating RHS Temporary .." << std::endl;
         rhs_ptr = new typename FirstRhsT::gpu_type(first_rhs.mat().size1(), first_rhs.mat().size2());
 
         viennacl::generator::custom_operation op;
@@ -217,6 +217,7 @@ static void enqueue_op_prod(A const & wrappers){
         rhs_ptr = &first_rhs.mat();
     }
 
+//    std::cout << "Execution of the Product" << std::endl;
     //Allocates result
     utils::execute<ResT>()(wrappers.lhs(),alloc_fun());
     generator::dummy_matrix<typename ResT::gpu_t> result(*wrappers.lhs().gpu_structure_ptr());
@@ -306,7 +307,7 @@ private:
           it->reserve(num_blocks_col);
           for(size_type col = 0 ; col < num_blocks_col ; ++col){
               size_type col_block_size = std::min(columns_ - col*block_size_, block_size_);
-              std::cout << "Block size  " << row_block_size << "*" << col_block_size << std::endl;
+//              std::cout << "Block size  " << row_block_size << "*" << col_block_size << std::endl;
               it->push_back(block_t(row*block_size_, col*block_size_, row_block_size,col_block_size));
           }
       }
@@ -315,13 +316,10 @@ private:
 
   size_t global_max_allocable_memory_size(){
       std::vector<size_t> max_allocable_sizes;
-      cl_uint num_platforms = viennacl::ocl::num_platforms();
-      for(cl_uint i = 0 ; i < num_platforms ; ++i){
-          viennacl::ocl::platform pf(i);
-          std::vector<viennacl::ocl::device> devices = pf.devices(CL_DEVICE_TYPE_ALL);
-          for(std::vector<viennacl::ocl::device>::const_iterator it = devices.begin(); it!=devices.end(); ++it){
-              max_allocable_sizes.push_back(ocl::info<CL_DEVICE_MAX_MEM_ALLOC_SIZE>(viennacl::ocl::current_device().id()));
-          }
+      std::vector<cl_device_id> devices = scheduler::devices();
+      for(std::vector<cl_device_id>::const_iterator it = devices.begin(); it!=devices.end(); ++it){
+              max_allocable_sizes.push_back(std::min(ocl::info<CL_DEVICE_GLOBAL_MEM_SIZE>(*it)/5,
+                                                     ocl::info<CL_DEVICE_MAX_MEM_ALLOC_SIZE>(*it)));
       }
       return  *std::min_element(max_allocable_sizes.begin(),max_allocable_sizes.end());
   }
@@ -336,8 +334,8 @@ public:
       rows_(rows), columns_(columns)
   {
     size_t max_allocable_size = global_max_allocable_memory_size();
-    size_type max_block_size_ = viennacl::tools::roundDownToPreviousMultiple<vcl_size_t>(sqrt(max_allocable_size/(sizeof(SCALARTYPE))),256);
-    block_size_ = std::min(max_block_size_,rows/scheduler::n_devices());
+    size_type max_block_size = viennacl::tools::roundDownToPreviousMultiple<vcl_size_t>(sqrt(max_allocable_size/(sizeof(SCALARTYPE))),256);
+    block_size_ = std::min(max_block_size,rows/scheduler::n_devices());
     init_blocks();
   }
 

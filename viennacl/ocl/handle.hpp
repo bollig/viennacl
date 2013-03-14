@@ -32,7 +32,7 @@
 #include <string>
 #include <iostream>
 #include "viennacl/ocl/error.hpp"
-
+#include "viennacl/ocl/infos.hpp"
 namespace viennacl
 {
   namespace ocl
@@ -59,6 +59,10 @@ namespace viennacl
       
       static void dec(cl_mem & something)
       {
+        #ifdef VIENNACL_DEBUG_ALL
+          cl_uint count = viennacl::ocl::info<CL_MEM_REFERENCE_COUNT>(something);
+          if(count==1) std::cout << "Deleting handle " << something << std::endl;
+        #endif
         #ifndef __APPLE__
         cl_int err = clReleaseMemObject(something);
         VIENNACL_ERR_CHECK(err);

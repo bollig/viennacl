@@ -18,7 +18,7 @@ typedef std::vector< viennacl::ocl::platform > platforms_type;
 typedef std::vector<viennacl::ocl::device> devices_type;
 typedef std::vector<cl_device_id> cl_devices_type;
 
-static const unsigned int size = 2048*2048;
+static const unsigned int size = 5120;
 
 
 template<class TimingsT, class OpT>

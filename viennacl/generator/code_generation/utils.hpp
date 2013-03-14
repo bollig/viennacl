@@ -235,8 +235,8 @@ namespace viennacl{
                         if(n_unroll>1) kss << "*" << n_unroll;
                         kss << ";" << std::endl;
 
-                        kss << "if(i < " << upper_bound << "){" << std::endl;
-                        kss.inc_tab();
+//                        kss << "if(i < " << upper_bound << "){" << std::endl;
+//                        kss.inc_tab();
                         cache.fetch_entries(0, "i");
                         for(unsigned int j=1 ; j<n_unroll  ; ++j){
                             cache.fetch_entries(j, "i + " + to_string(j));
@@ -253,8 +253,8 @@ namespace viennacl{
                         for(unsigned int j=1 ; j<n_unroll  ; ++j){
                             cache.writeback_entries(j,"i + " + to_string(j));
                         }
-                        kss.dec_tab();
-                        kss << "}" << std::endl;
+//                        kss.dec_tab();
+//                        kss << "}" << std::endl;
 
                 }
 

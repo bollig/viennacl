@@ -135,6 +135,14 @@ public:
 
     }
 
+    static std::vector<cl_device_id> devices(){
+        std::vector<cl_device_id> res;
+        for(context_map_t::const_iterator it = context_map_.begin() ; it != context_map_.end() ; ++it){
+            res.push_back(it->first);
+        }
+        return res;
+    }
+
     static void add_all_available_devices(cl_device_type dtype = CL_DEVICE_TYPE_DEFAULT){
         cl_uint num_platforms = viennacl::ocl::num_platforms();
         for(cl_uint i = 0 ; i < num_platforms ; ++i){
